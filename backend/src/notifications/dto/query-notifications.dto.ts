@@ -1,14 +1,13 @@
 import {
   IsOptional,
-  IsEnum,
   IsString,
   IsNumber,
   Min,
   Max,
   IsBoolean,
-  Transform,
+  IsEnum,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { NotificationType } from '../../entities/notification.entity';
 
 export class QueryNotificationsDto {
@@ -27,7 +26,7 @@ export class QueryNotificationsDto {
 
   @IsOptional()
   @IsEnum(NotificationType, {
-    message: 'Tipe notifikasi harus salah satu dari: assignment_new, assignment_due, assignment_graded, announcement, forum_reply, course_enrollment, general',
+    message: 'Tipe notifikasi harus salah satu dari: assignment, announcement, forum, course',
   })
   type?: NotificationType;
 

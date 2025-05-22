@@ -1,14 +1,13 @@
 import {
   IsOptional,
-  IsEnum,
   IsString,
   IsNumber,
   Min,
   Max,
   IsBoolean,
-  Transform,
+  IsEnum,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { UserRole } from '../../entities/user.entity';
 
 export class QueryUsersDto {
@@ -26,12 +25,14 @@ export class QueryUsersDto {
   limit?: number = 10;
 
   @IsOptional()
-  @IsEnum(UserRole, { message: 'Role harus salah satu dari: admin, lecturer, student' })
-  role?: UserRole;
-
-  @IsOptional()
   @IsString({ message: 'Search harus berupa string' })
   search?: string;
+
+  @IsOptional()
+  @IsEnum(UserRole, {
+    message: 'Role harus salah satu dari: admin, lecturer, student',
+  })
+  role?: UserRole;
 
   @IsOptional()
   @Transform(({ value }) => {
@@ -43,14 +44,10 @@ export class QueryUsersDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsEnum(['createdAt', 'fullName', 'email'], {
-    message: 'sortBy harus salah satu dari: createdAt, fullName, email',
-  })
+  @IsString({ message: 'sortBy harus berupa string' })
   sortBy?: string = 'createdAt';
 
   @IsOptional()
-  @IsEnum(['ASC', 'DESC'], {
-    message: 'sortOrder harus ASC atau DESC',
-  })
+  @IsString({ message: 'sortOrder harus ASC atau DESC' })
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }
