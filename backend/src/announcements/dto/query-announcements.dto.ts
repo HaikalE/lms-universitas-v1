@@ -7,9 +7,8 @@ import {
   Max,
   IsBoolean,
   IsUUID,
-  Transform,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { AnnouncementPriority } from '../../entities/announcement.entity';
 
 export class QueryAnnouncementsDto {
