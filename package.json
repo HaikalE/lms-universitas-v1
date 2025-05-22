@@ -1,0 +1,62 @@
+{
+  "name": "lms-universitas-v1",
+  "version": "1.0.0",
+  "description": "Learning Management System untuk Universitas dengan NestJS, React, dan PostgreSQL",
+  "main": "index.js",
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "dev": "./start-dev.sh",
+    "build": "./build-prod.sh",
+    "docker:up": "docker-compose up --build -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "backup": "./scripts/backup-db.sh",
+    "reset": "./scripts/reset-db.sh",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "test:e2e": "cd backend && npm run test:e2e",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "format:backend": "cd backend && npm run format",
+    "format:frontend": "cd frontend && npm run format"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HaikalE/lms-universitas-v1.git"
+  },
+  "keywords": [
+    "lms",
+    "learning-management-system",
+    "education",
+    "university",
+    "nestjs",
+    "react",
+    "typescript",
+    "postgresql",
+    "tailwindcss",
+    "jwt",
+    "typeorm"
+  ],
+  "author": {
+    "name": "LMS Team",
+    "email": "team@lms-universitas.dev",
+    "url": "https://github.com/HaikalE"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/HaikalE/lms-universitas-v1/issues"
+  },
+  "homepage": "https://github.com/HaikalE/lms-universitas-v1#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "cross-env": "^7.0.3"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
+}
