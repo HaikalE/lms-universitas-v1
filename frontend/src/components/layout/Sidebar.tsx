@@ -6,7 +6,7 @@ import {
   BookOpenIcon,
   DocumentTextIcon,
   ChatBubbleLeftRightIcon,
-  SpeakerphoneIcon,
+  SpeakerWaveIcon,
   UsersIcon,
   CogIcon,
   AcademicCapIcon,
@@ -52,7 +52,7 @@ const navigation: NavigationItem[] = [
   {
     name: 'Pengumuman',
     href: '/announcements',
-    icon: SpeakerphoneIcon,
+    icon: SpeakerWaveIcon,
   },
 ];
 
