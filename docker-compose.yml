@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: lms-postgres
+    environment:
+      POSTGRES_DB: lms_db
+      POSTGRES_USER: lms_user
+      POSTGRES_PASSWORD: lms_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lms-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lms-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: lms_user
+      DB_PASSWORD: lms_password
+      DB_DATABASE: lms_db
+      JWT_SECRET: your-super-secret-jwt-key-here
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      NODE_ENV: production
+      UPLOAD_DEST: ./uploads
+      MAX_FILE_SIZE: 10485760
+      CORS_ORIGIN: http://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - postgres
+    networks:
+      - lms-network
+    restart: unless-stopped
+    command: >
+      sh -c "npm run migration:run &&
+             npm run seed &&
+             npm run start:prod"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:3000/api
+    container_name: lms-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    networks:
+      - lms-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  lms-network:
+    driver: bridge
