@@ -48,7 +48,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    if (response?.status >= 500) {
+    if (response && response.status >= 500) {
       toast.error('Terjadi kesalahan pada server. Silakan coba lagi.');
       return Promise.reject(error);
     }
