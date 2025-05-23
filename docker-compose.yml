@@ -1,31 +1,16 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: lms-postgres
-    environment:
-      POSTGRES_DB: lms_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - lms-network
-    restart: unless-stopped
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: lms-backend
     environment:
-      DB_HOST: postgres
+      DB_HOST: host.docker.internal
       DB_PORT: 5432
       DB_USERNAME: postgres
-      DB_PASSWORD: postgres123
+      DB_PASSWORD: postgres
       DB_DATABASE: lms_db
       JWT_SECRET: your-super-secret-jwt-key-here-change-this-in-production
       JWT_EXPIRES_IN: 7d
@@ -38,8 +23,6 @@ services:
       - "3000:3000"
     volumes:
       - ./backend/uploads:/app/uploads
-    depends_on:
-      - postgres
     networks:
       - lms-network
     restart: unless-stopped
@@ -58,10 +41,6 @@ services:
     networks:
       - lms-network
     restart: unless-stopped
-
-volumes:
-  postgres_data:
-    driver: local
 
 networks:
   lms-network:
