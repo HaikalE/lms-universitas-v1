@@ -2,7 +2,8 @@ import axios, { AxiosResponse, AxiosError } from 'axios';
 import { toast } from 'react-toastify';
 import { ApiError } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+// Force localhost API URL for Docker environment
+const API_BASE_URL = 'http://localhost:3000/api';
 
 // Create axios instance
 const api = axios.create({
@@ -20,9 +21,11 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     return config;
   },
   (error) => {
+    console.error('🚨 API Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -30,10 +33,12 @@ api.interceptors.request.use(
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response: AxiosResponse) => {
+    console.log(`✅ API Response: ${response.status} ${response.config.url}`);
     return response;
   },
   (error: AxiosError<ApiError>) => {
     const { response } = error;
+    console.error('🚨 API Response Error:', error.message, response?.status);
     
     if (response?.status === 401) {
       // Unauthorized - clear token and redirect to login
@@ -62,6 +67,12 @@ api.interceptors.response.use(
       } else {
         toast.error(response.data.message);
       }
+      return Promise.reject(error);
+    }
+    
+    // Handle network errors
+    if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+      toast.error('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.');
       return Promise.reject(error);
     }
     
