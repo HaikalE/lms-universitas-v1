@@ -36,30 +36,31 @@ async function seedDatabase() {
     
     const hashedPassword = await bcrypt.hash('password123', 10);
     
-    // Create admin user
+    // Create admin user - Fixed: Use lowercase 'admin'
     await userRepository.save({
       fullName: 'Administrator',
       email: 'admin@lms.com',
       password: hashedPassword,
-      role: 'ADMIN',
+      role: 'admin',
       isActive: true
     });
     
-    // Create lecturer
+    // Create lecturer - Fixed: Use lowercase 'lecturer'
     await userRepository.save({
       fullName: 'Dr. John Lecturer',
       email: 'lecturer@lms.com',
       password: hashedPassword,
-      role: 'LECTURER',
+      role: 'lecturer',
+      lecturerId: 'LEC001',
       isActive: true
     });
     
-    // Create student
+    // Create student - Fixed: Use lowercase 'student'
     await userRepository.save({
       fullName: 'Jane Student',
       email: 'student@lms.com',
       password: hashedPassword,
-      role: 'STUDENT',
+      role: 'student',
       studentId: 'STD001',
       isActive: true
     });
