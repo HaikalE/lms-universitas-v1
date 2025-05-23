@@ -5,6 +5,14 @@
 @layer base {
   :root {
     --radius: 0.5rem;
+    --primary: 59 130 246;
+    --primary-foreground: 255 255 255;
+    --secondary: 107 114 128;
+    --secondary-foreground: 255 255 255;
+    --background: 255 255 255;
+    --foreground: 17 24 39;
+    --border: 229 231 235;
+    --ring: 59 130 246;
   }
   
   * {
@@ -12,49 +20,64 @@
   }
   
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    font-variation-settings: 'opsz' 32;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Better focus outline */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2;
   }
 }
 
 @layer components {
+  /* Professional Button Components */
   .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
   }
   
   .btn-primary {
-    @apply btn bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2;
+    @apply btn bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:shadow-md px-4 py-2;
   }
   
   .btn-secondary {
-    @apply btn bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2;
+    @apply btn bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm hover:shadow-md px-4 py-2;
   }
   
   .btn-outline {
-    @apply btn border border-primary text-primary hover:bg-primary/10 px-4 py-2;
+    @apply btn border border-primary text-primary hover:bg-primary/10 hover:shadow-sm px-4 py-2;
   }
   
   .btn-ghost {
-    @apply btn text-secondary-700 hover:bg-secondary/80 px-4 py-2;
+    @apply btn text-secondary-700 hover:bg-secondary/10 hover:text-secondary-900 px-4 py-2;
   }
-  
+
+  /* Enhanced Input Components */
   .input {
-    @apply flex h-10 w-full rounded-md border border-secondary-300 bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-secondary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply flex h-11 w-full rounded-lg border border-gray-300 bg-background px-4 py-2 text-sm ring-offset-background transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 hover:border-gray-400;
   }
-  
+
+  /* Professional Card Components */
   .card {
-    @apply rounded-lg border border-secondary-200 bg-background text-foreground shadow-sm;
+    @apply rounded-xl border border-gray-200 bg-background text-foreground shadow-sm hover:shadow-md transition-shadow duration-200;
   }
   
   .card-header {
-    @apply flex flex-col space-y-1.5 p-6;
+    @apply flex flex-col space-y-2 p-6 pb-4;
   }
   
   .card-title {
-    @apply text-2xl font-semibold leading-none tracking-tight;
+    @apply text-xl font-semibold leading-none tracking-tight text-gray-900;
   }
   
   .card-description {
-    @apply text-sm text-secondary-500;
+    @apply text-sm text-gray-600 leading-relaxed;
   }
   
   .card-content {
@@ -62,6 +85,218 @@
   }
   
   .card-footer {
-    @apply flex items-center p-6 pt-0;
+    @apply flex items-center p-6 pt-4 border-t border-gray-100;
+  }
+
+  /* Layout Enhancement Classes */
+  .layout-container {
+    @apply min-h-screen bg-gray-50;
+  }
+
+  .content-wrapper {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 min-h-[calc(100vh-8rem)] transition-all duration-300;
+  }
+
+  /* Navigation Enhancement */
+  .nav-link {
+    @apply flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out;
+  }
+
+  .nav-link-active {
+    @apply bg-primary/10 border-r-4 border-primary text-primary-700 shadow-sm;
+  }
+
+  .nav-link-inactive {
+    @apply text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-r-4 border-transparent;
+  }
+
+  /* User Info Card */
+  .user-card {
+    @apply flex items-center p-3 bg-white rounded-lg shadow-sm border border-gray-200 transition-all duration-200 hover:shadow-md;
+  }
+
+  /* Status Indicators */
+  .status-online {
+    @apply w-2 h-2 bg-green-400 rounded-full;
+  }
+
+  .status-offline {
+    @apply w-2 h-2 bg-gray-400 rounded-full;
+  }
+
+  .status-away {
+    @apply w-2 h-2 bg-yellow-400 rounded-full;
+  }
+
+  /* Professional Avatar */
+  .avatar {
+    @apply h-10 w-10 rounded-full ring-2 ring-gray-200 transition-all duration-200;
+  }
+
+  .avatar-gradient {
+    @apply h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center shadow-inner;
+  }
+
+  /* Enhanced Notifications */
+  .notification-badge {
+    @apply absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium shadow-sm;
+  }
+
+  /* Loading States */
+  .loading-spinner {
+    @apply animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full;
+  }
+
+  /* Enhanced Shadows for Depth */
+  .shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-medium {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-strong {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@layer utilities {
+  /* Custom Border Utilities */
+  .border-r-3 {
+    border-right-width: 3px;
+  }
+
+  .border-l-3 {
+    border-left-width: 3px;
+  }
+
+  .border-t-3 {
+    border-top-width: 3px;
+  }
+
+  .border-b-3 {
+    border-bottom-width: 3px;
+  }
+
+  /* Enhanced Backdrop Blur */
+  .backdrop-blur-soft {
+    backdrop-filter: blur(8px);
+  }
+
+  .backdrop-blur-medium {
+    backdrop-filter: blur(12px);
+  }
+
+  /* Text Utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Scrollbar Styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.7);
+  }
+
+  /* Animation Utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+}
+
+/* Keyframe Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-break {
+    page-break-after: always;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .card {
+    @apply border-2 border-gray-900;
+  }
+  
+  .btn {
+    @apply border-2;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark Mode Support (Future Enhancement) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 17 24 39;
+    --foreground: 249 250 251;
+    --border: 55 65 81;
   }
 }
