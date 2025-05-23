@@ -27,7 +27,7 @@ services:
       DB_USERNAME: postgres
       DB_PASSWORD: postgres123
       DB_DATABASE: lms_db
-      JWT_SECRET: your-super-secret-jwt-key-here
+      JWT_SECRET: your-super-secret-jwt-key-here-change-this-in-production
       JWT_EXPIRES_IN: 7d
       PORT: 3000
       NODE_ENV: production
@@ -43,10 +43,6 @@ services:
     networks:
       - lms-network
     restart: unless-stopped
-    command: >
-      sh -c "npm run migration:run &&
-             npm run seed &&
-             npm run start:prod"
 
   frontend:
     build:
