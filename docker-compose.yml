@@ -32,7 +32,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: http://localhost:3000/api
+        # Fix: Use backend service name instead of localhost
+        REACT_APP_API_URL: http://backend:3000/api
     container_name: lms-frontend
     ports:
       - "3001:80"
