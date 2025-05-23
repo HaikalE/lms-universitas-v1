@@ -122,7 +122,6 @@ const LoginPage: React.FC = () => {
             type="submit"
             size="lg"
             className="w-full"
-            isLoading={isSubmitting}
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Sedang masuk...' : 'Masuk'}
