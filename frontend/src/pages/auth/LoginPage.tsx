@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginRequest } from '../../types';
-import Button from '../../components/ui/Button';
+import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { toast } from 'react-toastify';
 
