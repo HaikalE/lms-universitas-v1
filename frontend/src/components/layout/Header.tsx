@@ -37,20 +37,23 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   );
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="flex items-center justify-between px-4 py-4">
+    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+      <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center">
           <button
             onClick={onMenuClick}
-            className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
+            className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 transition-colors"
           >
             <Bars3Icon className="h-6 w-6" />
           </button>
           
           <div className="ml-4 md:ml-0">
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-xl font-semibold text-gray-900">
               Learning Management System
             </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Selamat datang, {user?.fullName}
+            </p>
           </div>
         </div>
 
@@ -59,11 +62,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           <Menu as="div" className="relative">
             <Menu.Button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="relative p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
             >
               <BellIcon className="h-6 w-6" />
               {unreadCount && unreadCount.unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
                   {unreadCount.unreadCount > 9 ? '9+' : unreadCount.unreadCount}
                 </span>
               )}
@@ -79,21 +82,25 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               leaveFrom="transform opacity-100 scale-100"
               leaveTo="transform opacity-0 scale-95"
             >
-              <Menu.Items className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+              <Menu.Items className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                 <div className="p-4">
-                  <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
                     Notifikasi Terbaru
                   </h3>
                   
                   {notifications?.data?.length === 0 ? (
-                    <p className="text-sm text-gray-500">Tidak ada notifikasi baru</p>
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">Tidak ada notifikasi baru</p>
+                    </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
                       {notifications?.data?.slice(0, 5).map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-2 rounded-md text-sm ${
-                            notification.isRead ? 'bg-gray-50' : 'bg-blue-50'
+                          className={`p-3 rounded-md text-sm border transition-colors ${
+                            notification.isRead 
+                              ? 'bg-gray-50 border-gray-200' 
+                              : 'bg-blue-50 border-blue-200'
                           }`}
                         >
                           <p className="font-medium text-gray-900">
@@ -110,10 +117,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <Link
                       to="/notifications"
-                      className="text-sm text-primary-600 hover:text-primary-500"
+                      className="text-sm text-primary-600 hover:text-primary-500 font-medium transition-colors"
                       onClick={() => setShowNotifications(false)}
                     >
-                      Lihat semua notifikasi
+                      Lihat semua notifikasi →
                     </Link>
                   </div>
                 </div>
@@ -123,21 +130,29 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
           {/* User menu */}
           <Menu as="div" className="relative">
-            <Menu.Button className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <Menu.Button className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
               <div className="flex-shrink-0">
                 {user?.avatar ? (
                   <img
-                    className="h-8 w-8 rounded-full"
+                    className="h-8 w-8 rounded-full ring-2 ring-gray-200"
                     src={user.avatar}
                     alt={user.fullName}
                   />
                 ) : (
-                  <UserCircleIcon className="h-8 w-8 text-gray-400" />
+                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                    <span className="text-sm font-medium text-primary-600">
+                      {user?.fullName?.charAt(0)}
+                    </span>
+                  </div>
                 )}
               </div>
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
-                <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                <p className="text-xs text-gray-500 capitalize">
+                  {user?.role === 'admin' && 'Administrator'}
+                  {user?.role === 'lecturer' && 'Dosen'}
+                  {user?.role === 'student' && 'Mahasiswa'}
+                </p>
               </div>
             </Menu.Button>
 
@@ -150,13 +165,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               leaveFrom="transform opacity-100 scale-100"
               leaveTo="transform opacity-0 scale-95"
             >
-              <Menu.Items className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+              <Menu.Items className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                 <div className="py-1">
                   <Menu.Item>
                     {({ active }) => (
                       <Link
                         to="/profile"
-                        className={`${active ? 'bg-gray-100' : ''} flex items-center px-4 py-2 text-sm text-gray-700`}
+                        className={`${active ? 'bg-gray-100' : ''} flex items-center px-4 py-2 text-sm text-gray-700 transition-colors`}
                       >
                         <UserCircleIcon className="mr-3 h-5 w-5 text-gray-400" />
                         Profil Saya
@@ -168,7 +183,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                     {({ active }) => (
                       <Link
                         to="/settings"
-                        className={`${active ? 'bg-gray-100' : ''} flex items-center px-4 py-2 text-sm text-gray-700`}
+                        className={`${active ? 'bg-gray-100' : ''} flex items-center px-4 py-2 text-sm text-gray-700 transition-colors`}
                       >
                         <Cog6ToothIcon className="mr-3 h-5 w-5 text-gray-400" />
                         Pengaturan
@@ -176,13 +191,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                     )}
                   </Menu.Item>
                   
-                  <div className="border-t border-gray-100"></div>
+                  <div className="border-t border-gray-100 my-1"></div>
                   
                   <Menu.Item>
                     {({ active }) => (
                       <button
                         onClick={logout}
-                        className={`${active ? 'bg-gray-100' : ''} flex items-center w-full px-4 py-2 text-sm text-gray-700`}
+                        className={`${active ? 'bg-gray-100' : ''} flex items-center w-full px-4 py-2 text-sm text-gray-700 transition-colors`}
                       >
                         <ArrowRightOnRectangleIcon className="mr-3 h-5 w-5 text-gray-400" />
                         Keluar
