@@ -5,7 +5,7 @@ import { EyeIcon, EyeSlashIcon, AcademicCapIcon } from '@heroicons/react/24/outl
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginRequest } from '../../types';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
+import { Input } from '../../components/ui/Input';
 import { toast } from 'react-toastify';
 
 const LoginPage: React.FC = () => {
