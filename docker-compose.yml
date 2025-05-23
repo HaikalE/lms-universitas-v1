@@ -18,8 +18,8 @@ services:
       NODE_ENV: development
       UPLOAD_DEST: ./uploads
       MAX_FILE_SIZE: 10485760
-      # Enhanced CORS configuration for Docker
-      CORS_ORIGIN: "http://localhost:3001,http://frontend:80,http://127.0.0.1:3001"
+      # Allow all localhost origins for development
+      CORS_ORIGIN: "http://localhost:3001,http://127.0.0.1:3001,http://frontend:80"
     ports:
       - "3000:3000"
     volumes:
@@ -27,19 +27,25 @@ services:
     networks:
       - lms-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Temporary fix: Use localhost for API calls
+        # API URL now hardcoded in api.ts, but keep this for consistency
         REACT_APP_API_URL: http://localhost:3000/api
     container_name: lms-frontend
     ports:
       - "3001:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - lms-network
     restart: unless-stopped
