@@ -10,14 +10,18 @@ export const AppDataSource = new DataSource({
   type: 'postgres',
   host: configService.get('DB_HOST', 'localhost'),
   port: configService.get('DB_PORT', 5432),
-  username: configService.get('DB_USERNAME', 'lms_user'),
-  password: configService.get('DB_PASSWORD', 'lms_password'),
+  username: configService.get('DB_USERNAME', 'postgres'),
+  password: configService.get('DB_PASSWORD', 'postgres'),
   database: configService.get('DB_DATABASE', 'lms_db'),
   entities: [
-    'src/**/*.entity{.ts,.js}',
+    process.env.NODE_ENV === 'production' 
+      ? 'dist/**/*.entity{.js}'
+      : 'src/**/*.entity{.ts,.js}'
   ],
   migrations: [
-    'src/database/migrations/*{.ts,.js}',
+    process.env.NODE_ENV === 'production'
+      ? 'dist/database/migrations/*{.js}'
+      : 'src/database/migrations/*{.ts,.js}'
   ],
   synchronize: false,
   logging: configService.get('NODE_ENV') === 'development',
