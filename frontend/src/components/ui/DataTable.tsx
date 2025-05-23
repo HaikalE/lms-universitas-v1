@@ -149,7 +149,7 @@ export function DataTable<T extends Record<string, any>>({
                 
                 {/* Page numbers */}
                 {[...Array(Math.min(totalPages, 5))].map((_, index) => {
-                  let pageNumber;
+                  let pageNumber: number;
                   if (totalPages <= 5) {
                     pageNumber = index + 1;
                   } else if (pagination.page <= 3) {
