@@ -12,6 +12,27 @@ export const courseService = {
     return response.data;
   },
 
+  createCourse: async (courseData: {
+    code: string;
+    name: string;
+    description?: string;
+    credits: number;
+    semester: string;
+    lecturerId: string;
+  }): Promise<Course> => {
+    const response = await api.post('/courses', courseData);
+    return response.data;
+  },
+
+  updateCourse: async (courseId: string, courseData: any): Promise<Course> => {
+    const response = await api.patch(`/courses/${courseId}`, courseData);
+    return response.data;
+  },
+
+  deleteCourse: async (courseId: string): Promise<void> => {
+    await api.delete(`/courses/${courseId}`);
+  },
+
   getMyCourses: async (): Promise<Course[]> => {
     const response = await api.get('/users/my-courses');
     return response.data;
