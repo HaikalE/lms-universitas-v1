@@ -6,12 +6,12 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
   label,
   error,
   className,
   ...props
-}) => {
+}, ref) => {
   return (
     <div className="w-full">
       {label && (
@@ -20,6 +20,7 @@ export const Input: React.FC<InputProps> = ({
         </label>
       )}
       <input
+        ref={ref}
         className={cn(
           'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
           error && 'border-red-300 focus:ring-red-500 focus:border-red-500',
@@ -32,4 +33,6 @@ export const Input: React.FC<InputProps> = ({
       )}
     </div>
   );
-};
+});
+
+Input.displayName = 'Input';
