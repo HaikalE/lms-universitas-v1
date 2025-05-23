@@ -35,6 +35,8 @@ RUN npm install --omit=dev && npm cache clean --force
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/database ./src/database
+# Fix: Copy scripts directory for migrations
+COPY --from=builder /app/scripts ./scripts
 
 # Create uploads directory
 RUN mkdir -p uploads && chown -R nestjs:nodejs uploads
