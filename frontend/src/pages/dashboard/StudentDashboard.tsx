@@ -1,279 +1,311 @@
 import React from 'react';
 import { useQuery } from 'react-query';
-import {
-  BookOpenIcon,
-  DocumentTextIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  CalendarIcon,
-} from '@heroicons/react/24/outline';
-import { courseService } from '../../services/courseService';
-import { assignmentService } from '../../services/assignmentService';
-import { announcementService } from '../../services/announcementService';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
-import { id } from 'date-fns/locale';
+import { 
+  BookOpenIcon, 
+  ClipboardDocumentListIcon, 
+  ChatBubbleLeftIcon,
+  BellIcon,
+  ClockIcon,
+  CalendarIcon,
+  AcademicCapIcon,
+  ChartBarIcon
+} from '@heroicons/react/24/outline';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { courseService, assignmentService, notificationService, forumService } from '../../services';
+import { formatDate, getDeadlineStatus } from '../../utils/date';
+import { ProgressBar } from '../../components/ui/ProgressBar';
+
+interface DashboardStats {
+  enrolledCourses: number;
+  pendingAssignments: number;
+  unreadNotifications: number;
+  activeDiscussions: number;
+  completionRate: number;
+  upcomingDeadlines: Array<{
+    id: string;
+    title: string;
+    courseName: string;
+    dueDate: string;
+    status: 'urgent' | 'warning' | 'normal';
+  }>;
+  recentActivities: Array<{
+    id: string;
+    type: 'assignment' | 'announcement' | 'grade' | 'forum';
+    title: string;
+    description: string;
+    timestamp: string;
+  }>;
+}
 
 const StudentDashboard: React.FC = () => {
-  const { data: courses, isLoading: coursesLoading } = useQuery(
-    'myCourses',
-    courseService.getMyCourses
+  const { data: stats, isLoading, error } = useQuery<DashboardStats>(
+    'student-dashboard-stats',
+    async () => {
+      const [courses, assignments, notifications, forums] = await Promise.all([
+        courseService.getMyCourses(),
+        assignmentService.getMyAssignments(),
+        notificationService.getMyNotifications(),
+        forumService.getMyDiscussions()
+      ]);
+
+      // Calculate statistics
+      const pendingAssignments = assignments.filter(a => !a.submitted).length;
+      const completedAssignments = assignments.filter(a => a.submitted).length;
+      const completionRate = assignments.length > 0 
+        ? Math.round((completedAssignments / assignments.length) * 100)
+        : 0;
+
+      // Get upcoming deadlines
+      const upcomingDeadlines = assignments
+        .filter(a => !a.submitted && new Date(a.dueDate) > new Date())
+        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+        .slice(0, 5)
+        .map(assignment => ({
+          id: assignment.id,
+          title: assignment.title,
+          courseName: assignment.course.name,
+          dueDate: assignment.dueDate,
+          status: getDeadlineStatus(assignment.dueDate)
+        }));
+
+      // Get recent activities
+      const recentActivities = [
+        ...assignments.slice(0, 3).map(a => ({
+          id: a.id,
+          type: 'assignment' as const,
+          title: `Tugas baru: ${a.title}`,
+          description: a.course.name,
+          timestamp: a.createdAt
+        })),
+        ...notifications.slice(0, 3).map(n => ({
+          id: n.id,
+          type: n.type as 'announcement' | 'grade',
+          title: n.title,
+          description: n.message,
+          timestamp: n.createdAt
+        }))
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 5);
+
+      return {
+        enrolledCourses: courses.length,
+        pendingAssignments,
+        unreadNotifications: notifications.filter(n => !n.isRead).length,
+        activeDiscussions: forums.filter(f => f.isActive).length,
+        completionRate,
+        upcomingDeadlines,
+        recentActivities
+      };
+    },
+    {
+      refetchInterval: 30000, // Refresh every 30 seconds
+    }
   );
 
-  const { data: assignments, isLoading: assignmentsLoading } = useQuery(
-    'myAssignments',
-    () => assignmentService.getAssignments({ limit: 5 })
-  );
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
-  const { data: announcements, isLoading: announcementsLoading } = useQuery(
-    'recentAnnouncements',
-    announcementService.getRecentAnnouncements
-  );
-
-  const { data: grades, isLoading: gradesLoading } = useQuery(
-    'myGrades',
-    assignmentService.getMyGrades
-  );
-
-  const upcomingAssignments = assignments?.data?.filter(
-    (assignment) => new Date(assignment.dueDate) > new Date()
-  ) || [];
-
-  const completedAssignments = assignments?.data?.filter(
-    (assignment) => assignment.mySubmission?.status === 'submitted' || assignment.mySubmission?.status === 'graded'
-  ) || [];
+  if (error) {
+    return <ErrorMessage message="Gagal memuat dashboard. Silakan coba lagi." />;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Selamat Datang di Dashboard</h1>
-        <p className="text-primary-100">
-          Kelola aktivitas akademik Anda dengan mudah dan efisien.
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <BookOpenIcon className="h-8 w-8 text-primary-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Mata Kuliah</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {coursesLoading ? '-' : courses?.length || 0}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <ClockIcon className="h-8 w-8 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Tugas Pending</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {assignmentsLoading ? '-' : upcomingAssignments.length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CheckCircleIcon className="h-8 w-8 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Tugas Selesai</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {assignmentsLoading ? '-' : completedAssignments.length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <DocumentTextIcon className="h-8 w-8 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Nilai Rata-rata</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {gradesLoading ? '-' : 
-                    grades && grades.length > 0 
-                      ? (grades.reduce((acc, grade) => acc + (grade.score / grade.maxScore * 100), 0) / grades.length).toFixed(1)
-                      : '0'
-                  }
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* My Courses */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mata Kuliah Saya</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {coursesLoading ? (
-              <LoadingSpinner />
-            ) : courses && courses.length > 0 ? (
-              <div className="space-y-3">
-                {courses.slice(0, 5).map((course) => (
-                  <Link
-                    key={course.id}
-                    to={`/courses/${course.id}`}
-                    className="block p-3 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium text-gray-900">{course.name}</h3>
-                        <p className="text-sm text-gray-500">{course.code} • {course.credits} SKS</p>
-                      </div>
-                      <span className="text-xs text-gray-400">{course.semester}</span>
-                    </div>
-                  </Link>
-                ))}
-                {courses.length > 5 && (
-                  <Link
-                    to="/courses"
-                    className="block text-center text-sm text-primary-600 hover:text-primary-500 pt-2"
-                  >
-                    Lihat semua mata kuliah ({courses.length})
-                  </Link>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">
-                Belum ada mata kuliah yang diambil
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Assignments */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tugas Mendatang</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {assignmentsLoading ? (
-              <LoadingSpinner />
-            ) : upcomingAssignments.length > 0 ? (
-              <div className="space-y-3">
-                {upcomingAssignments.slice(0, 5).map((assignment) => (
-                  <Link
-                    key={assignment.id}
-                    to={`/assignments/${assignment.id}`}
-                    className="block p-3 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{assignment.title}</h3>
-                        <p className="text-sm text-gray-500">{assignment.course.name}</p>
-                        <div className="flex items-center mt-1">
-                          <CalendarIcon className="h-4 w-4 text-gray-400 mr-1" />
-                          <span className="text-xs text-gray-500">
-                            {format(new Date(assignment.dueDate), 'dd MMM yyyy HH:mm', { locale: id })}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        new Date(assignment.dueDate).getTime() - new Date().getTime() < 24 * 60 * 60 * 1000
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {assignment.mySubmission ? 'Dikumpulkan' : 'Belum dikumpul'}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-                {upcomingAssignments.length === 0 && (
-                  <p className="text-gray-500 text-center py-4">
-                    Tidak ada tugas mendatang
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">
-                Tidak ada tugas mendatang
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Announcements */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pengumuman Terbaru</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {announcementsLoading ? (
-            <LoadingSpinner />
-          ) : announcements && announcements.length > 0 ? (
-            <div className="space-y-4">
-              {announcements.slice(0, 3).map((announcement) => (
-                <div
-                  key={announcement.id}
-                  className="p-4 rounded-lg border border-gray-200"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-medium text-gray-900">{announcement.title}</h3>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      announcement.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                      announcement.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                      announcement.priority === 'medium' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {announcement.priority}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {announcement.content}
-                  </p>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs text-gray-500">
-                      {announcement.course ? announcement.course.name : 'Pengumuman Global'}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {format(new Date(announcement.createdAt), 'dd MMM yyyy', { locale: id })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              <Link
-                to="/announcements"
-                className="block text-center text-sm text-primary-600 hover:text-primary-500 pt-2"
-              >
-                Lihat semua pengumuman
-              </Link>
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">
-              Tidak ada pengumuman terbaru
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard Mahasiswa</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Selamat datang kembali! Berikut ringkasan aktivitas pembelajaran Anda.
             </p>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+          <div className="hidden sm:flex items-center space-x-2">
+            <CalendarIcon className="h-5 w-5 text-gray-400" />
+            <span className="text-sm text-gray-500">{formatDate(new Date(), 'full')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <BookOpenIcon className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Mata Kuliah</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats?.enrolledCourses || 0}</p>
+            </div>
+          </div>
+          <Link to="/courses" className="mt-4 flex items-center text-sm text-blue-600 hover:text-blue-800">
+            Lihat semua
+            <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </Card>
+
+        <Card className="p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center">
+            <div className="p-3 bg-yellow-100 rounded-lg">
+              <ClipboardDocumentListIcon className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Tugas Pending</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats?.pendingAssignments || 0}</p>
+            </div>
+          </div>
+          <Link to="/assignments" className="mt-4 flex items-center text-sm text-yellow-600 hover:text-yellow-800">
+            Kerjakan tugas
+            <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </Card>
+
+        <Card className="p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center">
+            <div className="p-3 bg-red-100 rounded-lg">
+              <BellIcon className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Notifikasi Baru</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats?.unreadNotifications || 0}</p>
+            </div>
+          </div>
+          <Link to="/notifications" className="mt-4 flex items-center text-sm text-red-600 hover:text-red-800">
+            Lihat notifikasi
+            <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </Card>
+
+        <Card className="p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center">
+            <div className="p-3 bg-green-100 rounded-lg">
+              <ChartBarIcon className="h-6 w-6 text-green-600" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-medium text-gray-600">Progress</p>
+              <div className="flex items-center">
+                <p className="text-2xl font-semibold text-gray-900">{stats?.completionRate || 0}%</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <ProgressBar value={stats?.completionRate || 0} className="h-2" />
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Upcoming Deadlines */}
+        <div className="lg:col-span-2">
+          <Card>
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Deadline Mendatang</h2>
+                <ClockIcon className="h-5 w-5 text-gray-400" />
+              </div>
+            </div>
+            <div className="p-6">
+              {stats?.upcomingDeadlines && stats.upcomingDeadlines.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.upcomingDeadlines.map((deadline) => (
+                    <div key={deadline.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{deadline.title}</h3>
+                        <p className="text-sm text-gray-500">{deadline.courseName}</p>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-900">
+                            {formatDate(deadline.dueDate, 'short')}
+                          </p>
+                          <p className={`text-xs ${
+                            deadline.status === 'urgent' ? 'text-red-600' :
+                            deadline.status === 'warning' ? 'text-yellow-600' :
+                            'text-green-600'
+                          }`}>
+                            {deadline.status === 'urgent' ? 'Segera!' :
+                             deadline.status === 'warning' ? 'Mendekat' :
+                             'Masih ada waktu'}
+                          </p>
+                        </div>
+                        <Link 
+                          to={`/assignments/${deadline.id}`}
+                          className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <AcademicCapIcon className="mx-auto h-12 w-12 text-gray-300" />
+                  <p className="mt-2 text-sm text-gray-500">Tidak ada deadline dalam waktu dekat</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Recent Activities */}
+        <div>
+          <Card>
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Aktivitas Terbaru</h2>
+            </div>
+            <div className="p-6">
+              {stats?.recentActivities && stats.recentActivities.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.recentActivities.map((activity) => (
+                    <div key={activity.id} className="flex space-x-3">
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                        activity.type === 'assignment' ? 'bg-blue-100' :
+                        activity.type === 'announcement' ? 'bg-yellow-100' :
+                        activity.type === 'grade' ? 'bg-green-100' :
+                        'bg-purple-100'
+                      }`}>
+                        {activity.type === 'assignment' && <ClipboardDocumentListIcon className="h-4 w-4 text-blue-600" />}
+                        {activity.type === 'announcement' && <BellIcon className="h-4 w-4 text-yellow-600" />}
+                        {activity.type === 'grade' && <ChartBarIcon className="h-4 w-4 text-green-600" />}
+                        {activity.type === 'forum' && <ChatBubbleLeftIcon className="h-4 w-4 text-purple-600" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{activity.title}</p>
+                        <p className="text-xs text-gray-500">{activity.description}</p>
+                        <p className="text-xs text-gray-400 mt-1">{formatDate(activity.timestamp, 'relative')}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <ClockIcon className="mx-auto h-12 w-12 text-gray-300" />
+                  <p className="mt-2 text-sm text-gray-500">Belum ada aktivitas</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
