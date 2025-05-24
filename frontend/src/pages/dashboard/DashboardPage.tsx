@@ -4,14 +4,24 @@ import { UserRole } from '../../types';
 import StudentDashboard from './StudentDashboard';
 import LecturerDashboard from './LecturerDashboard';
 import AdminDashboard from './AdminDashboard';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (!user) {
-    return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
+  if (!user) {
+    return null; // Protected route should handle this
+  }
+
+  // Render dashboard based on user role
   switch (user.role) {
     case UserRole.STUDENT:
       return <StudentDashboard />;
@@ -20,7 +30,12 @@ const DashboardPage: React.FC = () => {
     case UserRole.ADMIN:
       return <AdminDashboard />;
     default:
-      return <div>Unknown role</div>;
+      return (
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold text-gray-900">Role tidak dikenali</h2>
+          <p className="mt-2 text-gray-600">Silakan hubungi administrator</p>
+        </div>
+      );
   }
 };
 
