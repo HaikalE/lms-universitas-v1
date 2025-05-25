@@ -30,7 +30,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { Loader } from '../../components/ui/Loader';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
@@ -219,7 +219,7 @@ const CourseDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <LoadingSpinner size="lg" />
+        <Loader size="large" />
       </div>
     );
   }
