@@ -8,7 +8,7 @@ import {
   LinkIcon,
   PhotoIcon,
   CodeBracketIcon,
-  QuoteLeftIcon
+  ChatBubbleBottomCenterTextIcon
 } from '@heroicons/react/24/outline';
 
 interface RichTextEditorProps {
@@ -234,7 +234,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
     {
       action: 'blockquote',
-      icon: QuoteLeftIcon,
+      icon: ChatBubbleBottomCenterTextIcon,
       title: 'Quote'
     },
     {
