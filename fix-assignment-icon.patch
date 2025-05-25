@@ -1,0 +1,45 @@
+# Fix for Assignment Icon Import Error
+
+## Problem
+The error occurs because `Assignment` is not a valid icon in lucide-react library.
+
+## Solution
+Replace any import of `Assignment` from lucide-react with one of these valid alternatives:
+
+### Option 1: FileText (Recommended)
+```typescript
+// Instead of:
+import { Assignment as AssignmentIcon } from 'lucide-react';
+
+// Use:
+import { FileText as AssignmentIcon } from 'lucide-react';
+```
+
+### Option 2: ClipboardList
+```typescript
+import { ClipboardList as AssignmentIcon } from 'lucide-react';
+```
+
+### Option 3: NotepadText
+```typescript
+import { NotepadText as AssignmentIcon } from 'lucide-react';
+```
+
+## Files to Check
+Look for the problematic import in these likely locations:
+- frontend/src/pages/assignments/
+- frontend/src/components/
+- Any file that imports from 'lucide-react'
+
+## Search Command
+Run this in your project root to find the problematic import:
+```bash
+grep -r "Assignment.*lucide-react" frontend/src/
+```
+
+## Common Valid Icons for Assignments
+- FileText: For general assignments
+- ClipboardList: For assignment lists
+- NotepadText: For written assignments
+- BookOpen: For reading assignments
+- Edit: For editable assignments
