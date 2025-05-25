@@ -40,7 +40,7 @@ import { forumService } from '../../services/forumService';
 import { Course, CourseMaterial, MaterialType, Assignment, ForumPost, UserRole } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-import { formatDate } from '../../utils/dateUtils';
+import { formatDate } from '../../utils/date';
 
 type TabType = 'overview' | 'materials' | 'assignments' | 'forums' | 'students' | 'settings';
 
