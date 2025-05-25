@@ -15,11 +15,10 @@ import {
   X
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useAuth } from '../../contexts/AuthContext';
 import { coursesApi, forumsApi } from '../../services/api';
 import { Course } from '../../types';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 
 interface FormData {
   title: string;
@@ -154,18 +153,6 @@ const CreateForumPostPage: React.FC = () => {
       default:
         return <MessageSquare className="w-5 h-5" />;
     }
-  };
-
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      ['blockquote', 'code-block'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }],
-      ['link', 'image', 'video'],
-      ['clean']
-    ],
   };
 
   return (
@@ -326,13 +313,11 @@ const CreateForumPostPage: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ReactQuill
+            <RichTextEditor
               value={formData.content}
               onChange={(value) => setFormData({ ...formData, content: value })}
               placeholder="Jelaskan pertanyaan atau topik diskusi Anda secara detail..."
-              className={`bg-white ${errors.content ? 'border border-red-500' : ''}`}
-              modules={modules}
-              style={{ minHeight: '200px' }}
+              minHeight={200}
             />
             {errors.content && (
               <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
