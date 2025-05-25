@@ -23,17 +23,15 @@ import {
   Award
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useAuth } from '../../contexts/AuthContext';
 import { forumsApi } from '../../services/api';
 import { ForumPost, ForumReply } from '../../types';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 
 const ForumDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const replyEditorRef = useRef<ReactQuill>(null);
   
   const [post, setPost] = useState<ForumPost | null>(null);
   const [replies, setReplies] = useState<ForumReply[]>([]);
@@ -384,7 +382,11 @@ const ForumDetailPage: React.FC = () => {
             <button
               onClick={() => {
                 setReplyingTo(null);
-                replyEditorRef.current?.focus();
+                // Focus on reply editor
+                const editorElement = document.querySelector('[data-testid="reply-editor"]');
+                if (editorElement) {
+                  editorElement.scrollIntoView({ behavior: 'smooth' });
+                }
               }}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
@@ -418,7 +420,7 @@ const ForumDetailPage: React.FC = () => {
         
         <CardContent className="space-y-4">
           {/* Reply Editor */}
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 p-4 rounded-lg" data-testid="reply-editor">
             {replyingTo && (
               <div className="mb-2 text-sm text-gray-600">
                 Membalas ke: {replies.find(r => r.id === replyingTo)?.user?.name}
@@ -431,24 +433,14 @@ const ForumDetailPage: React.FC = () => {
               </div>
             )}
             
-            <ReactQuill
-              ref={replyEditorRef}
+            <RichTextEditor
               value={replyContent}
               onChange={setReplyContent}
               placeholder="Tulis balasan Anda..."
-              className="bg-white mb-3"
-              modules={{
-                toolbar: [
-                  ['bold', 'italic', 'underline'],
-                  ['code-block', 'blockquote'],
-                  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                  ['link'],
-                  ['clean']
-                ]
-              }}
+              minHeight={120}
             />
             
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-3">
               <button
                 onClick={handleSubmitReply}
                 disabled={!replyContent.trim()}
@@ -548,19 +540,10 @@ const ForumDetailPage: React.FC = () => {
                   {/* Reply Content */}
                   {editingReply === reply.id ? (
                     <div className="space-y-3">
-                      <ReactQuill
+                      <RichTextEditor
                         value={editContent}
                         onChange={setEditContent}
-                        className="bg-white"
-                        modules={{
-                          toolbar: [
-                            ['bold', 'italic', 'underline'],
-                            ['code-block', 'blockquote'],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                            ['link'],
-                            ['clean']
-                          ]
-                        }}
+                        minHeight={120}
                       />
                       <div className="flex gap-2">
                         <button
@@ -604,7 +587,10 @@ const ForumDetailPage: React.FC = () => {
                     <button
                       onClick={() => {
                         setReplyingTo(reply.id);
-                        replyEditorRef.current?.focus();
+                        const editorElement = document.querySelector('[data-testid="reply-editor"]');
+                        if (editorElement) {
+                          editorElement.scrollIntoView({ behavior: 'smooth' });
+                        }
                       }}
                       className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"
                     >
