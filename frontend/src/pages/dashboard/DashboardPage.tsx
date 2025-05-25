@@ -4,7 +4,7 @@ import { UserRole } from '../../types';
 import StudentDashboard from './StudentDashboard';
 import LecturerDashboard from './LecturerDashboard';
 import AdminDashboard from './AdminDashboard';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 const DashboardPage: React.FC = () => {
   const { user, loading } = useAuth();
