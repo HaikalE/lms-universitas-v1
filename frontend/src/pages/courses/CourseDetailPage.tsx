@@ -17,7 +17,7 @@ import {
   Eye,
   EyeOff,
   MessageSquare,
-  Assignment as AssignmentIcon,
+  FileText as AssignmentIcon,
   Info,
   Settings,
   ChevronRight,
