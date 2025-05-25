@@ -17,7 +17,7 @@ import {
   Eye,
   EyeOff,
   MessageSquare,
-  Assignment,
+  Assignment as AssignmentIcon,
   Info,
   Settings,
   ChevronRight,
@@ -207,7 +207,7 @@ const CourseDetailPage: React.FC = () => {
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <Info className="w-4 h-4" /> },
     { id: 'materials', label: 'Materi', icon: <BookOpen className="w-4 h-4" /> },
-    { id: 'assignments', label: 'Tugas', icon: <Assignment className="w-4 h-4" /> },
+    { id: 'assignments', label: 'Tugas', icon: <AssignmentIcon className="w-4 h-4" /> },
     { id: 'forums', label: 'Forum', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'students', label: 'Mahasiswa', icon: <Users className="w-4 h-4" /> },
   ];
@@ -582,7 +582,7 @@ const CourseDetailPage: React.FC = () => {
             {assignments.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-12">
-                  <Assignment className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <AssignmentIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">Belum ada tugas</p>
                 </CardContent>
               </Card>
