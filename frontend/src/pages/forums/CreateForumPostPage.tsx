@@ -17,7 +17,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useAuth } from '../../contexts/AuthContext';
-import { coursesApi, forumsApi } from '../../services/api';
+import { courseService, forumService } from '../../services';
 import { Course } from '../../types';
 
 interface FormData {
@@ -58,7 +58,7 @@ const CreateForumPostPage: React.FC = () => {
 
   const fetchCourses = async () => {
     try {
-      const response = await coursesApi.getMyCourses();
+      const response = await courseService.getMyCourses();
       setCourses(response.data);
       
       // Auto-select if only one course
@@ -105,7 +105,7 @@ const CreateForumPostPage: React.FC = () => {
     try {
       setLoading(true);
       
-      const response = await forumsApi.createForumPost({
+      const response = await forumService.createForumPost({
         ...formData,
         tags: formData.tags.filter(tag => tag.trim())
       });
