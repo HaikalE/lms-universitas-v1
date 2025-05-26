@@ -10,7 +10,7 @@ import {
   CheckCircleIcon,
   ClockIcon,
   CogIcon,
-  DocumentReportIcon,
+  DocumentTextIcon,
   ShieldCheckIcon,
   CurrencyDollarIcon,
   PlusCircleIcon
@@ -420,7 +420,7 @@ const AdminDashboard: React.FC = () => {
               </Link>
               <Link to="/admin/reports">
                 <Button variant="outline" className="w-full justify-start">
-                  <DocumentReportIcon className="h-4 w-4 mr-2" />
+                  <DocumentTextIcon className="h-4 w-4 mr-2" />
                   Generate Report
                 </Button>
               </Link>
