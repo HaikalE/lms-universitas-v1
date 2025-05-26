@@ -60,7 +60,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           const baseType = type.split('/')[0];
           return file.type.startsWith(baseType);
         }
-        return file.type === type || file.name.toLowerCase().endsWith(type.replace('.', ''));
+        return file.type === type || file.name.toLowerCase().endsWith(type.replace(/\./g, ''));
       });
       
       if (!isValidType) {
