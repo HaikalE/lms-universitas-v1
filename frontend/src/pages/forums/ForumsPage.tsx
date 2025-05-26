@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
-import { forumsApi } from '../../services/api';
+import { forumService } from '../../services';
 import { Course, ForumPost } from '../../types';
 
 interface ForumStats {
@@ -57,7 +57,7 @@ const ForumsPage: React.FC = () => {
       setLoading(true);
       
       // Fetch user's courses
-      const coursesResponse = await forumsApi.getUserCourses();
+      const coursesResponse = await forumService.getUserCourses();
       setCourses(coursesResponse.data);
 
       // Fetch forum posts
@@ -70,7 +70,7 @@ const ForumsPage: React.FC = () => {
         params.courseId = selectedCourse;
       }
 
-      const postsResponse = await forumsApi.getForumPosts(params);
+      const postsResponse = await forumService.getForumPosts(params);
       setForumPosts(postsResponse.data);
 
       // Calculate stats
