@@ -90,7 +90,7 @@ export const usePerformanceMonitoring = (): UsePerformanceMonitoringReturn => {
         ...prev,
         ttfb: nav.responseStart - nav.requestStart,
         domContentLoaded: nav.domContentLoadedEventEnd - nav.navigationStart,
-        loadComplete: nav.loadEventEnd - nav.navigationStart
+        loadComplete: nav.loadEventEnd // PERUBAHAN DI SINI
       }));
     }
 
