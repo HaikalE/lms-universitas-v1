@@ -46,7 +46,7 @@ export interface ChartConfig {
     end: string;
   };
   strokeWidth?: number;
-  curve?: 'monotone' | 'linear' | 'cardinal' | 'step';
+  curve?: 'monotone' | 'linear' | 'step' | 'basis' | 'natural' | 'monotoneX' | 'monotoneY';
   animate?: boolean;
 }
 
@@ -201,7 +201,7 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({
             {showTooltip && <Tooltip content={CustomTooltip} />}
             {showLegend && <Legend />}
             <Line
-              type={curve}
+              type={curve as any}
               dataKey={yAxisKey}
               stroke={colors[0]}
               strokeWidth={strokeWidth}
@@ -244,7 +244,7 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({
             {showTooltip && <Tooltip content={CustomTooltip} />}
             {showLegend && <Legend />}
             <Area
-              type={curve}
+              type={curve as any}
               dataKey={yAxisKey}
               stroke={colors[0]}
               fillOpacity={1}
