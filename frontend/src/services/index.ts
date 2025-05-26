@@ -10,4 +10,4 @@ export { default as uploadService } from './uploadService';
 export { default as userService } from './userService';
 
 // Re-export API instance for direct use
-export { api } from './api';
+export { default as api } from './api';
