@@ -15,7 +15,7 @@ import {
   KeyIcon
 } from '@heroicons/react/24/outline';
 import AdvancedDataTable, { Column } from '../ui/AdvancedDataTable';
-import Modal from '../ui/Modal';
+import { Modal } from '../ui/Modal';
 import { formatDistanceToNow } from 'date-fns';
 
 export interface User {
@@ -418,77 +418,78 @@ const EnhancedUserManagement: React.FC<EnhancedUserManagementProps> = ({
       />
 
       {/* Bulk Actions Modal */}
-      <Modal
-        isOpen={showBulkModal}
-        onClose={() => setShowBulkModal(false)}
-        title="Bulk Actions"
-        size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            Perform actions on {selectedUsers.length} selected users
-          </p>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Action
-            </label>
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Choose an action...</option>
-              <option value="activate">Activate Users</option>
-              <option value="deactivate">Deactivate Users</option>
-              <option value="suspend">Suspend Users</option>
-              <option value="delete">Delete Users</option>
-              <option value="reset_password">Reset Passwords</option>
-            </select>
-          </div>
-          
-          <div className="border-t pt-4">
-            <h4 className="font-medium text-gray-900 mb-2">Send Email</h4>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleSendBulkEmail('welcome')}
-                className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded border"
+      {showBulkModal && (
+        <Modal
+          title="Bulk Actions"
+          size="md"
+          onClose={() => setShowBulkModal(false)}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              Perform actions on {selectedUsers.length} selected users
+            </p>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Action
+              </label>
+              <select
+                value={bulkAction}
+                onChange={(e) => setBulkAction(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                Send Welcome Email
+                <option value="">Choose an action...</option>
+                <option value="activate">Activate Users</option>
+                <option value="deactivate">Deactivate Users</option>
+                <option value="suspend">Suspend Users</option>
+                <option value="delete">Delete Users</option>
+                <option value="reset_password">Reset Passwords</option>
+              </select>
+            </div>
+            
+            <div className="border-t pt-4">
+              <h4 className="font-medium text-gray-900 mb-2">Send Email</h4>
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleSendBulkEmail('welcome')}
+                  className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded border"
+                >
+                  Send Welcome Email
+                </button>
+                <button
+                  onClick={() => handleSendBulkEmail('reminder')}
+                  className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded border"
+                >
+                  Send Login Reminder
+                </button>
+                <button
+                  onClick={() => handleSendBulkEmail('announcement')}
+                  className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded border"
+                >
+                  Send Announcement
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                onClick={() => setShowBulkModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Cancel
               </button>
+              
               <button
-                onClick={() => handleSendBulkEmail('reminder')}
-                className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded border"
+                onClick={handleBulkAction}
+                disabled={!bulkAction}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Send Login Reminder
-              </button>
-              <button
-                onClick={() => handleSendBulkEmail('announcement')}
-                className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded border"
-              >
-                Send Announcement
+                Execute Action
               </button>
             </div>
           </div>
-          
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              onClick={() => setShowBulkModal(false)}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-            
-            <button
-              onClick={handleBulkAction}
-              disabled={!bulkAction}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Execute Action
-            </button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
     </div>
   );
 };
