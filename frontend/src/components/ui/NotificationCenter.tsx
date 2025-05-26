@@ -43,7 +43,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const categories = ['all', ...new Set(notifications.map(n => n.category).filter(Boolean))];
+  const categorySet = new Set(notifications.map(n => n.category).filter(Boolean));
+  const categories = ['all', ...Array.from(categorySet)];
 
   const filteredNotifications = notifications
     .filter(notification => {

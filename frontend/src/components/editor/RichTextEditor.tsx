@@ -386,7 +386,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onInput={handleContentChange}
           onPaste={handlePaste}
           dangerouslySetInnerHTML={{ __html: value }}
-          placeholder={placeholder}
+          data-placeholder={placeholder}
         />
       </Card>
 
@@ -401,9 +401,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       </div>
 
       {/* Styles for editor content */}
-      <style jsx>{`
+      <style>{`
         .rich-text-editor [contenteditable]:empty:before {
-          content: attr(placeholder);
+          content: attr(data-placeholder);
           color: #9ca3af;
           pointer-events: none;
           position: absolute;

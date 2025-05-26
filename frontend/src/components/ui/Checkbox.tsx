@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckIcon } from 'lucide-react';
 
-interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
+interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
   label?: string;
   description?: string;
   error?: string;
