@@ -326,9 +326,38 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({
         );
 
       default:
-        return null;
+        // Return a default line chart for unknown types
+        return (
+          <LineChart {...commonProps}>
+            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />}
+            <XAxis 
+              dataKey={xAxisKey} 
+              stroke="#6B7280"
+              fontSize={12}
+              tickFormatter={formatLabel}
+            />
+            <YAxis 
+              stroke="#6B7280"
+              fontSize={12}
+              tickFormatter={formatValue}
+            />
+            {showTooltip && <Tooltip content={CustomTooltip} />}
+            {showLegend && <Legend />}
+            <Line
+              type="monotone"
+              dataKey={yAxisKey}
+              stroke={colors[0]}
+              strokeWidth={strokeWidth}
+              dot={{ fill: colors[0], strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: colors[0], strokeWidth: 2 }}
+              animationDuration={animate ? 1000 : 0}
+            />
+          </LineChart>
+        );
     }
   };
+
+  const chartElement = renderChart();
 
   return (
     <div className={`bg-white rounded-lg border border-gray-200 p-6 ${className}`}>
@@ -351,7 +380,7 @@ const AdvancedChart: React.FC<AdvancedChartProps> = ({
       {/* Chart Container */}
       <div style={{ width, height }}>
         <ResponsiveContainer width="100%" height="100%">
-          {renderChart()}
+          {chartElement}
         </ResponsiveContainer>
       </div>
     </div>
