@@ -398,4 +398,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   );
 };
 
+// Export both default and named export to support both import patterns
+export { RichTextEditor };
 export default RichTextEditor;
