@@ -25,7 +25,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useAuth } from '../../contexts/AuthContext';
-import { forumsApi } from '../../services/api';
+import { forumService } from '../../services';
 import { ForumPost, ForumReply } from '../../types';
 
 const ForumDetailPage: React.FC = () => {
@@ -60,15 +60,15 @@ const ForumDetailPage: React.FC = () => {
       setLoading(true);
       
       // Fetch post details
-      const postResponse = await forumsApi.getForumPost(id!);
+      const postResponse = await forumService.getForumPost(id!);
       setPost(postResponse.data);
       
       // Fetch replies
-      const repliesResponse = await forumsApi.getForumReplies(id!, { sort: sortReplies });
+      const repliesResponse = await forumService.getForumReplies(id!, { sort: sortReplies });
       setReplies(repliesResponse.data);
       
       // Mark as viewed
-      await forumsApi.markPostAsViewed(id!);
+      await forumService.markPostAsViewed(id!);
     } catch (error) {
       console.error('Error fetching post details:', error);
     } finally {
@@ -80,7 +80,7 @@ const ForumDetailPage: React.FC = () => {
     if (!post) return;
     
     try {
-      await forumsApi.likePost(post.id);
+      await forumService.likePost(post.id);
       setPost({
         ...post,
         isLiked: !post.isLiked,
@@ -93,7 +93,7 @@ const ForumDetailPage: React.FC = () => {
 
   const handleLikeReply = async (replyId: string) => {
     try {
-      await forumsApi.likeReply(replyId);
+      await forumService.likeReply(replyId);
       setReplies(replies.map(reply => 
         reply.id === replyId 
           ? {
@@ -112,7 +112,7 @@ const ForumDetailPage: React.FC = () => {
     if (!replyContent.trim() || !post) return;
     
     try {
-      const response = await forumsApi.createReply(post.id, {
+      const response = await forumService.createReply(post.id, {
         content: replyContent,
         parentId: replyingTo
       });
@@ -135,7 +135,7 @@ const ForumDetailPage: React.FC = () => {
     if (!editContent.trim()) return;
     
     try {
-      await forumsApi.updateReply(replyId, { content: editContent });
+      await forumService.updateReply(replyId, { content: editContent });
       setReplies(replies.map(reply => 
         reply.id === replyId ? { ...reply, content: editContent } : reply
       ));
@@ -150,7 +150,7 @@ const ForumDetailPage: React.FC = () => {
     if (!window.confirm('Yakin ingin menghapus balasan ini?')) return;
     
     try {
-      await forumsApi.deleteReply(replyId);
+      await forumService.deleteReply(replyId);
       setReplies(replies.filter(reply => reply.id !== replyId));
       
       if (post) {
@@ -168,7 +168,7 @@ const ForumDetailPage: React.FC = () => {
     if (!post || !isOwner) return;
     
     try {
-      await forumsApi.markAsAnswer(post.id, replyId);
+      await forumService.markAsAnswer(post.id, replyId);
       setReplies(replies.map(reply => ({
         ...reply,
         isAnswer: reply.id === replyId
@@ -183,7 +183,7 @@ const ForumDetailPage: React.FC = () => {
     if (!post || !canModerate) return;
     
     try {
-      await forumsApi.pinPost(post.id);
+      await forumService.pinPost(post.id);
       setPost({ ...post, isPinned: !post.isPinned });
     } catch (error) {
       console.error('Error pinning post:', error);
