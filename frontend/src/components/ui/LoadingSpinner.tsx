@@ -21,4 +21,6 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md', className 
   );
 };
 
+// Export both default and named export to support both import patterns
+export { LoadingSpinner };
 export default LoadingSpinner;
