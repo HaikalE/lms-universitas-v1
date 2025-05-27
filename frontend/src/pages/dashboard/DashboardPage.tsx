@@ -7,9 +7,9 @@ import AdminDashboard from './AdminDashboard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 const DashboardPage: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
         <LoadingSpinner size="lg" />
