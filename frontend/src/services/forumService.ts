@@ -12,6 +12,11 @@ export const forumService = {
     return response.data;
   },
 
+  getMyDiscussions: async (): Promise<ForumPost[]> => {
+    const response = await api.get('/forums/my-discussions');
+    return response.data;
+  },
+
   createForumPost: async (postData: any): Promise<ForumPost> => {
     const response = await api.post('/forums', postData);
     return response.data;
