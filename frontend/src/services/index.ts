@@ -14,3 +14,12 @@ export { default as api } from './api';
 
 // Re-export utility functions from adminService
 export { downloadFile, formatFileSize, formatUptime } from './adminService';
+
+// Re-export types from adminService
+export type { 
+  SystemStats,
+  ActivityLog,
+  BulkOperation,
+  ReportParams,
+  BackupInfo
+} from './adminService';
