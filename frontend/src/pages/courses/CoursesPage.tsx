@@ -425,7 +425,11 @@ const CoursesPage: React.FC = () => {
           {(filters.semester || filters.credits || filters.lecturer) && (
             <div className="flex flex-wrap gap-2 mt-4">
               {filters.semester && (
+<<<<<<< HEAD
                 <Badge variant="default" className="flex items-center gap-1">
+=======
+                <Badge variant="info" className="flex items-center gap-1">
+>>>>>>> ec5968c (Perbaikin eror)
                   Semester {filters.semester}
                   <button
                     onClick={() => setFilters({...filters, semester: ''})}
@@ -436,7 +440,11 @@ const CoursesPage: React.FC = () => {
                 </Badge>
               )}
               {filters.credits && (
+<<<<<<< HEAD
                 <Badge variant="default" className="flex items-center gap-1">
+=======
+                <Badge variant="info" className="flex items-center gap-1">
+>>>>>>> ec5968c (Perbaikin eror)
                   {filters.credits} SKS
                   <button
                     onClick={() => setFilters({...filters, credits: ''})}
@@ -447,7 +455,11 @@ const CoursesPage: React.FC = () => {
                 </Badge>
               )}
               {filters.lecturer && (
+<<<<<<< HEAD
                 <Badge variant="default" className="flex items-center gap-1">
+=======
+                <Badge variant="info" className="flex items-center gap-1">
+>>>>>>> ec5968c (Perbaikin eror)
                   Dosen: {filters.lecturer}
                   <button
                     onClick={() => setFilters({...filters, lecturer: ''})}
@@ -579,7 +591,7 @@ const CoursesPage: React.FC = () => {
                 Batal
               </Button>
               <Button
-                variant="primary"
+                variant="default"
                 className="bg-red-600 hover:bg-red-700"
                 onClick={handleDeleteCourse}
               >
