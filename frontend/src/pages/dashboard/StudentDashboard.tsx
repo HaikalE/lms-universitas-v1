@@ -45,15 +45,16 @@ const StudentDashboard: React.FC = () => {
   const { data: stats, isLoading, error } = useQuery<DashboardStats>(
     'student-dashboard-stats',
     async () => {
-      const [courses, assignmentsResponse, notifications, forums] = await Promise.all([
+      const [courses, assignmentsResponse, notificationsResponse, forums] = await Promise.all([
         courseService.getMyCourses(),
         assignmentService.getAssignments(),
         notificationService.getMyNotifications(),
         forumService.getMyDiscussions()
       ]);
 
-      // Extract assignments from API response
+      // Extract data from API responses
       const assignments = assignmentsResponse.data || [];
+      const notifications = notificationsResponse.data || [];
 
       // Calculate statistics
       const pendingAssignments = assignments.filter(a => !a.mySubmission || a.mySubmission.status !== 'submitted').length;
