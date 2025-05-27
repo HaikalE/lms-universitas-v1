@@ -151,11 +151,22 @@ export interface ForumPost {
   isPinned: boolean;
   isLocked: boolean;
   likesCount: number;
+  viewsCount: number;
+  repliesCount: number;
+  isLiked?: boolean;
+  isAnswered?: boolean;
+  tags?: string[];
+  userId?: string;
   createdAt: string;
   updatedAt?: string;
   author: {
     id: string;
     fullName: string;
+    role: UserRole;
+  };
+  user?: {
+    id: string;
+    name: string;
     role: UserRole;
   };
   children?: ForumPost[];
@@ -164,6 +175,23 @@ export interface ForumPost {
     code: string;
     name: string;
   };
+}
+
+export interface ForumReply {
+  id: string;
+  content: string;
+  userId: string;
+  isLiked: boolean;
+  likesCount: number;
+  isAnswer: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  user: {
+    id: string;
+    name: string;
+    role?: UserRole;
+  };
+  replies?: ForumReply[];
 }
 
 export interface Announcement {
