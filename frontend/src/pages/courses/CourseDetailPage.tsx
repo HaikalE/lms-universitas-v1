@@ -121,9 +121,9 @@ const CourseDetailPage: React.FC = () => {
           setAssignments(assignmentsData.data);
           break;
         case 'forums':
-          const forumsData = await forumService.getForumPosts(course.id);
-          setForums(forumsData);
-          break;
+      const forumsData = await forumService.getForumPosts(course.id);      
+      setForums(forumsData.data); // Access the .data property
+      break;
       }
     } catch (error) {
       console.error('Error fetching tab data:', error);
@@ -595,7 +595,7 @@ const CourseDetailPage: React.FC = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="font-medium text-gray-900">{assignment.title}</h4>
-                            <Badge variant={assignment.type === 'exam' ? 'danger' : 'primary'}>
+                            <Badge variant={assignment.type === 'exam' ? 'error' : 'default'}>
                               {assignment.type}
                             </Badge>
                           </div>
@@ -855,7 +855,7 @@ const CourseDetailPage: React.FC = () => {
                 Batal
               </Button>
               <Button
-                variant="primary"
+                variant="default"
                 className="bg-red-600 hover:bg-red-700"
                 onClick={handleDeleteMaterial}
               >

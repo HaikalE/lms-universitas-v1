@@ -90,10 +90,10 @@ const CreateAssignmentPage: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setLoadingCourses(true);
-      const response = await courseService.getMyCourses();
-      setCourses(response.data);
-      if (response.data.length > 0) {
-        setFormData(prev => ({ ...prev, courseId: response.data[0].id }));
+      const coursesData = await courseService.getMyCourses(); // Asumsikan ini mengembalikan Course[]
+      setCourses(coursesData); // Langsung gunakan coursesData
+      if (coursesData.length > 0) { // Gunakan coursesData di sini
+        setFormData(prev => ({ ...prev, courseId: coursesData[0].id })); // Gunakan coursesData di sini
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Gagal memuat daftar mata kuliah');

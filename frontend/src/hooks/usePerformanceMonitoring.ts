@@ -89,7 +89,7 @@ export const usePerformanceMonitoring = (): UsePerformanceMonitoringReturn => {
       setMetrics(prev => ({
         ...prev,
         ttfb: nav.responseStart - nav.requestStart,
-        domContentLoaded: nav.domContentLoadedEventEnd - nav.navigationStart,
+        domContentLoaded: nav.domContentLoadedEventEnd, // PERUBAHAN DI SINI
         loadComplete: nav.loadEventEnd // PERUBAHAN DI SINI
       }));
     }

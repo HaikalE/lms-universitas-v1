@@ -156,7 +156,7 @@ const AssignmentsPage: React.FC = () => {
 
     if (assignment.mySubmission?.submittedAt) {
       return (
-        <Badge variant="primary">
+        <Badge variant="default">
           <CheckCircleIcon className="w-3 h-3 mr-1" />
           Sudah Dikumpulkan
         </Badge>
@@ -165,7 +165,7 @@ const AssignmentsPage: React.FC = () => {
 
     if (isOverdue) {
       return (
-        <Badge variant="danger">
+        <Badge variant="error">
           <AlertCircleIcon className="w-3 h-3 mr-1" />
           Terlambat
         </Badge>
@@ -183,7 +183,7 @@ const AssignmentsPage: React.FC = () => {
     }
 
     return (
-      <Badge variant="secondary">
+      <Badge variant="info">
         <ClockIcon className="w-3 h-3 mr-1" />
         Belum Dikumpulkan
       </Badge>
@@ -242,7 +242,7 @@ const AssignmentsPage: React.FC = () => {
               <FilterIcon className="w-4 h-4 mr-2" />
               Filter
               {(selectedCourse !== 'all' || selectedType !== 'all' || selectedStatus !== 'all') && (
-                <Badge variant="primary" className="ml-2">
+                <Badge variant="default" className="ml-2">
                   {[selectedCourse !== 'all', selectedType !== 'all', selectedStatus !== 'all'].filter(Boolean).length}
                 </Badge>
               )}
@@ -309,48 +309,51 @@ const AssignmentsPage: React.FC = () => {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {filteredAssignments.map(assignment => (
-            <Card
+           {filteredAssignments.map(assignment => (
+            <div // Tambahkan div pembungkus di sini
               key={assignment.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => navigate(`/assignments/${assignment.id}`)}
+              className="hover:shadow-lg transition-shadow cursor-pointer" // Pindahkan className ke sini
+              onClick={() => navigate(`/assignments/${assignment.id}`)} // Pindahkan onClick ke sini
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      {getAssignmentIcon(assignment.type)}
-                      <h3 className="text-lg font-semibold">{assignment.title}</h3>
-                      <Badge variant="secondary">
-                        {getAssignmentTypeLabel(assignment.type)}
-                      </Badge>
+              <Card> {/* Card sekarang tidak perlu onClick atau className untuk interaksi klik */}
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        {getAssignmentIcon(assignment.type)}
+                        <h3 className="text-lg font-semibold">{assignment.title}</h3>
+                        {/* Anda mungkin perlu memperbaiki Badge di sini juga jika masih "secondary" */}
+                        <Badge variant="default"> 
+                          {getAssignmentTypeLabel(assignment.type)}
+                        </Badge>
+                      </div>
+                      
+                      <div className="text-sm text-gray-600 mb-2">
+                        {assignment.course.code} - {assignment.course.name}
+                      </div>
+                      
+                      <p className="text-gray-700 line-clamp-2 mb-3">
+                        {assignment.description}
+                      </p>
+                      
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1 text-gray-600">
+                          <CalendarIcon className="w-4 h-4" />
+                          <span>Deadline: {format(new Date(assignment.dueDate), 'dd MMMM yyyy HH:mm', { locale: id })}</span>
+                        </div>
+                        <div className="text-gray-600">
+                          Nilai Maksimal: {assignment.maxScore}
+                        </div>
+                      </div>
                     </div>
                     
-                    <div className="text-sm text-gray-600 mb-2">
-                      {assignment.course.code} - {assignment.course.name}
-                    </div>
-                    
-                    <p className="text-gray-700 line-clamp-2 mb-3">
-                      {assignment.description}
-                    </p>
-                    
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <CalendarIcon className="w-4 h-4" />
-                        <span>Deadline: {format(new Date(assignment.dueDate), 'dd MMMM yyyy HH:mm', { locale: id })}</span>
-                      </div>
-                      <div className="text-gray-600">
-                        Nilai Maksimal: {assignment.maxScore}
-                      </div>
+                    <div className="ml-4">
+                      {getStatusBadge(assignment)}
                     </div>
                   </div>
-                  
-                  <div className="ml-4">
-                    {getStatusBadge(assignment)}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           ))}
         </div>
       )}

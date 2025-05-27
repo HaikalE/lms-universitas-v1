@@ -72,13 +72,13 @@ const AssignmentDetailPage: React.FC = () => {
   const fetchAssignmentDetail = async () => {
     try {
       setLoading(true);
-      const response = await assignmentService.getAssignmentDetail(assignmentId!);
-      setAssignment(response.data);
+      const assignmentData = await assignmentService.getAssignment(assignmentId!);
+      setAssignment(assignmentData);
       
       // Load existing submission for student
-      if (user?.role === UserRole.STUDENT && response.data.mySubmission) {
-        setSubmissionContent(response.data.mySubmission.content || '');
-      }
+      if (user?.role === UserRole.STUDENT && assignmentData.mySubmission) {
+  setSubmissionContent(assignmentData.mySubmission.content || '');
+}
     } catch (err: any) {
       setError(err.response?.data?.message || 'Gagal memuat detail tugas');
     } finally {
@@ -88,8 +88,8 @@ const AssignmentDetailPage: React.FC = () => {
 
   const fetchSubmissions = async () => {
     try {
-      const response = await assignmentService.getSubmissions(assignmentId!);
-      setSubmissions(response.data);
+      const submissionsData = await assignmentService.getAssignmentSubmissions(assignmentId!);
+      setSubmissions(submissionsData);
     } catch (err: any) {
       console.error('Failed to fetch submissions:', err);
     }
@@ -252,7 +252,7 @@ const AssignmentDetailPage: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Detail Tugas</CardTitle>
-                <Badge variant="primary">
+                <Badge variant="default">
                   {getAssignmentTypeIcon(assignment.type)}
                   <span className="ml-2">{getAssignmentTypeLabel(assignment.type)}</span>
                 </Badge>
