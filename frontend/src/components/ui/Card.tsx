@@ -1,27 +1,37 @@
 import React from 'react';
 
-interface CardProps {
+export interface CardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
 }
 
-interface CardHeaderProps {
+export interface CardHeaderProps {
   children: React.ReactNode;
   className?: string;
 }
 
-interface CardContentProps {
+export interface CardContentProps {
   children: React.ReactNode;
   className?: string;
 }
 
-interface CardFooterProps {
+export interface CardFooterProps {
   children: React.ReactNode;
   className?: string;
 }
 
-const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
+export interface CardTitleProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export interface CardDescriptionProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
   return (
     <div 
       className={`card ${className}`} 
@@ -33,7 +43,7 @@ const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
   );
 };
 
-const CardHeader: React.FC<CardHeaderProps> = ({ children, className = '' }) => {
+export const CardHeader: React.FC<CardHeaderProps> = ({ children, className = '' }) => {
   return (
     <div className={`card-header ${className}`}>
       {children}
@@ -41,7 +51,7 @@ const CardHeader: React.FC<CardHeaderProps> = ({ children, className = '' }) => 
   );
 };
 
-const CardTitle: React.FC<{ children: React.ReactNode; className?: string }> = ({ 
+export const CardTitle: React.FC<CardTitleProps> = ({ 
   children, 
   className = '' 
 }) => {
@@ -52,7 +62,7 @@ const CardTitle: React.FC<{ children: React.ReactNode; className?: string }> = (
   );
 };
 
-const CardDescription: React.FC<{ children: React.ReactNode; className?: string }> = ({ 
+export const CardDescription: React.FC<CardDescriptionProps> = ({ 
   children, 
   className = '' 
 }) => {
@@ -63,7 +73,7 @@ const CardDescription: React.FC<{ children: React.ReactNode; className?: string 
   );
 };
 
-const CardContent: React.FC<CardContentProps> = ({ children, className = '' }) => {
+export const CardContent: React.FC<CardContentProps> = ({ children, className = '' }) => {
   return (
     <div className={`card-content ${className}`}>
       {children}
@@ -71,12 +81,10 @@ const CardContent: React.FC<CardContentProps> = ({ children, className = '' }) =
   );
 };
 
-const CardFooter: React.FC<CardFooterProps> = ({ children, className = '' }) => {
+export const CardFooter: React.FC<CardFooterProps> = ({ children, className = '' }) => {
   return (
     <div className={`card-footer ${className}`}>
       {children}
     </div>
   );
 };
-
-export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };
