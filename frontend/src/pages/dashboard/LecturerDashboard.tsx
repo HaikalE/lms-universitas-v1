@@ -64,7 +64,7 @@ const LecturerDashboard: React.FC = () => {
         courseService.getMyCourses({ role: 'lecturer' }),
         assignmentService.getAssignments({ role: 'lecturer' }),
         forumService.getMyDiscussions(),
-        announcementService.getMyAnnouncements({ role: 'lecturer' })
+        announcementService.getAnnouncements({ role: 'lecturer' })
       ]);
 
       // Calculate total students
