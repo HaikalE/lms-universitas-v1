@@ -9,22 +9,23 @@ export const forumService = {
 
   getForumPost: async (id: string): Promise<ForumPost> => {
     const response = await api.get(`/forums/${id}`);
-    return response.data;
+    return response.data.data || response.data;
   },
 
   getMyDiscussions: async (): Promise<ForumPost[]> => {
     const response = await api.get('/forums/my-discussions');
-    return response.data;
+    return response.data.data || response.data;
   },
 
   createForumPost: async (postData: any): Promise<ForumPost> => {
     const response = await api.post('/forums', postData);
-    return response.data;
+    // Handle both direct ForumPost response and ApiResponse<ForumPost> wrapper
+    return response.data.data || response.data;
   },
 
   updateForumPost: async (id: string, postData: any): Promise<ForumPost> => {
     const response = await api.patch(`/forums/${id}`, postData);
-    return response.data;
+    return response.data.data || response.data;
   },
 
   deleteForumPost: async (id: string): Promise<void> => {
