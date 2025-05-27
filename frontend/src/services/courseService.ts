@@ -63,10 +63,12 @@ export const courseService = {
     await api.delete(`/courses/${courseId}`);
   },
 
-  getMyCourses: async (): Promise<Course[]> => {
-    const response = await api.get('/users/my-courses');
+  getMyCourses: async (params?: any): Promise<Course[]> => { // MODIFIED: Added params?: any
+    const response = await api.get('/users/my-courses', { params }); // MODIFIED: Passed params to api.get
     return response.data;
   },
+
+  
 
   getCourseMaterials: async (courseId: string): Promise<CourseMaterial[]> => {
     const response = await api.get(`/courses/${courseId}/materials`);
