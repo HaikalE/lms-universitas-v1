@@ -224,7 +224,7 @@ const CoursesPage: React.FC = () => {
               <>
                 <Button 
                   size="sm" 
-                  variant="primary" 
+                  variant="default" 
                   className="flex-1 mr-2"
                 >
                   <Eye className="w-4 h-4 mr-2" />
