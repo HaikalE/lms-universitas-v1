@@ -58,12 +58,12 @@ const CreateForumPostPage: React.FC = () => {
 
   const fetchCourses = async () => {
     try {
-      const response = await courseService.getMyCourses();
-      setCourses(response.data);
+      const courses = await courseService.getMyCourses();
+      setCourses(courses);
       
       // Auto-select if only one course
-      if (response.data.length === 1) {
-        setFormData(prev => ({ ...prev, courseId: response.data[0].id }));
+      if (courses.length === 1) {
+        setFormData(prev => ({ ...prev, courseId: courses[0].id }));
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
