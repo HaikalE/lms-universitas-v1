@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { useAuth } from '../../contexts/AuthContext';
-import { forumService } from '../../services';
+import { forumService, courseService } from '../../services';
 import { Course, ForumPost } from '../../types';
 
 interface ForumStats {
@@ -57,8 +57,8 @@ const ForumsPage: React.FC = () => {
       setLoading(true);
       
       // Fetch user's courses
-      const coursesResponse = await forumService.getUserCourses();
-      setCourses(coursesResponse.data);
+      const coursesResponse = await courseService.getMyCourses();
+      setCourses(coursesResponse || []);
 
       // Fetch forum posts
       const params: any = {
@@ -66,21 +66,40 @@ const ForumsPage: React.FC = () => {
         search: searchQuery
       };
       
+      let allPosts: ForumPost[] = [];
+      
       if (selectedCourse !== 'all') {
-        params.courseId = selectedCourse;
+        // Get posts for specific course
+        const postsResponse = await forumService.getForumPosts(selectedCourse, params);
+        allPosts = postsResponse.data || [];
+      } else {
+        // Get posts for all user's courses
+        const courseList = coursesResponse || [];
+        const postPromises = courseList.map(course => 
+          forumService.getForumPosts(course.id, params).catch(() => ({ data: [] }))
+        );
+        
+        const postsResponses = await Promise.all(postPromises);
+        allPosts = postsResponses.flatMap(response => response.data || []);
+        
+        // Sort all posts by creation date if getting from multiple courses
+        if (sortBy === 'latest') {
+          allPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } else if (sortBy === 'popular') {
+          allPosts.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
+        }
       }
 
-      const postsResponse = await forumService.getForumPosts(params);
-      setForumPosts(postsResponse.data);
+      setForumPosts(allPosts);
 
       // Calculate stats
-      const totalPosts = postsResponse.data.length;
-      const totalReplies = postsResponse.data.reduce((sum: number, post: ForumPost) => 
+      const totalPosts = allPosts.length;
+      const totalReplies = allPosts.reduce((sum: number, post: ForumPost) => 
         sum + (post.repliesCount || 0), 0
       );
-      const uniqueUsers = new Set(postsResponse.data.map((post: ForumPost) => post.userId));
+      const uniqueUsers = new Set(allPosts.map((post: ForumPost) => post.userId));
       const today = new Date().toDateString();
-      const todayPosts = postsResponse.data.filter((post: ForumPost) => 
+      const todayPosts = allPosts.filter((post: ForumPost) => 
         new Date(post.createdAt).toDateString() === today
       ).length;
 
