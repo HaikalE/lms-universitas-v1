@@ -78,10 +78,11 @@ const LecturerDashboard: React.FC = () => {
       // we'll use a safe fallback approach for now
       const pendingGrading = 0; // TODO: Fetch submissions data separately if needed
 
-      // Calculate active discussions
-      const activeDiscussions = forums.filter(f => f.lastActivity && 
-        new Date(f.lastActivity).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
-      ).length;
+      // Calculate active discussions - use updatedAt instead of lastActivity
+      const activeDiscussions = forums.filter(f => {
+        const lastActivity = f.updatedAt || f.createdAt;
+        return new Date(lastActivity).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
+      }).length;
 
       // Calculate average completion rate - simplified since we don't have submissions data
       const averageCompletionRate = 0; // TODO: Calculate based on actual submission data
