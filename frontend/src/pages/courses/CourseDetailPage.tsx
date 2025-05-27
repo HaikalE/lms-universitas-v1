@@ -719,150 +719,152 @@ const CourseDetailPage: React.FC = () => {
       </div>
 
       {/* Material Form Modal */}
-      <Modal
-        isOpen={materialModalOpen}
-        onClose={() => {
-          setMaterialModalOpen(false);
-          resetMaterialForm();
-        }}
-        title={editingMaterial ? 'Edit Materi' : 'Tambah Materi'}
-      >
-        <form onSubmit={handleMaterialSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Judul Materi
-            </label>
-            <Input
-              type="text"
-              value={materialForm.title}
-              onChange={(e) => setMaterialForm({...materialForm, title: e.target.value})}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Deskripsi
-            </label>
-            <textarea
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              rows={3}
-              value={materialForm.description}
-              onChange={(e) => setMaterialForm({...materialForm, description: e.target.value})}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipe Materi
-            </label>
-            <Select
-              value={materialForm.type}
-              onChange={(e) => setMaterialForm({...materialForm, type: e.target.value as MaterialType})}
-              className="w-full"
-            >
-              <option value={MaterialType.PDF}>PDF</option>
-              <option value={MaterialType.VIDEO}>Video</option>
-              <option value={MaterialType.DOCUMENT}>Dokumen</option>
-              <option value={MaterialType.PRESENTATION}>Presentasi</option>
-              <option value={MaterialType.LINK}>Link</option>
-            </Select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Minggu
-            </label>
-            <Input
-              type="number"
-              min="1"
-              max="16"
-              value={materialForm.week}
-              onChange={(e) => setMaterialForm({...materialForm, week: parseInt(e.target.value) || 1})}
-              required
-            />
-          </div>
-
-          {materialForm.type === MaterialType.LINK ? (
+      {materialModalOpen && (
+        <Modal
+          onClose={() => {
+            setMaterialModalOpen(false);
+            resetMaterialForm();
+          }}
+          title={editingMaterial ? 'Edit Materi' : 'Tambah Materi'}
+        >
+          <form onSubmit={handleMaterialSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                URL
+                Judul Materi
               </label>
               <Input
-                type="url"
-                value={materialForm.url || ''}
-                onChange={(e) => setMaterialForm({...materialForm, url: e.target.value})}
+                type="text"
+                value={materialForm.title}
+                onChange={(e) => setMaterialForm({...materialForm, title: e.target.value})}
                 required
               />
             </div>
-          ) : (
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                File
+                Deskripsi
               </label>
-              <input
-                type="file"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setMaterialForm({...materialForm, file: e.target.files[0]});
-                  }
-                }}
+              <textarea
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                accept={
-                  materialForm.type === MaterialType.PDF ? '.pdf' :
-                  materialForm.type === MaterialType.VIDEO ? 'video/*' :
-                  materialForm.type === MaterialType.PRESENTATION ? '.ppt,.pptx' :
-                  '*'
-                }
+                rows={3}
+                value={materialForm.description}
+                onChange={(e) => setMaterialForm({...materialForm, description: e.target.value})}
               />
             </div>
-          )}
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setMaterialModalOpen(false);
-                resetMaterialForm();
-              }}
-            >
-              Batal
-            </Button>
-            <Button type="submit">
-              {editingMaterial ? 'Simpan' : 'Tambah'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipe Materi
+              </label>
+              <Select
+                value={materialForm.type}
+                onChange={(e) => setMaterialForm({...materialForm, type: e.target.value as MaterialType})}
+                className="w-full"
+              >
+                <option value={MaterialType.PDF}>PDF</option>
+                <option value={MaterialType.VIDEO}>Video</option>
+                <option value={MaterialType.DOCUMENT}>Dokumen</option>
+                <option value={MaterialType.PRESENTATION}>Presentasi</option>
+                <option value={MaterialType.LINK}>Link</option>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Minggu
+              </label>
+              <Input
+                type="number"
+                min="1"
+                max="16"
+                value={materialForm.week}
+                onChange={(e) => setMaterialForm({...materialForm, week: parseInt(e.target.value) || 1})}
+                required
+              />
+            </div>
+
+            {materialForm.type === MaterialType.LINK ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  URL
+                </label>
+                <Input
+                  type="url"
+                  value={materialForm.url || ''}
+                  onChange={(e) => setMaterialForm({...materialForm, url: e.target.value})}
+                  required
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  File
+                </label>
+                <input
+                  type="file"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setMaterialForm({...materialForm, file: e.target.files[0]});
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  accept={
+                    materialForm.type === MaterialType.PDF ? '.pdf' :
+                    materialForm.type === MaterialType.VIDEO ? 'video/*' :
+                    materialForm.type === MaterialType.PRESENTATION ? '.ppt,.pptx' :
+                    '*'
+                  }
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setMaterialModalOpen(false);
+                  resetMaterialForm();
+                }}
+              >
+                Batal
+              </Button>
+              <Button type="submit">
+                {editingMaterial ? 'Simpan' : 'Tambah'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Delete Material Modal */}
-      <Modal
-        isOpen={deleteMaterialModalOpen}
-        onClose={() => setDeleteMaterialModalOpen(false)}
-        title="Konfirmasi Hapus"
-      >
-        <div className="space-y-4">
-          <p>
-            Apakah Anda yakin ingin menghapus materi <strong>{selectedMaterial?.title}</strong>?
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteMaterialModalOpen(false)}
-            >
-              Batal
-            </Button>
-            <Button
-              variant="primary"
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleDeleteMaterial}
-            >
-              Hapus
-            </Button>
+      {deleteMaterialModalOpen && (
+        <Modal
+          onClose={() => setDeleteMaterialModalOpen(false)}
+          title="Konfirmasi Hapus"
+        >
+          <div className="space-y-4">
+            <p>
+              Apakah Anda yakin ingin menghapus materi <strong>{selectedMaterial?.title}</strong>?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteMaterialModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDeleteMaterial}
+              >
+                Hapus
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
     </div>
   );
 };
