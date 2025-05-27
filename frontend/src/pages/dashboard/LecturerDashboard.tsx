@@ -68,7 +68,7 @@ const LecturerDashboard: React.FC = () => {
       ]);
 
       // Calculate total students
-      const totalStudents = courses.reduce((sum, course) => sum + course.enrolledStudents, 0);
+      const totalStudents = courses.reduce((sum, course) => sum + (course.studentsCount || 0), 0);
 
       // Calculate pending grading
       const pendingGrading = assignments.reduce((sum, assignment) => 
@@ -85,9 +85,9 @@ const LecturerDashboard: React.FC = () => {
         const courseAssignments = assignments.filter(a => a.courseId === course.id);
         if (courseAssignments.length === 0) return 0;
         
-        const totalExpectedSubmissions = courseAssignments.length * course.enrolledStudents;
+        const totalExpectedSubmissions = courseAssignments.length * (course.studentsCount || 0);
         const actualSubmissions = courseAssignments.reduce((sum, a) => sum + a.submissions.length, 0);
-        return (actualSubmissions / totalExpectedSubmissions) * 100;
+        return totalExpectedSubmissions > 0 ? (actualSubmissions / totalExpectedSubmissions) * 100 : 0;
       });
 
       const averageCompletionRate = completionRates.length > 0
@@ -123,7 +123,7 @@ const LecturerDashboard: React.FC = () => {
         return {
           id: course.id,
           name: course.name,
-          enrolledStudents: course.enrolledStudents,
+          enrolledStudents: course.studentsCount || 0,
           assignments: courseAssignments.length,
           completionRate: Math.round(completionRate)
         };
