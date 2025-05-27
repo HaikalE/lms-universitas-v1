@@ -60,12 +60,16 @@ const LecturerDashboard: React.FC = () => {
   const { data: stats, isLoading, error, refetch } = useQuery<LecturerStats>(
     'lecturer-dashboard-stats',
     async () => {
-      const [courses, assignments, forums, announcements] = await Promise.all([
+      const [courses, assignmentsResponse, forums, announcementsResponse] = await Promise.all([
         courseService.getMyCourses(),
         assignmentService.getAssignments({ role: 'lecturer' }),
         forumService.getMyDiscussions(),
         announcementService.getAnnouncements({ role: 'lecturer' })
       ]);
+
+      // Extract data from ApiResponse
+      const assignments = assignmentsResponse.data;
+      const announcements = announcementsResponse.data;
 
       // Calculate total students
       const totalStudents = courses.reduce((sum, course) => sum + (course.studentsCount || 0), 0);
