@@ -162,10 +162,17 @@ export interface ForumReply {
   replies?: ForumReply[];
 }
 
+export enum ForumPostType {
+  QUESTION = 'question',
+  DISCUSSION = 'discussion',
+  ANNOUNCEMENT = 'announcement',
+}
+
 export interface ForumPost {
   id: string;
   title: string;
   content: string;
+  type?: ForumPostType | string;
   isPinned: boolean;
   isLocked: boolean;
   likesCount: number;
