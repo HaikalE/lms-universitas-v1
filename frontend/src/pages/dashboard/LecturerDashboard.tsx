@@ -63,7 +63,7 @@ const LecturerDashboard: React.FC = () => {
       const [courses, assignments, forums, announcements] = await Promise.all([
         courseService.getMyCourses({ role: 'lecturer' }),
         assignmentService.getAssignments({ role: 'lecturer' }),
-        forumService.getForumStats({ role: 'lecturer' }),
+        forumService.getMyDiscussions(),
         announcementService.getMyAnnouncements({ role: 'lecturer' })
       ]);
 
