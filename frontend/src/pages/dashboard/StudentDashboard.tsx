@@ -45,23 +45,26 @@ const StudentDashboard: React.FC = () => {
   const { data: stats, isLoading, error } = useQuery<DashboardStats>(
     'student-dashboard-stats',
     async () => {
-      const [courses, assignments, notifications, forums] = await Promise.all([
+      const [courses, assignmentsResponse, notifications, forums] = await Promise.all([
         courseService.getMyCourses(),
-        assignmentService.getMyAssignments(),
+        assignmentService.getAssignments(),
         notificationService.getMyNotifications(),
         forumService.getMyDiscussions()
       ]);
 
+      // Extract assignments from API response
+      const assignments = assignmentsResponse.data || [];
+
       // Calculate statistics
-      const pendingAssignments = assignments.filter(a => !a.submitted).length;
-      const completedAssignments = assignments.filter(a => a.submitted).length;
+      const pendingAssignments = assignments.filter(a => !a.mySubmission || a.mySubmission.status !== 'submitted').length;
+      const completedAssignments = assignments.filter(a => a.mySubmission && a.mySubmission.status === 'submitted').length;
       const completionRate = assignments.length > 0 
         ? Math.round((completedAssignments / assignments.length) * 100)
         : 0;
 
       // Get upcoming deadlines
       const upcomingDeadlines = assignments
-        .filter(a => !a.submitted && new Date(a.dueDate) > new Date())
+        .filter(a => (!a.mySubmission || a.mySubmission.status !== 'submitted') && new Date(a.dueDate) > new Date())
         .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
         .slice(0, 5)
         .map(assignment => ({
