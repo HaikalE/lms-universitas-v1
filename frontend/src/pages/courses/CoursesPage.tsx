@@ -487,106 +487,108 @@ const CoursesPage: React.FC = () => {
       )}
 
       {/* Filter Modal */}
-      <Modal
-        isOpen={showFilterModal}
-        onClose={() => setShowFilterModal(false)}
-        title="Filter Lanjutan"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cari Dosen
-            </label>
-            <Input
-              type="text"
-              placeholder="Nama dosen..."
-              value={filters.lecturer}
-              onChange={(e) => setFilters({...filters, lecturer: e.target.value})}
-            />
-          </div>
+      {showFilterModal && (
+        <Modal
+          onClose={() => setShowFilterModal(false)}
+          title="Filter Lanjutan"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cari Dosen
+              </label>
+              <Input
+                type="text"
+                placeholder="Nama dosen..."
+                value={filters.lecturer}
+                onChange={(e) => setFilters({...filters, lecturer: e.target.value})}
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Urutkan Berdasarkan
-            </label>
-            <Select
-              value={filters.sortBy}
-              onChange={(e) => setFilters({...filters, sortBy: e.target.value as any})}
-              className="w-full"
-            >
-              <option value="name">Nama</option>
-              <option value="code">Kode</option>
-              <option value="credits">SKS</option>
-              <option value="studentsCount">Jumlah Mahasiswa</option>
-            </Select>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Urutkan Berdasarkan
+              </label>
+              <Select
+                value={filters.sortBy}
+                onChange={(e) => setFilters({...filters, sortBy: e.target.value as any})}
+                className="w-full"
+              >
+                <option value="name">Nama</option>
+                <option value="code">Kode</option>
+                <option value="credits">SKS</option>
+                <option value="studentsCount">Jumlah Mahasiswa</option>
+              </Select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Urutan
-            </label>
-            <Select
-              value={filters.sortOrder}
-              onChange={(e) => setFilters({...filters, sortOrder: e.target.value as any})}
-              className="w-full"
-            >
-              <option value="asc">A-Z / Rendah-Tinggi</option>
-              <option value="desc">Z-A / Tinggi-Rendah</option>
-            </Select>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Urutan
+              </label>
+              <Select
+                value={filters.sortOrder}
+                onChange={(e) => setFilters({...filters, sortOrder: e.target.value as any})}
+                className="w-full"
+              >
+                <option value="asc">A-Z / Rendah-Tinggi</option>
+                <option value="desc">Z-A / Tinggi-Rendah</option>
+              </Select>
+            </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setFilters({
-                  semester: '',
-                  credits: '',
-                  lecturer: '',
-                  sortBy: 'name',
-                  sortOrder: 'asc'
-                });
-              }}
-            >
-              Reset
-            </Button>
-            <Button onClick={() => setShowFilterModal(false)}>
-              Terapkan
-            </Button>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFilters({
+                    semester: '',
+                    credits: '',
+                    lecturer: '',
+                    sortBy: 'name',
+                    sortOrder: 'asc'
+                  });
+                }}
+              >
+                Reset
+              </Button>
+              <Button onClick={() => setShowFilterModal(false)}>
+                Terapkan
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
 
       {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title="Konfirmasi Hapus"
-      >
-        <div className="space-y-4">
-          <p>
-            Apakah Anda yakin ingin menghapus mata kuliah <strong>{selectedCourse?.name}</strong>?
-          </p>
-          <p className="text-sm text-gray-600">
-            Tindakan ini tidak dapat dibatalkan dan akan menghapus semua data terkait.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteModalOpen(false)}
-            >
-              Batal
-            </Button>
-            <Button
-              variant="primary"
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleDeleteCourse}
-            >
-              Hapus
-            </Button>
+      {deleteModalOpen && (
+        <Modal
+          onClose={() => setDeleteModalOpen(false)}
+          title="Konfirmasi Hapus"
+        >
+          <div className="space-y-4">
+            <p>
+              Apakah Anda yakin ingin menghapus mata kuliah <strong>{selectedCourse?.name}</strong>?
+            </p>
+            <p className="text-sm text-gray-600">
+              Tindakan ini tidak dapat dibatalkan dan akan menghapus semua data terkait.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDeleteCourse}
+              >
+                Hapus
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
     </div>
   );
 };
