@@ -3,6 +3,7 @@ import React from 'react';
 interface CardProps {
   children: React.ReactNode;
   className?: string;
+  onClick?: () => void;
 }
 
 interface CardHeaderProps {
@@ -20,9 +21,13 @@ interface CardFooterProps {
   className?: string;
 }
 
-const Card: React.FC<CardProps> = ({ children, className = '' }) => {
+const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
   return (
-    <div className={`card ${className}`}>
+    <div 
+      className={`card ${className}`} 
+      onClick={onClick}
+      style={onClick ? { cursor: 'pointer' } : {}}
+    >
       {children}
     </div>
   );
