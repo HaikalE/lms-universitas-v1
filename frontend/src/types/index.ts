@@ -144,6 +144,24 @@ export interface Grade {
   };
 }
 
+// Forward declaration for ForumReply
+export interface ForumReply {
+  id: string;
+  content: string;
+  userId: string;
+  isLiked: boolean;
+  likesCount: number;
+  isAnswer: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  user: {
+    id: string;
+    name: string;
+    role?: UserRole;
+  };
+  replies?: ForumReply[];
+}
+
 export interface ForumPost {
   id: string;
   title: string;
@@ -175,23 +193,6 @@ export interface ForumPost {
     code: string;
     name: string;
   };
-}
-
-export interface ForumReply {
-  id: string;
-  content: string;
-  userId: string;
-  isLiked: boolean;
-  likesCount: number;
-  isAnswer: boolean;
-  createdAt: string;
-  updatedAt?: string;
-  user: {
-    id: string;
-    name: string;
-    role?: UserRole;
-  };
-  replies?: ForumReply[];
 }
 
 export interface Announcement {
