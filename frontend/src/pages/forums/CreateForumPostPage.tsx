@@ -105,13 +105,13 @@ const CreateForumPostPage: React.FC = () => {
     try {
       setLoading(true);
       
-      const response = await forumService.createForumPost({
+      const forumPost = await forumService.createForumPost({
         ...formData,
         tags: formData.tags.filter(tag => tag.trim())
       });
       
       // Redirect to the new post
-      navigate(`/forums/${response.data.id}`);
+      navigate(`/forums/${forumPost.id}`);
     } catch (error) {
       console.error('Error creating forum post:', error);
       alert('Gagal membuat diskusi. Silakan coba lagi.');
