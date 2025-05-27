@@ -19,12 +19,13 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { adminService } from '../../services';
+import { adminService, SystemStats } from '../../services';
 import { formatDate } from '../../utils/date';
 import { LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-interface SystemStats {
-  users: {
+// Extended interface for dashboard-specific data
+interface DashboardStats extends SystemStats {
+  users?: {
     total: number;
     students: number;
     lecturers: number;
@@ -32,13 +33,13 @@ interface SystemStats {
     activeToday: number;
     newThisMonth: number;
   };
-  courses: {
+  courses?: {
     total: number;
     active: number;
     archived: number;
     avgStudentsPerCourse: number;
   };
-  system: {
+  system?: {
     status: 'healthy' | 'warning' | 'critical';
     uptime: string;
     diskUsage: number;
@@ -46,29 +47,29 @@ interface SystemStats {
     cpuUsage: number;
     lastBackup: string;
   };
-  activities: {
+  activities?: {
     totalAssignments: number;
     totalSubmissions: number;
     avgGradeScore: number;
     forumPosts: number;
   };
-  alerts: Array<{
+  alerts?: Array<{
     id: string;
     type: 'warning' | 'error' | 'info';
     message: string;
     timestamp: string;
   }>;
-  userGrowth: Array<{
+  userGrowth?: Array<{
     month: string;
     students: number;
     lecturers: number;
   }>;
-  courseDistribution: Array<{
+  courseDistribution?: Array<{
     department: string;
     courses: number;
     percentage: number;
   }>;
-  recentActivities: Array<{
+  recentActivities?: Array<{
     id: string;
     type: string;
     user: string;
@@ -82,9 +83,97 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 const AdminDashboard: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('week');
   
-  const { data: stats, isLoading, error, refetch } = useQuery<SystemStats>(
+  const { data: stats, isLoading, error, refetch } = useQuery<DashboardStats>(
     ['admin-dashboard-stats', timeRange],
-    () => adminService.getSystemStats(timeRange),
+    async () => {
+      // Get basic stats from adminService
+      const systemStats = await adminService.getSystemStats();
+      
+      // Transform and extend with mock data for dashboard-specific features
+      const dashboardStats: DashboardStats = {
+        ...systemStats,
+        users: {
+          total: systemStats.totalUsers || 0,
+          students: systemStats.totalStudents || 0,
+          lecturers: systemStats.totalLecturers || 0,
+          admins: systemStats.totalAdmins || 0,
+          activeToday: Math.floor((systemStats.totalUsers || 0) * 0.1),
+          newThisMonth: Math.floor((systemStats.totalUsers || 0) * 0.05),
+        },
+        courses: {
+          total: systemStats.totalCourses || 0,
+          active: systemStats.activeCourses || 0,
+          archived: Math.max(0, (systemStats.totalCourses || 0) - (systemStats.activeCourses || 0)),
+          avgStudentsPerCourse: systemStats.totalCourses > 0 ? Math.floor((systemStats.totalStudents || 0) / systemStats.totalCourses) : 0,
+        },
+        system: {
+          status: systemStats.systemHealth?.status === 'healthy' ? 'healthy' : 'warning',
+          uptime: '99.9%',
+          diskUsage: systemStats.systemHealth?.diskUsage || 0,
+          memoryUsage: systemStats.systemHealth?.memoryUsage || 0,
+          cpuUsage: Math.floor(Math.random() * 30) + 20, // Mock CPU usage
+          lastBackup: systemStats.systemHealth?.lastBackup || new Date().toISOString(),
+        },
+        activities: {
+          totalAssignments: systemStats.totalAssignments || 0,
+          totalSubmissions: systemStats.totalSubmissions || 0,
+          avgGradeScore: 85.5, // Mock average grade
+          forumPosts: Math.floor(Math.random() * 50) + 100, // Mock forum posts
+        },
+        alerts: [
+          {
+            id: '1',
+            type: 'warning',
+            message: 'Disk usage mencapai 80%',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            id: '2',
+            type: 'info',
+            message: 'Backup otomatis berhasil dilakukan',
+            timestamp: new Date(Date.now() - 3600000).toISOString(),
+          }
+        ],
+        userGrowth: [
+          { month: 'Jan', students: 120, lecturers: 15 },
+          { month: 'Feb', students: 135, lecturers: 16 },
+          { month: 'Mar', students: 145, lecturers: 18 },
+          { month: 'Apr', students: 160, lecturers: 20 },
+          { month: 'May', students: 175, lecturers: 22 },
+        ],
+        courseDistribution: [
+          { department: 'Teknik Informatika', courses: 25, percentage: 40 },
+          { department: 'Sistem Informasi', courses: 20, percentage: 32 },
+          { department: 'Teknik Elektro', courses: 10, percentage: 16 },
+          { department: 'Matematika', courses: 8, percentage: 12 },
+        ],
+        recentActivities: [
+          {
+            id: '1',
+            type: 'User Registration',
+            user: 'John Doe',
+            action: 'mendaftar sebagai mahasiswa',
+            timestamp: new Date(Date.now() - 1800000).toISOString(),
+          },
+          {
+            id: '2',
+            type: 'Course Creation',
+            user: 'Prof. Smith',
+            action: 'membuat mata kuliah Algoritma',
+            timestamp: new Date(Date.now() - 3600000).toISOString(),
+          },
+          {
+            id: '3',
+            type: 'Assignment Submission',
+            user: 'Jane Smith',
+            action: 'mengumpulkan tugas Pemrograman Web',
+            timestamp: new Date(Date.now() - 7200000).toISOString(),
+          },
+        ],
+      };
+      
+      return dashboardStats;
+    },
     {
       refetchInterval: 30000, // Refresh every 30 seconds
     }
@@ -103,12 +192,12 @@ const AdminDashboard: React.FC = () => {
   }
 
   const systemStatusColor = 
-    stats?.system.status === 'healthy' ? 'text-green-600' :
-    stats?.system.status === 'warning' ? 'text-yellow-600' : 'text-red-600';
+    stats?.system?.status === 'healthy' ? 'text-green-600' :
+    stats?.system?.status === 'warning' ? 'text-yellow-600' : 'text-red-600';
 
   const systemStatusBg = 
-    stats?.system.status === 'healthy' ? 'bg-green-100' :
-    stats?.system.status === 'warning' ? 'bg-yellow-100' : 'bg-red-100';
+    stats?.system?.status === 'healthy' ? 'bg-green-100' :
+    stats?.system?.status === 'warning' ? 'bg-yellow-100' : 'bg-red-100';
 
   return (
     <div className="space-y-6">
@@ -166,18 +255,18 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* System Status Alert */}
-      {stats?.system.status !== 'healthy' && (
+      {stats?.system?.status !== 'healthy' && (
         <div className={`rounded-lg p-4 ${systemStatusBg} border ${
-          stats?.system.status === 'warning' ? 'border-yellow-200' : 'border-red-200'
+          stats?.system?.status === 'warning' ? 'border-yellow-200' : 'border-red-200'
         }`}>
           <div className="flex">
             <ExclamationTriangleIcon className={`h-5 w-5 ${systemStatusColor}`} />
             <div className="ml-3">
               <h3 className={`text-sm font-medium ${systemStatusColor}`}>
-                System {stats?.system.status === 'warning' ? 'Warning' : 'Critical'}
+                System {stats?.system?.status === 'warning' ? 'Warning' : 'Critical'}
               </h3>
               <div className="mt-2 text-sm">
-                {stats?.alerts.slice(0, 3).map(alert => (
+                {stats?.alerts?.slice(0, 3).map(alert => (
                   <p key={alert.id} className={systemStatusColor}>{alert.message}</p>
                 ))}
               </div>
@@ -192,9 +281,9 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Pengguna</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.users.total || 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.users?.total || 0}</p>
               <p className="text-xs text-green-600 mt-1">
-                +{stats?.users.newThisMonth || 0} bulan ini
+                +{stats?.users?.newThisMonth || 0} bulan ini
               </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -203,7 +292,7 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="mt-4 flex items-center justify-between text-xs">
             <span className="text-gray-500">Aktif hari ini:</span>
-            <span className="font-medium text-gray-900">{stats?.users.activeToday || 0}</span>
+            <span className="font-medium text-gray-900">{stats?.users?.activeToday || 0}</span>
           </div>
         </Card>
 
@@ -211,9 +300,9 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Mata Kuliah</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.courses.total || 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.courses?.total || 0}</p>
               <p className="text-xs text-gray-500 mt-1">
-                {stats?.courses.active || 0} aktif
+                {stats?.courses?.active || 0} aktif
               </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -222,7 +311,7 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="mt-4 flex items-center justify-between text-xs">
             <span className="text-gray-500">Rata-rata mahasiswa:</span>
-            <span className="font-medium text-gray-900">{stats?.courses.avgStudentsPerCourse || 0}</span>
+            <span className="font-medium text-gray-900">{stats?.courses?.avgStudentsPerCourse || 0}</span>
           </div>
         </Card>
 
@@ -231,10 +320,10 @@ const AdminDashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">System Health</p>
               <p className={`text-2xl font-bold capitalize ${systemStatusColor}`}>
-                {stats?.system.status || 'Unknown'}
+                {stats?.system?.status || 'Unknown'}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Uptime: {stats?.system.uptime || 'N/A'}
+                Uptime: {stats?.system?.uptime || 'N/A'}
               </p>
             </div>
             <div className={`p-3 ${systemStatusBg} rounded-lg`}>
@@ -244,11 +333,11 @@ const AdminDashboard: React.FC = () => {
           <div className="mt-4 space-y-1">
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-500">CPU:</span>
-              <span className="font-medium">{stats?.system.cpuUsage || 0}%</span>
+              <span className="font-medium">{stats?.system?.cpuUsage || 0}%</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-500">Memory:</span>
-              <span className="font-medium">{stats?.system.memoryUsage || 0}%</span>
+              <span className="font-medium">{stats?.system?.memoryUsage || 0}%</span>
             </div>
           </div>
         </Card>
@@ -257,7 +346,7 @@ const AdminDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Aktivitas</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.activities.totalSubmissions || 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.activities?.totalSubmissions || 0}</p>
               <p className="text-xs text-gray-500 mt-1">
                 Pengumpulan tugas
               </p>
@@ -268,7 +357,7 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="mt-4 flex items-center justify-between text-xs">
             <span className="text-gray-500">Rata-rata nilai:</span>
-            <span className="font-medium text-gray-900">{stats?.activities.avgGradeScore || 0}</span>
+            <span className="font-medium text-gray-900">{stats?.activities?.avgGradeScore || 0}</span>
           </div>
         </Card>
       </div>
@@ -316,7 +405,7 @@ const AdminDashboard: React.FC = () => {
                     fill="#8884d8"
                     dataKey="courses"
                   >
-                    {stats?.courseDistribution.map((entry, index) => (
+                    {stats?.courseDistribution?.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -338,51 +427,51 @@ const AdminDashboard: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">CPU Usage</span>
-                <span className="text-sm font-bold text-gray-900">{stats?.system.cpuUsage || 0}%</span>
+                <span className="text-sm font-bold text-gray-900">{stats?.system?.cpuUsage || 0}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full ${
-                    (stats?.system.cpuUsage || 0) > 80 ? 'bg-red-600' : 
-                    (stats?.system.cpuUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                    (stats?.system?.cpuUsage || 0) > 80 ? 'bg-red-600' : 
+                    (stats?.system?.cpuUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
                   }`}
-                  style={{ width: `${stats?.system.cpuUsage || 0}%` }}
+                  style={{ width: `${stats?.system?.cpuUsage || 0}%` }}
                 />
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Memory Usage</span>
-                <span className="text-sm font-bold text-gray-900">{stats?.system.memoryUsage || 0}%</span>
+                <span className="text-sm font-bold text-gray-900">{stats?.system?.memoryUsage || 0}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full ${
-                    (stats?.system.memoryUsage || 0) > 80 ? 'bg-red-600' : 
-                    (stats?.system.memoryUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                    (stats?.system?.memoryUsage || 0) > 80 ? 'bg-red-600' : 
+                    (stats?.system?.memoryUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
                   }`}
-                  style={{ width: `${stats?.system.memoryUsage || 0}%` }}
+                  style={{ width: `${stats?.system?.memoryUsage || 0}%` }}
                 />
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Disk Usage</span>
-                <span className="text-sm font-bold text-gray-900">{stats?.system.diskUsage || 0}%</span>
+                <span className="text-sm font-bold text-gray-900">{stats?.system?.diskUsage || 0}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full ${
-                    (stats?.system.diskUsage || 0) > 80 ? 'bg-red-600' : 
-                    (stats?.system.diskUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                    (stats?.system?.diskUsage || 0) > 80 ? 'bg-red-600' : 
+                    (stats?.system?.diskUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
                   }`}
-                  style={{ width: `${stats?.system.diskUsage || 0}%` }}
+                  style={{ width: `${stats?.system?.diskUsage || 0}%` }}
                 />
               </div>
             </div>
           </div>
           <div className="mt-6 flex items-center justify-between text-sm">
-            <span className="text-gray-500">Last Backup: {formatDate(stats?.system.lastBackup || new Date(), 'full')}</span>
+            <span className="text-gray-500">Last Backup: {formatDate(stats?.system?.lastBackup || new Date(), 'full')}</span>
             <Button size="sm" variant="outline">
               <ShieldCheckIcon className="h-4 w-4 mr-2" />
               Backup Now
@@ -443,10 +532,10 @@ const AdminDashboard: React.FC = () => {
             <div className="p-6">
               <div className="flow-root">
                 <ul className="-mb-8">
-                  {stats?.recentActivities.map((activity, activityIdx) => (
+                  {stats?.recentActivities?.map((activity, activityIdx) => (
                     <li key={activity.id}>
                       <div className="relative pb-8">
-                        {activityIdx !== stats.recentActivities.length - 1 ? (
+                        {activityIdx !== (stats?.recentActivities?.length || 0) - 1 ? (
                           <span
                             className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
                             aria-hidden="true"
