@@ -99,7 +99,7 @@ const StudentDashboard: React.FC = () => {
         enrolledCourses: courses.length,
         pendingAssignments,
         unreadNotifications: notifications.filter(n => !n.isRead).length,
-        activeDiscussions: forums.filter(f => f.isActive).length,
+        activeDiscussions: forums.filter(f => !f.isLocked).length, // Fixed: use !isLocked instead of isActive
         completionRate,
         upcomingDeadlines,
         recentActivities
