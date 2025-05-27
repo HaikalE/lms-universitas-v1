@@ -121,7 +121,7 @@ const ForumsPage: React.FC = () => {
     fetchData();
   };
 
-  const getPostTypeIcon = (type: string) => {
+  const getPostTypeIcon = (type: string | undefined) => {
     switch (type) {
       case 'question':
         return <MessageCircle className="w-5 h-5 text-blue-500" />;
