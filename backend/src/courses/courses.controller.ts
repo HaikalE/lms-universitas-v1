@@ -194,7 +194,7 @@ export class CoursesController {
       }
 
       // Validate week - should be a positive number
-      if (createMaterialDto.week !== undefined && createMaterialDto.week !== null && (typeof createMaterialDto.week !== 'number' | createMaterialDto.week < 1)) {
+      if (createMaterialDto.week !== undefined && createMaterialDto.week !== null && (typeof createMaterialDto.week !== 'number' || createMaterialDto.week < 1)) {
         throw new BadRequestException('Minggu harus berupa angka positif');
       }
 
