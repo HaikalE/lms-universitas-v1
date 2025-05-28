@@ -3,13 +3,16 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import { Course } from '../entities/course.entity';
 import { User, UserRole } from '../entities/user.entity';
-import { CourseMaterial } from '../entities/course-material.entity';
+import { CourseMaterial, MaterialType } from '../entities/course-material.entity';
 import { Assignment } from '../entities/assignment.entity';
 import { Announcement } from '../entities/announcement.entity';
 import { ForumPost } from '../entities/forum-post.entity';
@@ -266,6 +269,7 @@ export class CoursesService {
     courseId: string,
     createMaterialDto: CreateCourseMaterialDto,
     currentUser: User,
+    file?: Express.Multer.File,
   ) {
     const course = await this.courseRepository.findOne({ where: { id: courseId } });
 
@@ -281,8 +285,39 @@ export class CoursesService {
       throw new ForbiddenException('Anda tidak memiliki akses untuk menambah materi');
     }
 
+    let materialData = { ...createMaterialDto };
+
+    // Handle file upload if provided
+    if (file && createMaterialDto.type !== MaterialType.LINK) {
+      try {
+        // Create uploads directory if it doesn't exist
+        const uploadsDir = path.join(process.cwd(), 'uploads', 'course-materials');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        const fileExtension = path.extname(file.originalname);
+        const fileName = `${courseId}_${timestamp}_${randomStr}${fileExtension}`;
+        const filePath = path.join(uploadsDir, fileName);
+
+        // Save file to disk
+        fs.writeFileSync(filePath, file.buffer);
+
+        // Update material data with file info
+        materialData.fileName = file.originalname;
+        materialData.filePath = path.relative(process.cwd(), filePath);
+        materialData.fileSize = file.size;
+      } catch (error) {
+        console.error('Error saving file:', error);
+        throw new BadRequestException('Gagal menyimpan file');
+      }
+    }
+
     const material = this.materialRepository.create({
-      ...createMaterialDto,
+      ...materialData,
       courseId,
       uploadedById: currentUser.id,
     });
@@ -295,6 +330,7 @@ export class CoursesService {
     materialId: string,
     updateMaterialDto: UpdateCourseMaterialDto,
     currentUser: User,
+    file?: Express.Multer.File,
   ) {
     const material = await this.materialRepository.findOne({
       where: { id: materialId, courseId },
@@ -313,7 +349,43 @@ export class CoursesService {
       throw new ForbiddenException('Anda tidak memiliki akses untuk mengubah materi ini');
     }
 
-    Object.assign(material, updateMaterialDto);
+    let materialData = { ...updateMaterialDto };
+
+    // Handle file upload if provided
+    if (file && updateMaterialDto.type !== MaterialType.LINK) {
+      try {
+        // Delete old file if exists
+        if (material.filePath && fs.existsSync(material.filePath)) {
+          fs.unlinkSync(material.filePath);
+        }
+
+        // Create uploads directory if it doesn't exist
+        const uploadsDir = path.join(process.cwd(), 'uploads', 'course-materials');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        const fileExtension = path.extname(file.originalname);
+        const fileName = `${courseId}_${timestamp}_${randomStr}${fileExtension}`;
+        const filePath = path.join(uploadsDir, fileName);
+
+        // Save file to disk
+        fs.writeFileSync(filePath, file.buffer);
+
+        // Update material data with file info
+        materialData.fileName = file.originalname;
+        materialData.filePath = path.relative(process.cwd(), filePath);
+        materialData.fileSize = file.size;
+      } catch (error) {
+        console.error('Error saving file:', error);
+        throw new BadRequestException('Gagal menyimpan file');
+      }
+    }
+
+    Object.assign(material, materialData);
     return this.materialRepository.save(material);
   }
 
@@ -337,6 +409,15 @@ export class CoursesService {
       material.course.lecturerId !== currentUser.id
     ) {
       throw new ForbiddenException('Anda tidak memiliki akses untuk menghapus materi ini');
+    }
+
+    // Delete associated file if exists
+    if (material.filePath && fs.existsSync(material.filePath)) {
+      try {
+        fs.unlinkSync(material.filePath);
+      } catch (error) {
+        console.warn('Failed to delete file:', error);
+      }
     }
 
     await this.materialRepository.remove(material);
