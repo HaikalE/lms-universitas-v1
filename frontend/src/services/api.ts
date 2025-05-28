@@ -14,14 +14,27 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and handle FormData
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Check if the request data is FormData
+    if (config.data instanceof FormData) {
+      // Remove Content-Type header for FormData requests
+      // This allows the browser to set the correct multipart/form-data content type with boundary
+      delete config.headers['Content-Type'];
+      console.log('🗂️ FormData detected, Content-Type header removed for multipart/form-data');
+    }
+    
     console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    if (config.data instanceof FormData) {
+      console.log('📤 Request contains FormData with file upload');
+    }
+    
     return config;
   },
   (error) => {
