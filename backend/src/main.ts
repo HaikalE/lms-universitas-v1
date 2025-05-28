@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -50,10 +51,44 @@ async function bootstrap() {
     }),
   );
 
-  // Serve static files (uploaded files)
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-  });
+  // Serve static files (uploaded files) with proper MIME types
+  const uploadsPath = join(__dirname, '..', 'uploads');
+  app.use('/uploads', express.static(uploadsPath, {
+    setHeaders: (res, path) => {
+      // Set proper MIME types for different file extensions
+      if (path.endsWith('.pdf')) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline');
+      } else if (path.endsWith('.docx') || path.endsWith('.doc')) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', 'attachment');
+      } else if (path.endsWith('.pptx') || path.endsWith('.ppt')) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+        res.setHeader('Content-Disposition', 'attachment');
+      } else if (path.endsWith('.xlsx') || path.endsWith('.xls')) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment');
+      } else if (path.endsWith('.txt')) {
+        res.setHeader('Content-Type', 'text/plain');
+      } else if (path.endsWith('.mp4')) {
+        res.setHeader('Content-Type', 'video/mp4');
+      } else if (path.endsWith('.webm')) {
+        res.setHeader('Content-Type', 'video/webm');
+      } else if (path.endsWith('.mov')) {
+        res.setHeader('Content-Type', 'video/quicktime');
+      }
+      
+      // Security headers
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+    },
+    // Additional options for better file serving
+    maxAge: '1d', // Cache files for 1 day
+    etag: true,
+    lastModified: true,
+    dotfiles: 'deny', // Deny access to dotfiles for security
+  }));
 
   // Global prefix for API
   app.setGlobalPrefix('api');
@@ -65,6 +100,7 @@ async function bootstrap() {
   console.log(`📁 File uploads available at: http://localhost:${port}/uploads/`);
   console.log(`🌐 API endpoints: http://localhost:${port}/api/`);
   console.log(`🔒 CORS enabled for origins:`, corsOrigins);
+  console.log(`📄 Static file serving with proper MIME types enabled`);
 }
 
 bootstrap();
