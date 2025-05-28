@@ -12,8 +12,6 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
-  UsePipes,
-  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CoursesService } from './courses.service';
@@ -28,6 +26,17 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User, UserRole } from '../entities/user.entity';
 import { MaterialType } from '../entities/course-material.entity';
+
+// Interface untuk raw request body dari FormData
+interface RawMaterialBody {
+  title?: string;
+  description?: string;
+  type?: string;
+  url?: string;
+  week?: string | number;
+  orderIndex?: string | number;
+  isVisible?: string | boolean;
+}
 
 @Controller('courses')
 @UseGuards(JwtAuthGuard)
@@ -101,7 +110,7 @@ export class CoursesController {
   }))
   async createCourseMaterial(
     @Param('id', ParseUUIDPipe) courseId: string,
-    @Body() body: any,
+    @Body() body: RawMaterialBody,
     @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
@@ -114,15 +123,39 @@ export class CoursesController {
       } : 'No file');
       console.log('🔍 Debug - Course ID:', courseId);
 
+      // Helper function untuk validate dan convert values
+      const validateAndConvertNumber = (value: string | number | undefined, fieldName: string, min: number = 1): number => {
+        if (value === undefined || value === null || value === '') {
+          return min; // default value
+        }
+        
+        const num = typeof value === 'string' ? parseInt(value, 10) : value;
+        if (isNaN(num) || num < min) {
+          throw new BadRequestException(`${fieldName} harus berupa angka dan minimal ${min}`);
+        }
+        return num;
+      };
+
+      const validateAndConvertBoolean = (value: string | boolean | undefined): boolean => {
+        if (value === undefined || value === null || value === '') {
+          return true; // default value
+        }
+        
+        if (typeof value === 'string') {
+          return value === 'true' || value === '1';
+        }
+        return Boolean(value);
+      };
+
       // Manual validation and DTO construction
       const createMaterialDto: CreateCourseMaterialDto = {
         title: body.title,
         description: body.description,
-        type: body.type,
+        type: body.type as MaterialType,
         url: body.url,
-        week: body.week,
-        orderIndex: body.orderIndex,
-        isVisible: body.isVisible,
+        week: validateAndConvertNumber(body.week, 'Minggu', 1),
+        orderIndex: validateAndConvertNumber(body.orderIndex, 'Urutan', 1),
+        isVisible: validateAndConvertBoolean(body.isVisible),
       };
 
       // Validate required fields
@@ -136,54 +169,14 @@ export class CoursesController {
         throw new BadRequestException('Tipe materi wajib dipilih');
       }
 
+      // Validate material type enum
+      if (!Object.values(MaterialType).includes(createMaterialDto.type)) {
+        console.error('❌ Validation error: Invalid material type:', createMaterialDto.type);
+        throw new BadRequestException('Tipe materi harus salah satu dari: pdf, video, document, presentation, link');
+      }
+
       console.log('🔍 Debug - Material type:', createMaterialDto.type);
-
-      // Validate and convert week
-      if (createMaterialDto.week !== undefined && createMaterialDto.week !== null && createMaterialDto.week !== "") {
-        const weekNum = typeof createMaterialDto.week === 'string' 
-          ? parseInt(createMaterialDto.week as string, 10) 
-          : createMaterialDto.week;
-        
-        console.log('🔍 Debug - Week conversion:', { original: createMaterialDto.week, converted: weekNum });
-        
-        if (isNaN(weekNum) || weekNum < 1) {
-          console.error('❌ Validation error: Invalid week number:', weekNum);
-          throw new BadRequestException('Minggu harus berupa angka dan minimal 1');
-        }
-        createMaterialDto.week = weekNum;
-      } else {
-        console.log('🔍 Debug - Setting default week: 1');
-        createMaterialDto.week = 1;
-      }
-
-      // Validate and convert orderIndex
-      if (createMaterialDto.orderIndex !== undefined && createMaterialDto.orderIndex !== null && createMaterialDto.orderIndex !== "") {
-        const orderNum = typeof createMaterialDto.orderIndex === 'string' 
-          ? parseInt(createMaterialDto.orderIndex as string, 10) 
-          : createMaterialDto.orderIndex;
-        
-        console.log('🔍 Debug - OrderIndex conversion:', { original: createMaterialDto.orderIndex, converted: orderNum });
-        
-        if (isNaN(orderNum) || orderNum < 1) {
-          console.error('❌ Validation error: Invalid order index:', orderNum);
-          throw new BadRequestException('Urutan harus berupa angka dan minimal 1');
-        }
-        createMaterialDto.orderIndex = orderNum;
-      } else {
-        console.log('🔍 Debug - Setting default orderIndex: 1');
-        createMaterialDto.orderIndex = 1;
-      }
-
-      // Convert boolean strings
-      if (createMaterialDto.isVisible !== undefined && createMaterialDto.isVisible !== null && createMaterialDto.isVisible !== "") {
-        if (typeof createMaterialDto.isVisible === 'string') {
-          createMaterialDto.isVisible = createMaterialDto.isVisible === 'true' || createMaterialDto.isVisible === '1';
-        }
-        console.log('🔍 Debug - IsVisible conversion:', { original: body.isVisible, converted: createMaterialDto.isVisible });
-      } else {
-        console.log('🔍 Debug - Setting default isVisible: true');
-        createMaterialDto.isVisible = true;
-      }
+      console.log('🔍 Debug - Processed DTO:', createMaterialDto);
 
       // Validate URL for link type
       if (createMaterialDto.type === MaterialType.LINK) {
@@ -239,7 +232,7 @@ export class CoursesController {
   async updateCourseMaterial(
     @Param('courseId', ParseUUIDPipe) courseId: string,
     @Param('materialId', ParseUUIDPipe) materialId: string,
-    @Body() body: any,
+    @Body() body: RawMaterialBody,
     @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
@@ -247,45 +240,46 @@ export class CoursesController {
       console.log('🔍 Debug - Update body:', body);
       console.log('🔍 Debug - Update file:', file ? file.originalname : 'No file');
 
+      // Helper function untuk validate dan convert values (optional untuk update)
+      const validateAndConvertNumber = (value: string | number | undefined, fieldName: string, min: number = 1): number | undefined => {
+        if (value === undefined || value === null || value === '') {
+          return undefined; // tidak update field ini
+        }
+        
+        const num = typeof value === 'string' ? parseInt(value, 10) : value;
+        if (isNaN(num) || num < min) {
+          throw new BadRequestException(`${fieldName} harus berupa angka dan minimal ${min}`);
+        }
+        return num;
+      };
+
+      const validateAndConvertBoolean = (value: string | boolean | undefined): boolean | undefined => {
+        if (value === undefined || value === null || value === '') {
+          return undefined; // tidak update field ini
+        }
+        
+        if (typeof value === 'string') {
+          return value === 'true' || value === '1';
+        }
+        return Boolean(value);
+      };
+
       const updateMaterialDto: UpdateCourseMaterialDto = {
         title: body.title,
         description: body.description,
-        type: body.type,
+        type: body.type as MaterialType,
         url: body.url,
-        week: body.week,
-        orderIndex: body.orderIndex,
-        isVisible: body.isVisible,
+        week: validateAndConvertNumber(body.week, 'Minggu', 1),
+        orderIndex: validateAndConvertNumber(body.orderIndex, 'Urutan', 1),
+        isVisible: validateAndConvertBoolean(body.isVisible),
       };
 
-      // Convert string numbers to actual numbers if provided
-      if (updateMaterialDto.week !== undefined && updateMaterialDto.week !== null && updateMaterialDto.week !== "") {
-        const weekNum = typeof updateMaterialDto.week === 'string' 
-          ? parseInt(updateMaterialDto.week as string, 10) 
-          : updateMaterialDto.week;
-        
-        if (isNaN(weekNum) || weekNum < 1) {
-          throw new BadRequestException('Minggu harus berupa angka dan minimal 1');
-        }
-        updateMaterialDto.week = weekNum;
+      // Validate material type enum if provided
+      if (updateMaterialDto.type && !Object.values(MaterialType).includes(updateMaterialDto.type)) {
+        throw new BadRequestException('Tipe materi harus salah satu dari: pdf, video, document, presentation, link');
       }
 
-      if (updateMaterialDto.orderIndex !== undefined && updateMaterialDto.orderIndex !== null && updateMaterialDto.orderIndex !== "") {
-        const orderNum = typeof updateMaterialDto.orderIndex === 'string' 
-          ? parseInt(updateMaterialDto.orderIndex as string, 10) 
-          : updateMaterialDto.orderIndex;
-        
-        if (isNaN(orderNum) || orderNum < 1) {
-          throw new BadRequestException('Urutan harus berupa angka dan minimal 1');
-        }
-        updateMaterialDto.orderIndex = orderNum;
-      }
-
-      // Convert boolean strings
-      if (updateMaterialDto.isVisible !== undefined && updateMaterialDto.isVisible !== null && updateMaterialDto.isVisible !== "") {
-        if (typeof updateMaterialDto.isVisible === 'string') {
-          updateMaterialDto.isVisible = updateMaterialDto.isVisible === 'true' || updateMaterialDto.isVisible === '1';
-        }
-      }
+      console.log('🔍 Debug - Processed update DTO:', updateMaterialDto);
 
       return this.coursesService.updateCourseMaterial(
         courseId,
