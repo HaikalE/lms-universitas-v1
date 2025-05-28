@@ -8,6 +8,7 @@ import {
   IsBoolean,
   IsUrl,
   ValidateIf,
+  Allow,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MaterialType } from '../../entities/course-material.entity';
@@ -78,6 +79,7 @@ export class CreateCourseMaterialDto {
   @IsBoolean({ message: 'Visibilitas harus berupa boolean' })
   isVisible?: boolean = true;
 
-  // File upload akan dihandle terpisah melalui multer
-  // Tidak perlu validasi di DTO
+  // Allow file field from multer - this will be ignored by validation
+  @Allow()
+  file?: any;
 }
