@@ -227,19 +227,23 @@ export class AssignmentsService {
     // Verify assignment exists and student has access
     const assignment = await this.findOne(assignmentId, currentUser);
 
-    // Check if already submitted
+    // Check if already submitted (only if trying to submit, not for drafts)
     const existingSubmission = await this.submissionRepository.findOne({
       where: { assignmentId, studentId: currentUser.id },
     });
 
-    if (existingSubmission && existingSubmission.status === SubmissionStatus.SUBMITTED) {
+    // Use status from DTO, default to DRAFT if not provided
+    const submissionStatus = createSubmissionDto.status || SubmissionStatus.DRAFT;
+
+    if (existingSubmission && existingSubmission.status === SubmissionStatus.SUBMITTED && submissionStatus === SubmissionStatus.SUBMITTED) {
       throw new BadRequestException('Tugas sudah dikumpulkan sebelumnya');
     }
 
     const now = new Date();
     const isLate = now > assignment.dueDate;
 
-    if (isLate && !assignment.allowLateSubmission) {
+    // Only check late submission for actual submissions, not drafts
+    if (submissionStatus === SubmissionStatus.SUBMITTED && isLate && !assignment.allowLateSubmission) {
       throw new BadRequestException('Waktu pengumpulan tugas sudah berakhir');
     }
 
@@ -248,12 +252,19 @@ export class AssignmentsService {
       studentId: currentUser.id,
     });
 
-    Object.assign(submission, {
+    // Build the submission data object
+    const submissionData: any = {
       ...createSubmissionDto,
-      status: SubmissionStatus.SUBMITTED,
-      submittedAt: now,
+      status: submissionStatus,
       isLate,
-    });
+    };
+
+    // Only set submittedAt timestamp for actual submissions, not drafts
+    if (submissionStatus === SubmissionStatus.SUBMITTED) {
+      submissionData.submittedAt = now;
+    }
+
+    Object.assign(submission, submissionData);
 
     return this.submissionRepository.save(submission);
   }
