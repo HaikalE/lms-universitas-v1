@@ -91,22 +91,29 @@ export class CoursesController {
       fileSize: 50 * 1024 * 1024, // 50MB
     },
     fileFilter: (req, file, cb) => {
-      // Allow all file types for now, validation will be done in service
+      console.log('📁 File received by multer:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+      });
       cb(null, true);
     },
   }))
-  @UsePipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: false, // Allow extra fields like 'file' from multer
-    transform: true,
-  }))
   async createCourseMaterial(
     @Param('id', ParseUUIDPipe) courseId: string,
-    @Body() body: any, // Use any to bypass DTO validation initially
+    @Body() body: any,
     @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
     try {
+      console.log('🔍 Debug - Request body:', body);
+      console.log('🔍 Debug - File received:', file ? {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+      } : 'No file');
+      console.log('🔍 Debug - Course ID:', courseId);
+
       // Manual validation and DTO construction
       const createMaterialDto: CreateCourseMaterialDto = {
         title: body.title,
@@ -120,76 +127,100 @@ export class CoursesController {
 
       // Validate required fields
       if (!createMaterialDto.title || createMaterialDto.title.trim() === '') {
+        console.error('❌ Validation error: Title is required');
         throw new BadRequestException('Judul materi wajib diisi');
       }
 
       if (!createMaterialDto.type) {
+        console.error('❌ Validation error: Type is required');
         throw new BadRequestException('Tipe materi wajib dipilih');
       }
 
+      console.log('🔍 Debug - Material type:', createMaterialDto.type);
+
       // Validate and convert week
-      if (createMaterialDto.week !== undefined) {
+      if (createMaterialDto.week !== undefined && createMaterialDto.week !== null && createMaterialDto.week !== "") {
         const weekNum = typeof createMaterialDto.week === 'string' 
           ? parseInt(createMaterialDto.week as string, 10) 
           : createMaterialDto.week;
         
+        console.log('🔍 Debug - Week conversion:', { original: createMaterialDto.week, converted: weekNum });
+        
         if (isNaN(weekNum) || weekNum < 1) {
+          console.error('❌ Validation error: Invalid week number:', weekNum);
           throw new BadRequestException('Minggu harus berupa angka dan minimal 1');
         }
         createMaterialDto.week = weekNum;
       } else {
+        console.log('🔍 Debug - Setting default week: 1');
         createMaterialDto.week = 1;
       }
 
       // Validate and convert orderIndex
-      if (createMaterialDto.orderIndex !== undefined) {
+      if (createMaterialDto.orderIndex !== undefined && createMaterialDto.orderIndex !== null && createMaterialDto.orderIndex !== "") {
         const orderNum = typeof createMaterialDto.orderIndex === 'string' 
           ? parseInt(createMaterialDto.orderIndex as string, 10) 
           : createMaterialDto.orderIndex;
         
+        console.log('🔍 Debug - OrderIndex conversion:', { original: createMaterialDto.orderIndex, converted: orderNum });
+        
         if (isNaN(orderNum) || orderNum < 1) {
+          console.error('❌ Validation error: Invalid order index:', orderNum);
           throw new BadRequestException('Urutan harus berupa angka dan minimal 1');
         }
         createMaterialDto.orderIndex = orderNum;
       } else {
+        console.log('🔍 Debug - Setting default orderIndex: 1');
         createMaterialDto.orderIndex = 1;
       }
 
       // Convert boolean strings
-      if (createMaterialDto.isVisible !== undefined) {
+      if (createMaterialDto.isVisible !== undefined && createMaterialDto.isVisible !== null && createMaterialDto.isVisible !== "") {
         if (typeof createMaterialDto.isVisible === 'string') {
           createMaterialDto.isVisible = createMaterialDto.isVisible === 'true' || createMaterialDto.isVisible === '1';
         }
+        console.log('🔍 Debug - IsVisible conversion:', { original: body.isVisible, converted: createMaterialDto.isVisible });
       } else {
+        console.log('🔍 Debug - Setting default isVisible: true');
         createMaterialDto.isVisible = true;
       }
 
       // Validate URL for link type
       if (createMaterialDto.type === MaterialType.LINK) {
         if (!createMaterialDto.url || createMaterialDto.url.trim() === '') {
+          console.error('❌ Validation error: URL required for link type');
           throw new BadRequestException('URL wajib diisi untuk tipe link');
         }
         // Basic URL validation
         try {
           new URL(createMaterialDto.url);
+          console.log('✅ URL validation passed:', createMaterialDto.url);
         } catch {
+          console.error('❌ Validation error: Invalid URL format:', createMaterialDto.url);
           throw new BadRequestException('Format URL tidak valid');
         }
       }
 
       // Validate file for non-link types
       if (createMaterialDto.type !== MaterialType.LINK && !file) {
+        console.error('❌ Validation error: File required for non-link type:', createMaterialDto.type);
         throw new BadRequestException('File wajib diupload untuk tipe materi ini');
       }
 
-      return this.coursesService.createCourseMaterial(
+      console.log('✅ All validations passed, creating material:', createMaterialDto);
+
+      const result = await this.coursesService.createCourseMaterial(
         courseId,
         createMaterialDto,
         user,
         file,
       );
+
+      console.log('✅ Material created successfully:', result.id);
+      return result;
+
     } catch (error) {
-      console.error('Error creating course material:', error);
+      console.error('❌ Error creating course material:', error);
       throw error;
     }
   }
@@ -202,14 +233,8 @@ export class CoursesController {
       fileSize: 50 * 1024 * 1024, // 50MB
     },
     fileFilter: (req, file, cb) => {
-      // Allow all file types for now
       cb(null, true);
     },
-  }))
-  @UsePipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: false, // Allow extra fields
-    transform: true,
   }))
   async updateCourseMaterial(
     @Param('courseId', ParseUUIDPipe) courseId: string,
@@ -219,6 +244,9 @@ export class CoursesController {
     @GetUser() user: User,
   ) {
     try {
+      console.log('🔍 Debug - Update body:', body);
+      console.log('🔍 Debug - Update file:', file ? file.originalname : 'No file');
+
       const updateMaterialDto: UpdateCourseMaterialDto = {
         title: body.title,
         description: body.description,
@@ -230,7 +258,7 @@ export class CoursesController {
       };
 
       // Convert string numbers to actual numbers if provided
-      if (updateMaterialDto.week !== undefined) {
+      if (updateMaterialDto.week !== undefined && updateMaterialDto.week !== null && updateMaterialDto.week !== "") {
         const weekNum = typeof updateMaterialDto.week === 'string' 
           ? parseInt(updateMaterialDto.week as string, 10) 
           : updateMaterialDto.week;
@@ -241,7 +269,7 @@ export class CoursesController {
         updateMaterialDto.week = weekNum;
       }
 
-      if (updateMaterialDto.orderIndex !== undefined) {
+      if (updateMaterialDto.orderIndex !== undefined && updateMaterialDto.orderIndex !== null && updateMaterialDto.orderIndex !== "") {
         const orderNum = typeof updateMaterialDto.orderIndex === 'string' 
           ? parseInt(updateMaterialDto.orderIndex as string, 10) 
           : updateMaterialDto.orderIndex;
@@ -253,7 +281,7 @@ export class CoursesController {
       }
 
       // Convert boolean strings
-      if (updateMaterialDto.isVisible !== undefined) {
+      if (updateMaterialDto.isVisible !== undefined && updateMaterialDto.isVisible !== null && updateMaterialDto.isVisible !== "") {
         if (typeof updateMaterialDto.isVisible === 'string') {
           updateMaterialDto.isVisible = updateMaterialDto.isVisible === 'true' || updateMaterialDto.isVisible === '1';
         }
@@ -267,7 +295,7 @@ export class CoursesController {
         file,
       );
     } catch (error) {
-      console.error('Error updating course material:', error);
+      console.error('❌ Error updating course material:', error);
       throw error;
     }
   }
