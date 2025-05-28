@@ -125,7 +125,12 @@ export class CoursesController {
 
       // Helper function untuk validate dan convert values
       const validateAndConvertNumber = (value: string | number | undefined, fieldName: string, min: number = 1): number => {
-        if (value === undefined || value === null || value === '') {
+        if (value === undefined || value === null) {
+          return min; // default value
+        }
+        
+        // Handle empty string case
+        if (typeof value === 'string' && value.trim() === '') {
           return min; // default value
         }
         
@@ -137,7 +142,12 @@ export class CoursesController {
       };
 
       const validateAndConvertBoolean = (value: string | boolean | undefined): boolean => {
-        if (value === undefined || value === null || value === '') {
+        if (value === undefined || value === null) {
+          return true; // default value
+        }
+        
+        // Handle empty string case
+        if (typeof value === 'string' && value.trim() === '') {
           return true; // default value
         }
         
@@ -173,6 +183,21 @@ export class CoursesController {
       if (!Object.values(MaterialType).includes(createMaterialDto.type)) {
         console.error('❌ Validation error: Invalid material type:', createMaterialDto.type);
         throw new BadRequestException('Tipe materi harus salah satu dari: pdf, video, document, presentation, link');
+      }
+
+      // Validate week - should be a positive number
+      if (createMaterialDto.week !== undefined && createMaterialDto.week !== null && (typeof createMaterialDto.week !== 'number' || createMaterialDto.week < 1)) {
+        throw new BadRequestException('Minggu harus berupa angka positif');
+      }
+
+      // Validate orderIndex - should be a positive number
+      if (createMaterialDto.orderIndex !== undefined && createMaterialDto.orderIndex !== null && (typeof createMaterialDto.orderIndex !== 'number' || createMaterialDto.orderIndex < 1)) {
+        throw new BadRequestException('Urutan harus berupa angka positif');
+      }
+
+      // Validate isVisible - should be a boolean
+      if (createMaterialDto.isVisible !== undefined && createMaterialDto.isVisible !== null && typeof createMaterialDto.isVisible !== 'boolean') {
+        throw new BadRequestException('Visibilitas harus berupa boolean');
       }
 
       console.log('🔍 Debug - Material type:', createMaterialDto.type);
@@ -242,7 +267,12 @@ export class CoursesController {
 
       // Helper function untuk validate dan convert values (optional untuk update)
       const validateAndConvertNumber = (value: string | number | undefined, fieldName: string, min: number = 1): number | undefined => {
-        if (value === undefined || value === null || value === '') {
+        if (value === undefined || value === null) {
+          return undefined; // tidak update field ini
+        }
+        
+        // Handle empty string case  
+        if (typeof value === 'string' && value.trim() === '') {
           return undefined; // tidak update field ini
         }
         
@@ -254,7 +284,12 @@ export class CoursesController {
       };
 
       const validateAndConvertBoolean = (value: string | boolean | undefined): boolean | undefined => {
-        if (value === undefined || value === null || value === '') {
+        if (value === undefined || value === null) {
+          return undefined; // tidak update field ini
+        }
+        
+        // Handle empty string case
+        if (typeof value === 'string' && value.trim() === '') {
           return undefined; // tidak update field ini
         }
         
@@ -277,6 +312,21 @@ export class CoursesController {
       // Validate material type enum if provided
       if (updateMaterialDto.type && !Object.values(MaterialType).includes(updateMaterialDto.type)) {
         throw new BadRequestException('Tipe materi harus salah satu dari: pdf, video, document, presentation, link');
+      }
+
+      // Validate week - should be a positive number if provided
+      if (updateMaterialDto.week !== undefined && updateMaterialDto.week !== null && (typeof updateMaterialDto.week !== 'number' || updateMaterialDto.week < 1)) {
+        throw new BadRequestException('Minggu harus berupa angka positif');
+      }
+
+      // Validate orderIndex - should be a positive number if provided
+      if (updateMaterialDto.orderIndex !== undefined && updateMaterialDto.orderIndex !== null && (typeof updateMaterialDto.orderIndex !== 'number' || updateMaterialDto.orderIndex < 1)) {
+        throw new BadRequestException('Urutan harus berupa angka positif');
+      }
+
+      // Validate isVisible - should be a boolean if provided
+      if (updateMaterialDto.isVisible !== undefined && updateMaterialDto.isVisible !== null && typeof updateMaterialDto.isVisible !== 'boolean') {
+        throw new BadRequestException('Visibilitas harus berupa boolean');
       }
 
       console.log('🔍 Debug - Processed update DTO:', updateMaterialDto);
