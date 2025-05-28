@@ -9,6 +9,7 @@ import {
   IsUrl,
   ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { MaterialType } from '../../entities/course-material.entity';
 
 export class CreateCourseMaterialDto {
@@ -44,16 +45,39 @@ export class CreateCourseMaterialDto {
   url?: string;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      const parsed = parseInt(value, 10);
+      return isNaN(parsed) ? value : parsed;
+    }
+    return value;
+  })
   @IsNumber({}, { message: 'Minggu harus berupa angka' })
   @Min(1, { message: 'Minggu minimal 1' })
   week?: number = 1;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      const parsed = parseInt(value, 10);
+      return isNaN(parsed) ? value : parsed;
+    }
+    return value;
+  })
   @IsNumber({}, { message: 'Urutan harus berupa angka' })
   @Min(1, { message: 'Urutan minimal 1' })
   orderIndex?: number = 1;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return value;
+  })
   @IsBoolean({ message: 'Visibilitas harus berupa boolean' })
   isVisible?: boolean = true;
+
+  // File upload akan dihandle terpisah melalui multer
+  // Tidak perlu validasi di DTO
 }
