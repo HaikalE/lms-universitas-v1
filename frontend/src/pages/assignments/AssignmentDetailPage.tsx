@@ -50,9 +50,12 @@ const AssignmentDetailPage: React.FC = () => {
   // Student submission states
   const [submissionContent, setSubmissionContent] = useState('');
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
+  const [existingFileName, setExistingFileName] = useState<string | null>(null);
+  const [existingFilePath, setExistingFilePath] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
   
   // Lecturer grading states
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
@@ -75,10 +78,16 @@ const AssignmentDetailPage: React.FC = () => {
       const assignmentData = await assignmentService.getAssignment(assignmentId!);
       setAssignment(assignmentData);
       
-      // Load existing submission for student
+      // ✅ FIX: Load existing submission data for student (both content and file)
       if (user?.role === UserRole.STUDENT && assignmentData.mySubmission) {
-  setSubmissionContent(assignmentData.mySubmission.content || '');
-}
+        setSubmissionContent(assignmentData.mySubmission.content || '');
+        
+        // Load existing file info if available
+        if (assignmentData.mySubmission.fileName) {
+          setExistingFileName(assignmentData.mySubmission.fileName);
+          setExistingFilePath(assignmentData.mySubmission.filePath);
+        }
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Gagal memuat detail tugas');
     } finally {
@@ -115,6 +124,10 @@ const AssignmentDetailPage: React.FC = () => {
       
       setSubmissionFile(file);
       setSubmitError(null);
+      
+      // Clear existing file info when new file is selected
+      setExistingFileName(null);
+      setExistingFilePath(null);
     }
   };
 
@@ -122,6 +135,7 @@ const AssignmentDetailPage: React.FC = () => {
     try {
       setSubmitting(true);
       setSubmitError(null);
+      setSubmitSuccess(false);
       
       const formData = new FormData();
       formData.append('content', submissionContent);
@@ -131,12 +145,19 @@ const AssignmentDetailPage: React.FC = () => {
         formData.append('file', submissionFile);
       }
       
-      await assignmentService.submitAssignment(assignmentId!, formData);
+      // ✅ FIX: Handle response with proper message
+      const response = await assignmentService.submitAssignment(assignmentId!, formData);
+      
       setSubmitSuccess(true);
+      setSuccessMessage(response.message || (isDraft ? 'Draft berhasil disimpan!' : 'Tugas berhasil dikirim!'));
+      
+      // Clear the selected file since it's now saved
+      setSubmissionFile(null);
       
       // Reload assignment to get updated submission
       await fetchAssignmentDetail();
       
+      // Only redirect after actual submission, not draft
       if (!isDraft) {
         setTimeout(() => {
           navigate('/assignments');
@@ -168,6 +189,18 @@ const AssignmentDetailPage: React.FC = () => {
       setError(err.response?.data?.message || 'Gagal memberikan nilai');
     } finally {
       setGrading(false);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSubmissionFile(null);
+    setExistingFileName(null);
+    setExistingFilePath(null);
+  };
+
+  const handleDownloadFile = () => {
+    if (existingFilePath) {
+      window.open(`/api/uploads/${existingFilePath}`, '_blank');
     }
   };
 
@@ -294,10 +327,11 @@ const AssignmentDetailPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* ✅ FIX: Show different messages for draft vs submission */}
                     {submitSuccess && (
                       <Alert variant="success">
                         <CheckCircleIcon className="w-4 h-4" />
-                        <span>Tugas berhasil dikirim!</span>
+                        <span>{successMessage}</span>
                       </Alert>
                     )}
                     
@@ -305,6 +339,14 @@ const AssignmentDetailPage: React.FC = () => {
                       <Alert variant="error">
                         <AlertCircleIcon className="w-4 h-4" />
                         <span>{submitError}</span>
+                      </Alert>
+                    )}
+                    
+                    {/* ✅ FIX: Show current status for drafts */}
+                    {assignment.mySubmission?.status === SubmissionStatus.DRAFT && (
+                      <Alert variant="info">
+                        <SaveIcon className="w-4 h-4" />
+                        <span>Anda memiliki draft yang tersimpan. Lanjutkan mengedit atau kirim tugas.</span>
                       </Alert>
                     )}
                     
@@ -346,16 +388,46 @@ const AssignmentDetailPage: React.FC = () => {
                           </span>
                         )}
                       </label>
+                      
+                      {/* ✅ FIX: Show existing file info */}
+                      {existingFileName && !submissionFile && (
+                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm text-blue-800">
+                              <FileIcon className="w-4 h-4" />
+                              <span>File saat ini: {existingFileName}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleDownloadFile}
+                              >
+                                <DownloadIcon className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleRemoveFile}
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       <Input
                         type="file"
                         onChange={handleFileChange}
                         accept={assignment.allowedFileTypes.join(',')}
                         disabled={!canSubmit()}
                       />
+                      
                       {submissionFile && (
                         <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
                           <FileIcon className="w-4 h-4" />
-                          <span>{submissionFile.name}</span>
+                          <span>File baru: {submissionFile.name}</span>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -378,7 +450,7 @@ const AssignmentDetailPage: React.FC = () => {
                       </Button>
                       <Button
                         onClick={() => handleSubmit(false)}
-                        disabled={!canSubmit() || submitting || (!submissionContent && !submissionFile)}
+                        disabled={!canSubmit() || submitting || (!submissionContent && !submissionFile && !existingFileName)}
                       >
                         {submitting ? (
                           <Loader size="small" className="mr-2" />
