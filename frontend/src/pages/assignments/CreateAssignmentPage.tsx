@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { AssignmentType, Course, UserRole } from '../../types';
 import { assignmentService } from '../../services/assignmentService';
@@ -21,6 +21,7 @@ import {
   InfoIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 
 interface CreateAssignmentData {
   title: string;
@@ -38,8 +39,10 @@ interface CreateAssignmentData {
 
 const CreateAssignmentPage: React.FC = () => {
   const navigate = useNavigate();
+  const { courseId } = useParams<{ courseId: string }>();
   const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +52,7 @@ const CreateAssignmentPage: React.FC = () => {
     title: '',
     description: '',
     type: AssignmentType.INDIVIDUAL,
-    courseId: '',
+    courseId: courseId || '',
     dueDate: '',
     maxScore: 100,
     allowLateSubmission: true,
@@ -79,21 +82,40 @@ const CreateAssignmentPage: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Redirect if not lecturer
-    if (user?.role !== UserRole.LECTURER) {
+    // Check if user has permission to create assignments
+    if (user?.role !== UserRole.LECTURER && user?.role !== UserRole.ADMIN) {
+      toast.error('Anda tidak memiliki akses untuk membuat tugas');
       navigate('/assignments');
-    } else {
-      fetchCourses();
+      return;
     }
+
+    fetchCourses();
   }, [user, navigate]);
+
+  useEffect(() => {
+    // Set courseId in formData when courseId from URL changes
+    if (courseId) {
+      setFormData(prev => ({ ...prev, courseId }));
+    }
+  }, [courseId]);
 
   const fetchCourses = async () => {
     try {
       setLoadingCourses(true);
-      const coursesData = await courseService.getMyCourses(); // Asumsikan ini mengembalikan Course[]
-      setCourses(coursesData); // Langsung gunakan coursesData
-      if (coursesData.length > 0) { // Gunakan coursesData di sini
-        setFormData(prev => ({ ...prev, courseId: coursesData[0].id })); // Gunakan coursesData di sini
+      const coursesData = await courseService.getMyCourses();
+      setCourses(coursesData);
+      
+      // If courseId is provided, find and set the selected course
+      if (courseId && coursesData.length > 0) {
+        const course = coursesData.find(c => c.id === courseId);
+        if (course) {
+          setSelectedCourse(course);
+        } else {
+          setError('Mata kuliah tidak ditemukan atau Anda tidak memiliki akses');
+        }
+      } else if (coursesData.length > 0) {
+        setFormData(prev => ({ ...prev, courseId: coursesData[0].id }));
+        setSelectedCourse(coursesData[0]);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Gagal memuat daftar mata kuliah');
@@ -112,6 +134,12 @@ const CreateAssignmentPage: React.FC = () => {
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+      
+      // Update selected course when courseId changes
+      if (name === 'courseId') {
+        const course = courses.find(c => c.id === value);
+        setSelectedCourse(course || null);
+      }
     }
     
     // Clear validation error for this field
@@ -182,6 +210,7 @@ const CreateAssignmentPage: React.FC = () => {
     e.preventDefault();
     
     if (!validateForm()) {
+      toast.error('Mohon perbaiki kesalahan pada form');
       return;
     }
     
@@ -200,12 +229,27 @@ const CreateAssignmentPage: React.FC = () => {
         maxFileSize: Number(formData.maxFileSize)
       });
       
-      // Navigate back to assignments list
-      navigate('/assignments');
+      toast.success('Tugas berhasil dibuat');
+      
+      // Navigate back to course detail page if courseId is provided, otherwise to assignments list
+      if (courseId) {
+        navigate(`/courses/${courseId}`);
+      } else {
+        navigate('/assignments');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Gagal membuat tugas');
+      toast.error(err.response?.data?.message || 'Gagal membuat tugas');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (courseId) {
+      navigate(`/courses/${courseId}`);
+    } else {
+      navigate(-1);
     }
   };
 
@@ -223,12 +267,19 @@ const CreateAssignmentPage: React.FC = () => {
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="p-2"
         >
           <ArrowLeftIcon className="w-5 h-5" />
         </Button>
-        <h1 className="text-2xl font-bold text-gray-900">Buat Tugas Baru</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Buat Tugas Baru</h1>
+          {selectedCourse && (
+            <p className="text-sm text-gray-600 mt-1">
+              {selectedCourse.code} - {selectedCourse.name}
+            </p>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -289,6 +340,7 @@ const CreateAssignmentPage: React.FC = () => {
                   value={formData.courseId}
                   onChange={handleInputChange}
                   error={validationErrors.courseId}
+                  disabled={!!courseId} // Disable if courseId is provided from URL
                 >
                   <option value="">Pilih Mata Kuliah</option>
                   {courses.map(course => (
@@ -299,6 +351,11 @@ const CreateAssignmentPage: React.FC = () => {
                 </Select>
                 {validationErrors.courseId && (
                   <p className="mt-1 text-sm text-red-600">{validationErrors.courseId}</p>
+                )}
+                {courseId && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Mata kuliah sudah dipilih dari halaman course
+                  </p>
                 )}
               </div>
 
@@ -486,7 +543,7 @@ const CreateAssignmentPage: React.FC = () => {
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             disabled={loading}
           >
             Batal
