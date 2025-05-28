@@ -25,7 +25,8 @@ import {
   Presentation,
   MoreVertical,
   Share2,
-  Star
+  Star,
+  AlertCircle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -49,6 +50,7 @@ interface MaterialFormData {
   description: string;
   type: MaterialType;
   week: number;
+  orderIndex: number;
   file?: File;
   url?: string;
 }
@@ -62,18 +64,21 @@ const CourseDetailPage: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [forums, setForums] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [materialModalOpen, setMaterialModalOpen] = useState(false);
   const [deleteMaterialModalOpen, setDeleteMaterialModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<CourseMaterial | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<CourseMaterial | null>(null);
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   
   const [materialForm, setMaterialForm] = useState<MaterialFormData>({
     title: '',
     description: '',
     type: MaterialType.PDF,
     week: 1,
+    orderIndex: 1,
   });
 
   const isAdmin = user?.role === UserRole.ADMIN;
@@ -130,22 +135,87 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  const validateMaterialForm = (): boolean => {
+    const errors: {[key: string]: string} = {};
+
+    // Validate title
+    if (!materialForm.title?.trim()) {
+      errors.title = 'Judul materi wajib diisi';
+    }
+
+    // Validate type
+    if (!materialForm.type) {
+      errors.type = 'Tipe materi wajib dipilih';
+    }
+
+    // Validate week
+    if (!materialForm.week || materialForm.week < 1 || materialForm.week > 16) {
+      errors.week = 'Minggu harus antara 1-16';
+    }
+
+    // Validate orderIndex
+    if (!materialForm.orderIndex || materialForm.orderIndex < 1) {
+      errors.orderIndex = 'Urutan harus minimal 1';
+    }
+
+    // Validate file or URL based on type
+    if (materialForm.type === MaterialType.LINK) {
+      if (!materialForm.url?.trim()) {
+        errors.url = 'URL wajib diisi untuk tipe link';
+      } else {
+        try {
+          new URL(materialForm.url);
+        } catch {
+          errors.url = 'Format URL tidak valid';
+        }
+      }
+    } else {
+      // For non-link types, file is required (except when editing and file already exists)
+      if (!materialForm.file && !editingMaterial) {
+        errors.file = 'File wajib diupload untuk tipe materi ini';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleMaterialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!course) return;
 
+    // Client-side validation
+    if (!validateMaterialForm()) {
+      toast.error('Mohon perbaiki kesalahan pada form');
+      return;
+    }
+
     try {
+      setSubmitting(true);
+      
       const formData = new FormData();
-      formData.append('title', materialForm.title);
-      formData.append('description', materialForm.description || '');
+      formData.append('title', materialForm.title.trim());
+      formData.append('description', materialForm.description?.trim() || '');
       formData.append('type', materialForm.type);
       formData.append('week', materialForm.week.toString());
+      formData.append('orderIndex', materialForm.orderIndex.toString());
+      formData.append('isVisible', 'true');
       
-      if (materialForm.file) {
+      if (materialForm.type === MaterialType.LINK && materialForm.url) {
+        formData.append('url', materialForm.url.trim());
+      } else if (materialForm.file) {
         formData.append('file', materialForm.file);
-      } else if (materialForm.url) {
-        formData.append('url', materialForm.url);
       }
+
+      console.log('📤 Submitting material form:', {
+        title: materialForm.title,
+        type: materialForm.type,
+        week: materialForm.week,
+        orderIndex: materialForm.orderIndex,
+        hasFile: !!materialForm.file,
+        url: materialForm.url,
+        isEditing: !!editingMaterial
+      });
 
       if (editingMaterial) {
         await courseService.updateCourseMaterial(course.id, editingMaterial.id, formData);
@@ -158,8 +228,12 @@ const CourseDetailPage: React.FC = () => {
       setMaterialModalOpen(false);
       resetMaterialForm();
       fetchTabData();
-    } catch (error) {
-      toast.error('Gagal menyimpan materi');
+    } catch (error: any) {
+      console.error('❌ Error submitting material:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Gagal menyimpan materi';
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -183,8 +257,10 @@ const CourseDetailPage: React.FC = () => {
       description: '',
       type: MaterialType.PDF,
       week: 1,
+      orderIndex: 1,
     });
     setEditingMaterial(null);
+    setFormErrors({});
   };
 
   const getMaterialIcon = (type: MaterialType) => {
@@ -201,6 +277,21 @@ const CourseDetailPage: React.FC = () => {
         return <LinkIcon className="w-5 h-5" />;
       default:
         return <FileText className="w-5 h-5" />;
+    }
+  };
+
+  const getAcceptedFileTypes = (type: MaterialType): string => {
+    switch (type) {
+      case MaterialType.PDF:
+        return '.pdf';
+      case MaterialType.VIDEO:
+        return 'video/*';
+      case MaterialType.PRESENTATION:
+        return '.ppt,.pptx,.odp';
+      case MaterialType.DOCUMENT:
+        return '.doc,.docx,.txt,.odt';
+      default:
+        return '*';
     }
   };
 
@@ -438,7 +529,7 @@ const CourseDetailPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {materials
                         .filter(m => m.week === week)
-                        .sort((a, b) => a.orderIndex - b.orderIndex)
+                        .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
                         .map(material => (
                           <Card key={material.id} className="hover:shadow-md transition-shadow">
                             <CardContent className="p-4">
@@ -510,6 +601,7 @@ const CourseDetailPage: React.FC = () => {
                                                 description: material.description || '',
                                                 type: material.type,
                                                 week: material.week,
+                                                orderIndex: material.orderIndex || 1,
                                                 url: material.url || '',
                                               });
                                               setMaterialModalOpen(true);
@@ -730,14 +822,24 @@ const CourseDetailPage: React.FC = () => {
           <form onSubmit={handleMaterialSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Judul Materi
+                Judul Materi <span className="text-red-500">*</span>
               </label>
               <Input
                 type="text"
                 value={materialForm.title}
-                onChange={(e) => setMaterialForm({...materialForm, title: e.target.value})}
+                onChange={(e) => {
+                  setMaterialForm({...materialForm, title: e.target.value});
+                  if (formErrors.title) setFormErrors({...formErrors, title: ''});
+                }}
+                className={formErrors.title ? 'border-red-500' : ''}
                 required
               />
+              {formErrors.title && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  {formErrors.title}
+                </p>
+              )}
             </div>
 
             <div>
@@ -754,12 +856,15 @@ const CourseDetailPage: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipe Materi
+                Tipe Materi <span className="text-red-500">*</span>
               </label>
               <Select
                 value={materialForm.type}
-                onChange={(e) => setMaterialForm({...materialForm, type: e.target.value as MaterialType})}
-                className="w-full"
+                onChange={(e) => {
+                  setMaterialForm({...materialForm, type: e.target.value as MaterialType});
+                  if (formErrors.type) setFormErrors({...formErrors, type: ''});
+                }}
+                className={`w-full ${formErrors.type ? 'border-red-500' : ''}`}
               >
                 <option value={MaterialType.PDF}>PDF</option>
                 <option value={MaterialType.VIDEO}>Video</option>
@@ -767,58 +872,129 @@ const CourseDetailPage: React.FC = () => {
                 <option value={MaterialType.PRESENTATION}>Presentasi</option>
                 <option value={MaterialType.LINK}>Link</option>
               </Select>
+              {formErrors.type && (
+                <p className="text-red-500 text-xs mt-1 flex items-center">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  {formErrors.type}
+                </p>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minggu
-              </label>
-              <Input
-                type="number"
-                min="1"
-                max="16"
-                value={materialForm.week}
-                onChange={(e) => setMaterialForm({...materialForm, week: parseInt(e.target.value) || 1})}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Minggu <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="16"
+                  value={materialForm.week}
+                  onChange={(e) => {
+                    setMaterialForm({...materialForm, week: parseInt(e.target.value) || 1});
+                    if (formErrors.week) setFormErrors({...formErrors, week: ''});
+                  }}
+                  className={formErrors.week ? 'border-red-500' : ''}
+                  required
+                />
+                {formErrors.week && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.week}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Urutan <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={materialForm.orderIndex}
+                  onChange={(e) => {
+                    setMaterialForm({...materialForm, orderIndex: parseInt(e.target.value) || 1});
+                    if (formErrors.orderIndex) setFormErrors({...formErrors, orderIndex: ''});
+                  }}
+                  className={formErrors.orderIndex ? 'border-red-500' : ''}
+                  required
+                />
+                {formErrors.orderIndex && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.orderIndex}
+                  </p>
+                )}
+              </div>
             </div>
 
             {materialForm.type === MaterialType.LINK ? (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  URL
+                  URL <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="url"
                   value={materialForm.url || ''}
-                  onChange={(e) => setMaterialForm({...materialForm, url: e.target.value})}
+                  onChange={(e) => {
+                    setMaterialForm({...materialForm, url: e.target.value});
+                    if (formErrors.url) setFormErrors({...formErrors, url: ''});
+                  }}
+                  className={formErrors.url ? 'border-red-500' : ''}
+                  placeholder="https://example.com"
                   required
                 />
+                {formErrors.url && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.url}
+                  </p>
+                )}
               </div>
             ) : (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  File
+                  File {!editingMaterial && <span className="text-red-500">*</span>}
                 </label>
-                <input
-                  type="file"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setMaterialForm({...materialForm, file: e.target.files[0]});
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  accept={
-                    materialForm.type === MaterialType.PDF ? '.pdf' :
-                    materialForm.type === MaterialType.VIDEO ? 'video/*' :
-                    materialForm.type === MaterialType.PRESENTATION ? '.ppt,.pptx' :
-                    '*'
-                  }
-                />
+                <div className="relative">
+                  <input
+                    type="file"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setMaterialForm({...materialForm, file: e.target.files[0]});
+                        if (formErrors.file) setFormErrors({...formErrors, file: ''});
+                      }
+                    }}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      formErrors.file ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    accept={getAcceptedFileTypes(materialForm.type)}
+                    required={!editingMaterial}
+                  />
+                  <div className="absolute right-3 top-2 text-gray-400">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                </div>
+                {formErrors.file && (
+                  <p className="text-red-500 text-xs mt-1 flex items-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.file}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Maksimal 50MB. Format yang diterima: {getAcceptedFileTypes(materialForm.type).replace(/\./g, '').toUpperCase()}
+                </p>
+                {editingMaterial && !materialForm.file && (
+                  <p className="text-xs text-gray-600 mt-1 flex items-center">
+                    <Info className="w-3 h-3 mr-1" />
+                    Kosongkan jika tidak ingin mengubah file
+                  </p>
+                )}
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-4">
               <Button
                 type="button"
                 variant="outline"
@@ -826,11 +1002,23 @@ const CourseDetailPage: React.FC = () => {
                   setMaterialModalOpen(false);
                   resetMaterialForm();
                 }}
+                disabled={submitting}
               >
                 Batal
               </Button>
-              <Button type="submit">
-                {editingMaterial ? 'Simpan' : 'Tambah'}
+              <Button 
+                type="submit"
+                disabled={submitting}
+                className="min-w-[80px]"
+              >
+                {submitting ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {editingMaterial ? 'Menyimpan...' : 'Menambah...'}
+                  </div>
+                ) : (
+                  editingMaterial ? 'Simpan' : 'Tambah'
+                )}
               </Button>
             </div>
           </form>
