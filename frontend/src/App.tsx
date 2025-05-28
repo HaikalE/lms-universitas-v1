@@ -15,6 +15,7 @@ import CoursesPage from './pages/courses/CoursesPage';
 import CourseDetailPage from './pages/courses/CourseDetailPage';
 import AssignmentsPage from './pages/assignments/AssignmentsPage';
 import AssignmentDetailPage from './pages/assignments/AssignmentDetailPage';
+import CreateAssignmentPage from './pages/assignments/CreateAssignmentPage';
 import ForumsPage from './pages/forums/ForumsPage';
 import ForumDetailPage from './pages/forums/ForumDetailPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
@@ -60,6 +61,7 @@ function App() {
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/courses" element={<CoursesPage />} />
                         <Route path="/courses/:id" element={<CourseDetailPage />} />
+                        <Route path="/courses/:courseId/assignments/create" element={<CreateAssignmentPage />} />
                         <Route path="/assignments" element={<AssignmentsPage />} />
                         <Route path="/assignments/:id" element={<AssignmentDetailPage />} />
                         <Route path="/forums" element={<ForumsPage />} />
