@@ -295,16 +295,16 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
-  // Helper function to get correct file download URL
+  // Helper function to get correct file download URL using backend URL
   const getFileDownloadUrl = (material: CourseMaterial): string => {
     if (material.type === MaterialType.LINK && material.url) {
       return material.url;
     }
     
     if (material.filePath) {
-      // Use the correct static file path without duplicating /uploads/
-      // The backend serves static files at /uploads/ prefix
-      return `/${material.filePath}`;
+      // Use the full backend URL for file downloads
+      // Backend serves static files at http://localhost:3000/uploads/
+      return `http://localhost:3000/${material.filePath}`;
     }
     
     return '#';
@@ -581,6 +581,7 @@ const CourseDetailPage: React.FC = () => {
                                     variant="outline"
                                     onClick={() => {
                                       const downloadUrl = getFileDownloadUrl(material);
+                                      console.log('🔽 Download URL:', downloadUrl);
                                       if (downloadUrl !== '#') {
                                         window.open(downloadUrl, '_blank');
                                       } else {
