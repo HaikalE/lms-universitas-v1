@@ -9,7 +9,10 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AssignmentsService } from './assignments.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
@@ -63,34 +66,50 @@ export class AssignmentsController {
     return this.assignmentsService.remove(id, user);
   }
 
-  // Submission endpoints
+  // ✅ FIX: Submission endpoints with file upload support
   @Post(':id/submit')
   @UseGuards(RolesGuard)
   @Roles(UserRole.STUDENT)
+  @UseInterceptors(FileInterceptor('file', {
+    dest: './uploads',
+    limits: {
+      fileSize: 100 * 1024 * 1024, // 100MB max file size
+    },
+  }))
   submitAssignment(
     @Param('id', ParseUUIDPipe) assignmentId: string,
     @Body() createSubmissionDto: CreateSubmissionDto,
+    @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
     return this.assignmentsService.submitAssignment(
       assignmentId,
       createSubmissionDto,
       user,
+      file,
     );
   }
 
   @Patch(':id/submit')
   @UseGuards(RolesGuard)
   @Roles(UserRole.STUDENT)
+  @UseInterceptors(FileInterceptor('file', {
+    dest: './uploads',
+    limits: {
+      fileSize: 100 * 1024 * 1024, // 100MB max file size
+    },
+  }))
   updateSubmission(
     @Param('id', ParseUUIDPipe) assignmentId: string,
     @Body() updateSubmissionDto: UpdateSubmissionDto,
+    @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
     return this.assignmentsService.updateSubmission(
       assignmentId,
       updateSubmissionDto,
       user,
+      file,
     );
   }
 
