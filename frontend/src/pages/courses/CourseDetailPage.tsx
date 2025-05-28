@@ -295,6 +295,21 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  // Helper function to get correct file download URL
+  const getFileDownloadUrl = (material: CourseMaterial): string => {
+    if (material.type === MaterialType.LINK && material.url) {
+      return material.url;
+    }
+    
+    if (material.filePath) {
+      // Use the correct static file path without duplicating /uploads/
+      // The backend serves static files at /uploads/ prefix
+      return `/${material.filePath}`;
+    }
+    
+    return '#';
+  };
+
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <Info className="w-4 h-4" /> },
     { id: 'materials', label: 'Materi', icon: <BookOpen className="w-4 h-4" /> },
@@ -565,10 +580,11 @@ const CourseDetailPage: React.FC = () => {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
-                                      if (material.filePath) {
-                                        window.open(`/api/uploads/${material.filePath}`, '_blank');
-                                      } else if (material.url) {
-                                        window.open(material.url, '_blank');
+                                      const downloadUrl = getFileDownloadUrl(material);
+                                      if (downloadUrl !== '#') {
+                                        window.open(downloadUrl, '_blank');
+                                      } else {
+                                        toast.error('File tidak tersedia untuk diunduh');
                                       }
                                     }}
                                   >
