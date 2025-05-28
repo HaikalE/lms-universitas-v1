@@ -103,7 +103,8 @@ export class CoursesController {
       console.log('📁 File received by multer:', {
         originalname: file.originalname,
         mimetype: file.mimetype,
-        size: file.size
+        size: file.size,
+        fieldname: file.fieldname
       });
       cb(null, true);
     },
@@ -114,15 +115,20 @@ export class CoursesController {
     @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
-    try {
-      console.log('🔍 Debug - Request body:', body);
-      console.log('🔍 Debug - File received:', file ? {
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        size: file.size
-      } : 'No file');
-      console.log('🔍 Debug - Course ID:', courseId);
+    console.log('🔍 === CREATE MATERIAL DEBUG START ===');
+    console.log('📝 Request body keys:', Object.keys(body));
+    console.log('📝 Request body values:', JSON.stringify(body, null, 2));
+    console.log('📁 File info:', file ? {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      fieldname: file.fieldname,
+      buffer: file.buffer ? `Buffer(${file.buffer.length} bytes)` : 'No buffer'
+    } : 'No file uploaded');
+    console.log('👤 User:', { id: user.id, role: user.role });
+    console.log('📚 Course ID:', courseId);
 
+    try {
       // Helper function untuk validate dan convert values
       const validateAndConvertNumber = (value: string | number | undefined, fieldName: string, min: number = 1): number => {
         if (value === undefined || value === null) {
@@ -159,17 +165,19 @@ export class CoursesController {
 
       // Manual validation and DTO construction
       const createMaterialDto: CreateCourseMaterialDto = {
-        title: body.title,
-        description: body.description,
+        title: body.title?.trim(),
+        description: body.description?.trim(),
         type: body.type as MaterialType,
-        url: body.url,
+        url: body.url?.trim(),
         week: validateAndConvertNumber(body.week, 'Minggu', 1),
         orderIndex: validateAndConvertNumber(body.orderIndex, 'Urutan', 1),
         isVisible: validateAndConvertBoolean(body.isVisible),
       };
 
+      console.log('✅ Processed DTO:', JSON.stringify(createMaterialDto, null, 2));
+
       // Validate required fields
-      if (!createMaterialDto.title || createMaterialDto.title.trim() === '') {
+      if (!createMaterialDto.title || createMaterialDto.title === '') {
         console.error('❌ Validation error: Title is required');
         throw new BadRequestException('Judul materi wajib diisi');
       }
@@ -182,11 +190,11 @@ export class CoursesController {
       // Validate material type enum
       if (!Object.values(MaterialType).includes(createMaterialDto.type)) {
         console.error('❌ Validation error: Invalid material type:', createMaterialDto.type);
-        throw new BadRequestException('Tipe materi harus salah satu dari: pdf, video, document, presentation, link');
+        throw new BadRequestException(`Tipe materi harus salah satu dari: ${Object.values(MaterialType).join(', ')}`);
       }
 
       // Validate week - should be a positive number
-      if (createMaterialDto.week !== undefined && createMaterialDto.week !== null && (typeof createMaterialDto.week !== 'number' || createMaterialDto.week < 1)) {
+      if (createMaterialDto.week !== undefined && createMaterialDto.week !== null && (typeof createMaterialDto.week !== 'number' | createMaterialDto.week < 1)) {
         throw new BadRequestException('Minggu harus berupa angka positif');
       }
 
@@ -200,32 +208,85 @@ export class CoursesController {
         throw new BadRequestException('Visibilitas harus berupa boolean');
       }
 
-      console.log('🔍 Debug - Material type:', createMaterialDto.type);
-      console.log('🔍 Debug - Processed DTO:', createMaterialDto);
+      console.log('🔍 Material type validation:', {
+        type: createMaterialDto.type,
+        isLink: createMaterialDto.type === MaterialType.LINK,
+        hasFile: !!file,
+        hasUrl: !!createMaterialDto.url
+      });
 
-      // Validate URL for link type
+      // Enhanced validation for URL/file based on type
       if (createMaterialDto.type === MaterialType.LINK) {
-        if (!createMaterialDto.url || createMaterialDto.url.trim() === '') {
+        if (!createMaterialDto.url || createMaterialDto.url === '') {
           console.error('❌ Validation error: URL required for link type');
           throw new BadRequestException('URL wajib diisi untuk tipe link');
         }
+        
         // Basic URL validation
         try {
           new URL(createMaterialDto.url);
           console.log('✅ URL validation passed:', createMaterialDto.url);
-        } catch {
-          console.error('❌ Validation error: Invalid URL format:', createMaterialDto.url);
-          throw new BadRequestException('Format URL tidak valid');
+        } catch (urlError) {
+          console.error('❌ Validation error: Invalid URL format:', createMaterialDto.url, urlError.message);
+          throw new BadRequestException('Format URL tidak valid. Pastikan URL dimulai dengan http:// atau https://');
         }
+
+        // For link type, file is not required
+        if (file) {
+          console.log('⚠️ Warning: File uploaded for LINK type, will be ignored');
+        }
+      } else {
+        // For non-link types, file is required
+        if (!file) {
+          console.error('❌ Validation error: File required for non-link type:', createMaterialDto.type);
+          const typeNames = {
+            [MaterialType.PDF]: 'PDF',
+            [MaterialType.VIDEO]: 'Video',
+            [MaterialType.DOCUMENT]: 'Dokumen',
+            [MaterialType.PRESENTATION]: 'Presentasi'
+          };
+          const typeName = typeNames[createMaterialDto.type] || createMaterialDto.type;
+          throw new BadRequestException(`File ${typeName.toLowerCase()} wajib diupload untuk tipe materi ${typeName}`);
+        }
+
+        // Validate file type based on material type  
+        const allowedMimeTypes = {
+          [MaterialType.PDF]: ['application/pdf'],
+          [MaterialType.VIDEO]: [
+            'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 
+            'video/webm', 'video/x-flv', 'video/3gpp'
+          ],
+          [MaterialType.DOCUMENT]: [
+            'application/msword', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+            'application/vnd.oasis.opendocument.text'
+          ],
+          [MaterialType.PRESENTATION]: [
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.oasis.opendocument.presentation'
+          ]
+        };
+
+        const allowed = allowedMimeTypes[createMaterialDto.type];
+        if (allowed && !allowed.includes(file.mimetype)) {
+          console.error('❌ File type validation failed:', {
+            uploadedType: file.mimetype,
+            allowedTypes: allowed,
+            materialType: createMaterialDto.type
+          });
+          throw new BadRequestException(`Tipe file tidak sesuai. Untuk materi ${createMaterialDto.type}, gunakan file: ${allowed.join(', ')}`);
+        }
+
+        console.log('✅ File validation passed:', {
+          type: file.mimetype,
+          size: file.size,
+          name: file.originalname
+        });
       }
 
-      // Validate file for non-link types
-      if (createMaterialDto.type !== MaterialType.LINK && !file) {
-        console.error('❌ Validation error: File required for non-link type:', createMaterialDto.type);
-        throw new BadRequestException('File wajib diupload untuk tipe materi ini');
-      }
-
-      console.log('✅ All validations passed, creating material:', createMaterialDto);
+      console.log('✅ All validations passed, creating material...');
 
       const result = await this.coursesService.createCourseMaterial(
         courseId,
@@ -234,11 +295,23 @@ export class CoursesController {
         file,
       );
 
-      console.log('✅ Material created successfully:', result.id);
+      console.log('✅ Material created successfully:', {
+        id: result.id,
+        title: result.title,
+        type: result.type
+      });
+      console.log('🔍 === CREATE MATERIAL DEBUG END ===');
+      
       return result;
 
     } catch (error) {
-      console.error('❌ Error creating course material:', error);
+      console.error('❌ Error creating course material:', {
+        message: error.message,
+        stack: error.stack,
+        body,
+        hasFile: !!file
+      });
+      console.log('🔍 === CREATE MATERIAL DEBUG END (ERROR) ===');
       throw error;
     }
   }
@@ -251,6 +324,11 @@ export class CoursesController {
       fileSize: 50 * 1024 * 1024, // 50MB
     },
     fileFilter: (req, file, cb) => {
+      console.log('📁 Update file received:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+      });
       cb(null, true);
     },
   }))
@@ -261,10 +339,12 @@ export class CoursesController {
     @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
-    try {
-      console.log('🔍 Debug - Update body:', body);
-      console.log('🔍 Debug - Update file:', file ? file.originalname : 'No file');
+    console.log('🔍 === UPDATE MATERIAL DEBUG START ===');
+    console.log('📝 Update body:', JSON.stringify(body, null, 2));
+    console.log('📁 Update file:', file ? file.originalname : 'No file');
+    console.log('📚 Course ID:', courseId, 'Material ID:', materialId);
 
+    try {
       // Helper function untuk validate dan convert values (optional untuk update)
       const validateAndConvertNumber = (value: string | number | undefined, fieldName: string, min: number = 1): number | undefined => {
         if (value === undefined || value === null) {
@@ -300,10 +380,10 @@ export class CoursesController {
       };
 
       const updateMaterialDto: UpdateCourseMaterialDto = {
-        title: body.title,
-        description: body.description,
+        title: body.title?.trim(),
+        description: body.description?.trim(),
         type: body.type as MaterialType,
-        url: body.url,
+        url: body.url?.trim(),
         week: validateAndConvertNumber(body.week, 'Minggu', 1),
         orderIndex: validateAndConvertNumber(body.orderIndex, 'Urutan', 1),
         isVisible: validateAndConvertBoolean(body.isVisible),
@@ -311,7 +391,7 @@ export class CoursesController {
 
       // Validate material type enum if provided
       if (updateMaterialDto.type && !Object.values(MaterialType).includes(updateMaterialDto.type)) {
-        throw new BadRequestException('Tipe materi harus salah satu dari: pdf, video, document, presentation, link');
+        throw new BadRequestException(`Tipe materi harus salah satu dari: ${Object.values(MaterialType).join(', ')}`);
       }
 
       // Validate week - should be a positive number if provided
@@ -329,17 +409,29 @@ export class CoursesController {
         throw new BadRequestException('Visibilitas harus berupa boolean');
       }
 
-      console.log('🔍 Debug - Processed update DTO:', updateMaterialDto);
+      console.log('✅ Processed update DTO:', JSON.stringify(updateMaterialDto, null, 2));
 
-      return this.coursesService.updateCourseMaterial(
+      const result = await this.coursesService.updateCourseMaterial(
         courseId,
         materialId,
         updateMaterialDto,
         user,
         file,
       );
+
+      console.log('✅ Material updated successfully:', result.id);
+      console.log('🔍 === UPDATE MATERIAL DEBUG END ===');
+      
+      return result;
     } catch (error) {
-      console.error('❌ Error updating course material:', error);
+      console.error('❌ Error updating course material:', {
+        message: error.message,
+        courseId,
+        materialId,
+        body,
+        hasFile: !!file
+      });
+      console.log('🔍 === UPDATE MATERIAL DEBUG END (ERROR) ===');
       throw error;
     }
   }
