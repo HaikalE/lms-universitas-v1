@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, Not, IsNull } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { User, UserRole } from '../entities/user.entity';
 import { Course } from '../entities/course.entity';
 import { Assignment } from '../entities/assignment.entity';
@@ -42,11 +42,9 @@ export class AdminService {
         activeCourses,
         totalAssignments,
         totalSubmissions,
-        pendingSubmissions,
-        gradedSubmissions,
+        totalGrades,
         totalAnnouncements,
         totalForumPosts,
-        totalGrades,
         totalNotifications,
       ] = await Promise.all([
         this.userRepository.count(),
@@ -57,21 +55,19 @@ export class AdminService {
         this.courseRepository.count({ where: { isActive: true } }),
         this.assignmentRepository.count(),
         this.submissionRepository.count(),
-        this.submissionRepository.count({ 
-          where: { 
-            grade: IsNull() 
-          } 
-        }),
-        this.submissionRepository.count({ 
-          where: { 
-            grade: Not(IsNull()) 
-          } 
-        }),
+        this.gradeRepository.count(),
         this.announcementRepository.count(),
         this.forumPostRepository.count(),
-        this.gradeRepository.count(),
         this.notificationRepository.count(),
       ]);
+
+      // Calculate graded submissions (submissions that have grades)
+      const gradedSubmissions = await this.submissionRepository
+        .createQueryBuilder('submission')
+        .innerJoin('submission.grade', 'grade')
+        .getCount();
+
+      const pendingSubmissions = totalSubmissions - gradedSubmissions;
 
       // Calculate submission rate
       const submissionRate = totalAssignments > 0 
@@ -124,21 +120,27 @@ export class AdminService {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
+      console.error('Error fetching system stats:', error);
       throw new Error(`Failed to fetch system stats: ${error.message}`);
     }
   }
 
   async getOverviewStats() {
-    const stats = await this.getSystemStats();
-    return {
-      totalUsers: stats.users.total,
-      totalCourses: stats.courses.total,
-      totalAssignments: stats.assignments.total,
-      totalSubmissions: stats.assignments.submissions,
-      activeCoursesPercentage: stats.courses.activePercentage,
-      submissionRate: stats.assignments.submissionRate,
-      gradingCompletionRate: stats.assignments.gradingCompletionRate,
-    };
+    try {
+      const stats = await this.getSystemStats();
+      return {
+        totalUsers: stats.users.total,
+        totalCourses: stats.courses.total,
+        totalAssignments: stats.assignments.total,
+        totalSubmissions: stats.assignments.submissions,
+        activeCoursesPercentage: stats.courses.activePercentage,
+        submissionRate: stats.assignments.submissionRate,
+        gradingCompletionRate: stats.assignments.gradingCompletionRate,
+      };
+    } catch (error) {
+      console.error('Error fetching overview stats:', error);
+      throw new Error(`Failed to fetch overview stats: ${error.message}`);
+    }
   }
 
   async getUserStats(period?: string) {
@@ -182,6 +184,7 @@ export class AdminService {
         period: period || 'all-time',
       };
     } catch (error) {
+      console.error('Error fetching user stats:', error);
       throw new Error(`Failed to fetch user stats: ${error.message}`);
     }
   }
@@ -201,13 +204,15 @@ export class AdminService {
         this.courseRepository.count({ where: { isActive: true } }),
       ]);
 
-      // Get course enrollment stats
+      // Get course enrollment stats using a more reliable query
       const enrollmentStats = await this.courseRepository
         .createQueryBuilder('course')
         .leftJoin('course.students', 'student')
-        .select('course.id', 'courseId')
-        .addSelect('course.name', 'courseName')
-        .addSelect('COUNT(student.id)', 'enrollmentCount')
+        .select([
+          'course.id as courseId',
+          'course.name as courseName',
+          'COUNT(student.id) as enrollmentCount'
+        ])
         .groupBy('course.id')
         .addGroupBy('course.name')
         .orderBy('COUNT(student.id)', 'DESC')
@@ -219,10 +224,15 @@ export class AdminService {
         active: activeCourses,
         inactive: totalCourses - activeCourses,
         newCourses: newCourses,
-        topEnrolledCourses: enrollmentStats,
+        topEnrolledCourses: enrollmentStats.map(stat => ({
+          courseId: stat.courseId,
+          courseName: stat.courseName,
+          enrollmentCount: parseInt(stat.enrollmentCount) || 0,
+        })),
         period: period || 'all-time',
       };
     } catch (error) {
+      console.error('Error fetching course stats:', error);
       throw new Error(`Failed to fetch course stats: ${error.message}`);
     }
   }
@@ -236,26 +246,23 @@ export class AdminService {
         whereCondition = { createdAt: Between(dateRange.start, dateRange.end) };
       }
 
-      const [
-        totalAssignments,
-        newAssignments,
-        totalSubmissions,
-        gradedSubmissions,
-        avgGrade
-      ] = await Promise.all([
+      const [totalAssignments, newAssignments, totalSubmissions] = await Promise.all([
         this.assignmentRepository.count(),
         dateRange ? this.assignmentRepository.count({ where: whereCondition }) : 0,
         this.submissionRepository.count(),
-        this.submissionRepository.count({ 
-          where: { 
-            grade: Not(IsNull()) 
-          } 
-        }),
-        this.gradeRepository
-          .createQueryBuilder('grade')
-          .select('AVG(grade.value)', 'average')
-          .getRawOne()
       ]);
+
+      // Count graded submissions by checking if there's a grade for the submission
+      const gradedSubmissions = await this.submissionRepository
+        .createQueryBuilder('submission')
+        .innerJoin('submission.grade', 'grade')
+        .getCount();
+
+      // Calculate average grade
+      const avgGradeResult = await this.gradeRepository
+        .createQueryBuilder('grade')
+        .select('AVG(grade.score)', 'average')
+        .getRawOne();
 
       const submissionRate = totalAssignments > 0 
         ? Math.round((totalSubmissions / totalAssignments) * 100)
@@ -275,10 +282,11 @@ export class AdminService {
           submissionRate,
           gradingRate,
         },
-        averageGrade: avgGrade?.average ? parseFloat(avgGrade.average).toFixed(2) : 0,
+        averageGrade: avgGradeResult?.average ? parseFloat(avgGradeResult.average).toFixed(2) : 0,
         period: period || 'all-time',
       };
     } catch (error) {
+      console.error('Error fetching assignment stats:', error);
       throw new Error(`Failed to fetch assignment stats: ${error.message}`);
     }
   }
@@ -311,79 +319,95 @@ export class AdminService {
         period: period || '7d',
       };
     } catch (error) {
+      console.error('Error fetching activity stats:', error);
       throw new Error(`Failed to fetch activity stats: ${error.message}`);
     }
   }
 
   async getRecentActivities(limit: number = 50) {
     try {
-      // Get recent submissions
-      const recentSubmissions = await this.submissionRepository
-        .createQueryBuilder('submission')
-        .leftJoinAndSelect('submission.student', 'student')
-        .leftJoinAndSelect('submission.assignment', 'assignment')
-        .select([
-          'submission.id',
-          'submission.createdAt',
-          'student.fullName',
-          'student.email',
-          'assignment.title'
-        ])
-        .orderBy('submission.createdAt', 'DESC')
-        .limit(Math.floor(limit / 3))
-        .getMany();
+      // Get recent submissions with proper error handling
+      let recentSubmissions = [];
+      try {
+        recentSubmissions = await this.submissionRepository
+          .createQueryBuilder('submission')
+          .leftJoinAndSelect('submission.student', 'student')
+          .leftJoinAndSelect('submission.assignment', 'assignment')
+          .select([
+            'submission.id',
+            'submission.createdAt',
+            'student.fullName',
+            'student.email',
+            'assignment.title'
+          ])
+          .orderBy('submission.createdAt', 'DESC')
+          .limit(Math.floor(limit / 3))
+          .getMany();
+      } catch (err) {
+        console.warn('Error fetching recent submissions:', err.message);
+      }
 
-      // Get recent forum posts
-      const recentPosts = await this.forumPostRepository
-        .createQueryBuilder('post')
-        .leftJoinAndSelect('post.author', 'author')
-        .select([
-          'post.id',
-          'post.title',
-          'post.createdAt',
-          'author.fullName',
-          'author.email'
-        ])
-        .orderBy('post.createdAt', 'DESC')
-        .limit(Math.floor(limit / 3))
-        .getMany();
+      // Get recent forum posts with proper error handling
+      let recentPosts = [];
+      try {
+        recentPosts = await this.forumPostRepository
+          .createQueryBuilder('post')
+          .leftJoinAndSelect('post.author', 'author')
+          .select([
+            'post.id',
+            'post.title',
+            'post.createdAt',
+            'author.fullName',
+            'author.email'
+          ])
+          .orderBy('post.createdAt', 'DESC')
+          .limit(Math.floor(limit / 3))
+          .getMany();
+      } catch (err) {
+        console.warn('Error fetching recent posts:', err.message);
+      }
 
-      // Get recent announcements
-      const recentAnnouncements = await this.announcementRepository
-        .createQueryBuilder('announcement')
-        .leftJoinAndSelect('announcement.author', 'author')
-        .select([
-          'announcement.id',
-          'announcement.title',
-          'announcement.createdAt',
-          'author.fullName',
-          'author.email'
-        ])
-        .orderBy('announcement.createdAt', 'DESC')
-        .limit(Math.floor(limit / 3))
-        .getMany();
+      // Get recent announcements with proper error handling
+      let recentAnnouncements = [];
+      try {
+        recentAnnouncements = await this.announcementRepository
+          .createQueryBuilder('announcement')
+          .leftJoinAndSelect('announcement.author', 'author')
+          .select([
+            'announcement.id',
+            'announcement.title',
+            'announcement.createdAt',
+            'author.fullName',
+            'author.email'
+          ])
+          .orderBy('announcement.createdAt', 'DESC')
+          .limit(Math.floor(limit / 3))
+          .getMany();
+      } catch (err) {
+        console.warn('Error fetching recent announcements:', err.message);
+      }
 
       // Combine and format activities
       const activities = [
         ...recentSubmissions.map(s => ({
           type: 'submission',
           id: s.id,
-          title: `Assignment submission: ${s.assignment?.title}`,
-          user: s.student?.fullName,
+          title: `Assignment submission: ${s.assignment?.title || 'Unknown'}`,
+          user: s.student?.fullName || 'Unknown User',
           timestamp: s.createdAt,
         })),
         ...recentPosts.map(p => ({
           type: 'forum_post',
           id: p.id,
-          title: `Forum post: ${p.title}`,
-          user: p.author?.fullName,
+          title: `Forum post: ${p.title || 'Untitled'}`,
+          user: p.author?.fullName || 'Unknown User',
           timestamp: p.createdAt,
         })),
         ...recentAnnouncements.map(a => ({
           type: 'announcement',
           id: a.id,
-          title: `Announcement: ${a.title}`,
-          user: a.author?.fullName,
+          title: `Announcement: ${a.title || 'Untitled'}`,
+          user: a.author?.fullName || 'Unknown User',
           timestamp: a.createdAt,
         })),
       ];
@@ -394,6 +418,7 @@ export class AdminService {
         .slice(0, limit);
 
     } catch (error) {
+      console.error('Error fetching recent activities:', error);
       throw new Error(`Failed to fetch recent activities: ${error.message}`);
     }
   }
@@ -417,6 +442,7 @@ export class AdminService {
         },
       };
     } catch (error) {
+      console.error('Error fetching dashboard data:', error);
       throw new Error(`Failed to fetch dashboard data: ${error.message}`);
     }
   }
@@ -436,6 +462,7 @@ export class AdminService {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
+      console.error('Error checking system health:', error);
       return {
         status: 'unhealthy',
         error: error.message,
@@ -460,7 +487,6 @@ export class AdminService {
       });
 
       if (format === 'csv') {
-        // Return CSV format instructions
         return {
           data: users,
           format: 'csv',
@@ -474,6 +500,7 @@ export class AdminService {
         period: { startDate, endDate },
       };
     } catch (error) {
+      console.error('Error generating user reports:', error);
       throw new Error(`Failed to generate user reports: ${error.message}`);
     }
   }
@@ -517,6 +544,7 @@ export class AdminService {
         period: { startDate, endDate },
       };
     } catch (error) {
+      console.error('Error generating course reports:', error);
       throw new Error(`Failed to generate course reports: ${error.message}`);
     }
   }
@@ -570,6 +598,7 @@ export class AdminService {
         period: period || '30d',
       };
     } catch (error) {
+      console.error('Error fetching engagement analytics:', error);
       throw new Error(`Failed to fetch engagement analytics: ${error.message}`);
     }
   }
@@ -578,9 +607,9 @@ export class AdminService {
     try {
       const gradeStats = await this.gradeRepository
         .createQueryBuilder('grade')
-        .select('AVG(grade.value)', 'average')
-        .addSelect('MIN(grade.value)', 'minimum')
-        .addSelect('MAX(grade.value)', 'maximum')
+        .select('AVG(grade.score)', 'average')
+        .addSelect('MIN(grade.score)', 'minimum')
+        .addSelect('MAX(grade.score)', 'maximum')
         .addSelect('COUNT(*)', 'total')
         .getRawOne();
 
@@ -588,20 +617,20 @@ export class AdminService {
         .createQueryBuilder('grade')
         .select(`
           CASE 
-            WHEN grade.value >= 90 THEN 'A'
-            WHEN grade.value >= 80 THEN 'B'
-            WHEN grade.value >= 70 THEN 'C'
-            WHEN grade.value >= 60 THEN 'D'
+            WHEN grade.score >= 90 THEN 'A'
+            WHEN grade.score >= 80 THEN 'B'
+            WHEN grade.score >= 70 THEN 'C'
+            WHEN grade.score >= 60 THEN 'D'
             ELSE 'F'
           END
         `, 'grade_letter')
         .addSelect('COUNT(*)', 'count')
         .groupBy(`
           CASE 
-            WHEN grade.value >= 90 THEN 'A'
-            WHEN grade.value >= 80 THEN 'B'
-            WHEN grade.value >= 70 THEN 'C'
-            WHEN grade.value >= 60 THEN 'D'
+            WHEN grade.score >= 90 THEN 'A'
+            WHEN grade.score >= 80 THEN 'B'
+            WHEN grade.score >= 70 THEN 'C'
+            WHEN grade.score >= 60 THEN 'D'
             ELSE 'F'
           END
         `)
@@ -621,6 +650,7 @@ export class AdminService {
         period: period || 'all-time',
       };
     } catch (error) {
+      console.error('Error fetching performance analytics:', error);
       throw new Error(`Failed to fetch performance analytics: ${error.message}`);
     }
   }
