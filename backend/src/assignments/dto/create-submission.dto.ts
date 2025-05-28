@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsNumber, Min } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, IsEnum } from 'class-validator';
+import { SubmissionStatus } from '../../entities/submission.entity';
 
 export class CreateSubmissionDto {
   @IsOptional()
@@ -17,4 +18,8 @@ export class CreateSubmissionDto {
   @IsNumber({}, { message: 'Ukuran file harus berupa angka' })
   @Min(0, { message: 'Ukuran file tidak boleh negatif' })
   fileSize?: number;
+
+  @IsOptional()
+  @IsEnum(SubmissionStatus, { message: 'Status submission tidak valid' })
+  status?: SubmissionStatus;
 }
