@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, Not, IsNull } from 'typeorm';
 import { User, UserRole } from '../entities/user.entity';
 import { Course } from '../entities/course.entity';
 import { Assignment } from '../entities/assignment.entity';
@@ -57,8 +57,16 @@ export class AdminService {
         this.courseRepository.count({ where: { isActive: true } }),
         this.assignmentRepository.count(),
         this.submissionRepository.count(),
-        this.submissionRepository.count({ where: { grade: null } }),
-        this.submissionRepository.count({ where: { grade: { not: null } } }),
+        this.submissionRepository.count({ 
+          where: { 
+            grade: IsNull() 
+          } 
+        }),
+        this.submissionRepository.count({ 
+          where: { 
+            grade: Not(IsNull()) 
+          } 
+        }),
         this.announcementRepository.count(),
         this.forumPostRepository.count(),
         this.gradeRepository.count(),
@@ -196,13 +204,13 @@ export class AdminService {
       // Get course enrollment stats
       const enrollmentStats = await this.courseRepository
         .createQueryBuilder('course')
-        .leftJoin('course.enrollments', 'enrollment')
+        .leftJoin('course.students', 'student')
         .select('course.id', 'courseId')
-        .addSelect('course.title', 'courseTitle')
-        .addSelect('COUNT(enrollment.id)', 'enrollmentCount')
+        .addSelect('course.name', 'courseName')
+        .addSelect('COUNT(student.id)', 'enrollmentCount')
         .groupBy('course.id')
-        .addGroupBy('course.title')
-        .orderBy('COUNT(enrollment.id)', 'DESC')
+        .addGroupBy('course.name')
+        .orderBy('COUNT(student.id)', 'DESC')
         .limit(10)
         .getRawMany();
 
@@ -238,7 +246,11 @@ export class AdminService {
         this.assignmentRepository.count(),
         dateRange ? this.assignmentRepository.count({ where: whereCondition }) : 0,
         this.submissionRepository.count(),
-        this.submissionRepository.count({ where: { grade: { not: null } } }),
+        this.submissionRepository.count({ 
+          where: { 
+            grade: Not(IsNull()) 
+          } 
+        }),
         this.gradeRepository
           .createQueryBuilder('grade')
           .select('AVG(grade.value)', 'average')
@@ -313,7 +325,7 @@ export class AdminService {
         .select([
           'submission.id',
           'submission.createdAt',
-          'student.name',
+          'student.fullName',
           'student.email',
           'assignment.title'
         ])
@@ -329,7 +341,7 @@ export class AdminService {
           'post.id',
           'post.title',
           'post.createdAt',
-          'author.name',
+          'author.fullName',
           'author.email'
         ])
         .orderBy('post.createdAt', 'DESC')
@@ -344,7 +356,7 @@ export class AdminService {
           'announcement.id',
           'announcement.title',
           'announcement.createdAt',
-          'author.name',
+          'author.fullName',
           'author.email'
         ])
         .orderBy('announcement.createdAt', 'DESC')
@@ -357,21 +369,21 @@ export class AdminService {
           type: 'submission',
           id: s.id,
           title: `Assignment submission: ${s.assignment?.title}`,
-          user: s.student?.name,
+          user: s.student?.fullName,
           timestamp: s.createdAt,
         })),
         ...recentPosts.map(p => ({
           type: 'forum_post',
           id: p.id,
           title: `Forum post: ${p.title}`,
-          user: p.author?.name,
+          user: p.author?.fullName,
           timestamp: p.createdAt,
         })),
         ...recentAnnouncements.map(a => ({
           type: 'announcement',
           id: a.id,
           title: `Announcement: ${a.title}`,
-          user: a.author?.name,
+          user: a.author?.fullName,
           timestamp: a.createdAt,
         })),
       ];
@@ -443,7 +455,7 @@ export class AdminService {
 
       const users = await this.userRepository.find({
         where: whereCondition,
-        select: ['id', 'name', 'email', 'role', 'createdAt', 'isActive'],
+        select: ['id', 'fullName', 'email', 'role', 'createdAt', 'isActive'],
         order: { createdAt: 'DESC' },
       });
 
@@ -452,7 +464,7 @@ export class AdminService {
         return {
           data: users,
           format: 'csv',
-          headers: ['ID', 'Name', 'Email', 'Role', 'Created At', 'Status'],
+          headers: ['ID', 'Full Name', 'Email', 'Role', 'Created At', 'Status'],
         };
       }
 
@@ -477,17 +489,17 @@ export class AdminService {
 
       const courses = await this.courseRepository.find({
         where: whereCondition,
-        relations: ['lecturer', 'enrollments'],
+        relations: ['lecturer', 'students'],
         select: {
           id: true,
-          title: true,
+          name: true,
           code: true,
           description: true,
           isActive: true,
           createdAt: true,
           lecturer: {
             id: true,
-            name: true,
+            fullName: true,
             email: true,
           },
         },
@@ -496,7 +508,7 @@ export class AdminService {
 
       const coursesWithStats = courses.map(course => ({
         ...course,
-        enrollmentCount: course.enrollments?.length || 0,
+        enrollmentCount: course.students?.length || 0,
       }));
 
       return {
