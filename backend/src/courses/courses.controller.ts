@@ -12,6 +12,8 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CoursesService } from './courses.service';
@@ -93,13 +95,29 @@ export class CoursesController {
       cb(null, true);
     },
   }))
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: false, // Allow extra fields like 'file' from multer
+    transform: true,
+  }))
   async createCourseMaterial(
     @Param('id', ParseUUIDPipe) courseId: string,
-    @Body() createMaterialDto: CreateCourseMaterialDto,
+    @Body() body: any, // Use any to bypass DTO validation initially
     @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
     try {
+      // Manual validation and DTO construction
+      const createMaterialDto: CreateCourseMaterialDto = {
+        title: body.title,
+        description: body.description,
+        type: body.type,
+        url: body.url,
+        week: body.week,
+        orderIndex: body.orderIndex,
+        isVisible: body.isVisible,
+      };
+
       // Validate required fields
       if (!createMaterialDto.title || createMaterialDto.title.trim() === '') {
         throw new BadRequestException('Judul materi wajib diisi');
@@ -109,10 +127,10 @@ export class CoursesController {
         throw new BadRequestException('Tipe materi wajib dipilih');
       }
 
-      // Convert string numbers to actual numbers
-      if (createMaterialDto.week) {
+      // Validate and convert week
+      if (createMaterialDto.week !== undefined) {
         const weekNum = typeof createMaterialDto.week === 'string' 
-          ? parseInt(createMaterialDto.week, 10) 
+          ? parseInt(createMaterialDto.week as string, 10) 
           : createMaterialDto.week;
         
         if (isNaN(weekNum) || weekNum < 1) {
@@ -123,9 +141,10 @@ export class CoursesController {
         createMaterialDto.week = 1;
       }
 
-      if (createMaterialDto.orderIndex) {
+      // Validate and convert orderIndex
+      if (createMaterialDto.orderIndex !== undefined) {
         const orderNum = typeof createMaterialDto.orderIndex === 'string' 
-          ? parseInt(createMaterialDto.orderIndex, 10) 
+          ? parseInt(createMaterialDto.orderIndex as string, 10) 
           : createMaterialDto.orderIndex;
         
         if (isNaN(orderNum) || orderNum < 1) {
@@ -146,8 +165,16 @@ export class CoursesController {
       }
 
       // Validate URL for link type
-      if (createMaterialDto.type === MaterialType.LINK && !createMaterialDto.url) {
-        throw new BadRequestException('URL wajib diisi untuk tipe link');
+      if (createMaterialDto.type === MaterialType.LINK) {
+        if (!createMaterialDto.url || createMaterialDto.url.trim() === '') {
+          throw new BadRequestException('URL wajib diisi untuk tipe link');
+        }
+        // Basic URL validation
+        try {
+          new URL(createMaterialDto.url);
+        } catch {
+          throw new BadRequestException('Format URL tidak valid');
+        }
       }
 
       // Validate file for non-link types
@@ -179,18 +206,33 @@ export class CoursesController {
       cb(null, true);
     },
   }))
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: false, // Allow extra fields
+    transform: true,
+  }))
   async updateCourseMaterial(
     @Param('courseId', ParseUUIDPipe) courseId: string,
     @Param('materialId', ParseUUIDPipe) materialId: string,
-    @Body() updateMaterialDto: UpdateCourseMaterialDto,
+    @Body() body: any,
     @UploadedFile() file: Express.Multer.File,
     @GetUser() user: User,
   ) {
     try {
+      const updateMaterialDto: UpdateCourseMaterialDto = {
+        title: body.title,
+        description: body.description,
+        type: body.type,
+        url: body.url,
+        week: body.week,
+        orderIndex: body.orderIndex,
+        isVisible: body.isVisible,
+      };
+
       // Convert string numbers to actual numbers if provided
       if (updateMaterialDto.week !== undefined) {
         const weekNum = typeof updateMaterialDto.week === 'string' 
-          ? parseInt(updateMaterialDto.week, 10) 
+          ? parseInt(updateMaterialDto.week as string, 10) 
           : updateMaterialDto.week;
         
         if (isNaN(weekNum) || weekNum < 1) {
@@ -201,7 +243,7 @@ export class CoursesController {
 
       if (updateMaterialDto.orderIndex !== undefined) {
         const orderNum = typeof updateMaterialDto.orderIndex === 'string' 
-          ? parseInt(updateMaterialDto.orderIndex, 10) 
+          ? parseInt(updateMaterialDto.orderIndex as string, 10) 
           : updateMaterialDto.orderIndex;
         
         if (isNaN(orderNum) || orderNum < 1) {
