@@ -162,7 +162,7 @@ export class AssignmentsService {
       throw new NotFoundException('Tugas tidak ditemukan atau Anda tidak memiliki akses');
     }
 
-    // If user is a student, also get their submission
+    // If user is a student, also get their submission (including drafts for their own view)
     if (currentUser.role === UserRole.STUDENT) {
       const submission = await this.submissionRepository.findOne({
         where: { assignmentId: id, studentId: currentUser.id },
@@ -262,6 +262,9 @@ export class AssignmentsService {
     // Only set submittedAt timestamp for actual submissions, not drafts
     if (submissionStatus === SubmissionStatus.SUBMITTED) {
       submissionData.submittedAt = now;
+    } else {
+      // For drafts, clear submittedAt to ensure it's null
+      submissionData.submittedAt = null;
     }
 
     Object.assign(submission, submissionData);
@@ -287,12 +290,14 @@ export class AssignmentsService {
       throw new BadRequestException('Submission yang sudah dinilai tidak dapat diubah');
     }
 
-    // Check if still allowed to submit
-    const now = new Date();
-    const isLate = now > submission.assignment.dueDate;
+    // Check if still allowed to submit (only for non-draft submissions)
+    if (submission.status !== SubmissionStatus.DRAFT) {
+      const now = new Date();
+      const isLate = now > submission.assignment.dueDate;
 
-    if (isLate && !submission.assignment.allowLateSubmission) {
-      throw new BadRequestException('Waktu pengumpulan tugas sudah berakhir');
+      if (isLate && !submission.assignment.allowLateSubmission) {
+        throw new BadRequestException('Waktu pengumpulan tugas sudah berakhir');
+      }
     }
 
     Object.assign(submission, updateSubmissionDto);
@@ -317,8 +322,12 @@ export class AssignmentsService {
       throw new ForbiddenException('Anda tidak memiliki akses untuk melihat submission');
     }
 
+    // ✅ FIX: Only show SUBMITTED submissions to lecturers, hide DRAFT submissions
     const submissions = await this.submissionRepository.find({
-      where: { assignmentId },
+      where: { 
+        assignmentId,
+        status: SubmissionStatus.SUBMITTED  // 🎯 CRITICAL FIX: Filter hanya SUBMITTED
+      },
       relations: ['student', 'grade'],
       order: { submittedAt: 'DESC' },
     });
@@ -356,12 +365,22 @@ export class AssignmentsService {
       throw new NotFoundException('Submission tidak ditemukan');
     }
 
+    // ✅ FIX: Prevent grading DRAFT submissions
+    if (submission.status === SubmissionStatus.DRAFT) {
+      throw new BadRequestException('Draft submission tidak dapat dinilai. Mahasiswa harus submit terlebih dahulu.');
+    }
+
     // Only lecturer of the course or admin can grade
     if (
       currentUser.role !== UserRole.ADMIN &&
       submission.assignment.lecturerId !== currentUser.id
     ) {
       throw new ForbiddenException('Anda tidak memiliki akses untuk menilai submission ini');
+    }
+
+    // Only allow grading SUBMITTED submissions
+    if (submission.status !== SubmissionStatus.SUBMITTED) {
+      throw new BadRequestException('Hanya submission yang sudah dikumpulkan yang dapat dinilai');
     }
 
     // Check if already graded
