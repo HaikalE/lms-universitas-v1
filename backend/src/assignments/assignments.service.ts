@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as path from 'path';
+import * as fs from 'fs';
 
 import { Assignment } from '../entities/assignment.entity';
 import { Course } from '../entities/course.entity';
@@ -219,10 +221,12 @@ export class AssignmentsService {
     return { message: 'Tugas berhasil dihapus' };
   }
 
+  // ✅ FIX: Updated submitAssignment method with file handling
   async submitAssignment(
     assignmentId: string,
     createSubmissionDto: CreateSubmissionDto,
     currentUser: User,
+    file?: Express.Multer.File,
   ) {
     // Verify assignment exists and student has access
     const assignment = await this.findOne(assignmentId, currentUser);
@@ -247,6 +251,22 @@ export class AssignmentsService {
       throw new BadRequestException('Waktu pengumpulan tugas sudah berakhir');
     }
 
+    // Validate file if provided
+    if (file && assignment.allowedFileTypes && assignment.allowedFileTypes.length > 0) {
+      const fileExtension = path.extname(file.originalname).toLowerCase();
+      if (!assignment.allowedFileTypes.includes(fileExtension)) {
+        // Clean up uploaded file
+        fs.unlinkSync(file.path);
+        throw new BadRequestException(`File type tidak diizinkan. Hanya: ${assignment.allowedFileTypes.join(', ')}`);
+      }
+    }
+
+    if (file && assignment.maxFileSize && file.size > assignment.maxFileSize * 1024 * 1024) {
+      // Clean up uploaded file
+      fs.unlinkSync(file.path);
+      throw new BadRequestException(`Ukuran file melebihi batas maksimal ${assignment.maxFileSize}MB`);
+    }
+
     const submission = existingSubmission || this.submissionRepository.create({
       assignmentId,
       studentId: currentUser.id,
@@ -259,6 +279,18 @@ export class AssignmentsService {
       isLate,
     };
 
+    // Handle file data if provided
+    if (file) {
+      // Remove old file if exists
+      if (submission.filePath && fs.existsSync(submission.filePath)) {
+        fs.unlinkSync(submission.filePath);
+      }
+      
+      submissionData.fileName = file.originalname;
+      submissionData.filePath = file.path;
+      submissionData.fileSize = file.size;
+    }
+
     // Only set submittedAt timestamp for actual submissions, not drafts
     if (submissionStatus === SubmissionStatus.SUBMITTED) {
       submissionData.submittedAt = now;
@@ -269,13 +301,23 @@ export class AssignmentsService {
 
     Object.assign(submission, submissionData);
 
-    return this.submissionRepository.save(submission);
+    const savedSubmission = await this.submissionRepository.save(submission);
+
+    // Return appropriate message based on status
+    return {
+      ...savedSubmission,
+      message: submissionStatus === SubmissionStatus.DRAFT 
+        ? 'Draft berhasil disimpan' 
+        : 'Tugas berhasil dikumpulkan'
+    };
   }
 
+  // ✅ FIX: Updated updateSubmission method with file handling
   async updateSubmission(
     assignmentId: string,
     updateSubmissionDto: UpdateSubmissionDto,
     currentUser: User,
+    file?: Express.Multer.File,
   ) {
     const submission = await this.submissionRepository.findOne({
       where: { assignmentId, studentId: currentUser.id },
@@ -298,6 +340,33 @@ export class AssignmentsService {
       if (isLate && !submission.assignment.allowLateSubmission) {
         throw new BadRequestException('Waktu pengumpulan tugas sudah berakhir');
       }
+    }
+
+    // Handle file upload if provided
+    if (file) {
+      // Validate file
+      if (submission.assignment.allowedFileTypes && submission.assignment.allowedFileTypes.length > 0) {
+        const fileExtension = path.extname(file.originalname).toLowerCase();
+        if (!submission.assignment.allowedFileTypes.includes(fileExtension)) {
+          fs.unlinkSync(file.path);
+          throw new BadRequestException(`File type tidak diizinkan. Hanya: ${submission.assignment.allowedFileTypes.join(', ')}`);
+        }
+      }
+
+      if (submission.assignment.maxFileSize && file.size > submission.assignment.maxFileSize * 1024 * 1024) {
+        fs.unlinkSync(file.path);
+        throw new BadRequestException(`Ukuran file melebihi batas maksimal ${submission.assignment.maxFileSize}MB`);
+      }
+
+      // Remove old file if exists
+      if (submission.filePath && fs.existsSync(submission.filePath)) {
+        fs.unlinkSync(submission.filePath);
+      }
+
+      // Update file info
+      updateSubmissionDto.fileName = file.originalname;
+      updateSubmissionDto.filePath = file.path;
+      updateSubmissionDto.fileSize = file.size;
     }
 
     Object.assign(submission, updateSubmissionDto);
