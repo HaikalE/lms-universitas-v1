@@ -5,6 +5,69 @@ All notable changes to LMS Universitas v1.0 will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-05-28
+
+### Added
+- **Admin Module**: Complete administrative functionality with comprehensive statistics and analytics
+  - **Admin Controller**: `/api/admin/*` endpoints for system administration
+  - **Admin Service**: Business logic for statistics, analytics, and reporting
+  - **Statistics API**: `/api/admin/stats` - System overview, user stats, course stats, assignment stats
+  - **Analytics API**: User engagement analytics and performance analytics
+  - **Reports API**: User and course reports with CSV export support
+  - **Dashboard API**: Administrative dashboard with key metrics
+  - **System Monitoring**: System health checks and recent activity monitoring
+
+#### New Admin Endpoints
+- `GET /api/admin/stats` - Complete system statistics
+- `GET /api/admin/stats/overview` - Quick overview dashboard stats
+- `GET /api/admin/stats/users` - User statistics with role breakdown
+- `GET /api/admin/stats/courses` - Course statistics and enrollment data
+- `GET /api/admin/stats/assignments` - Assignment and submission statistics
+- `GET /api/admin/stats/activity` - System activity monitoring
+- `GET /api/admin/analytics/engagement` - User engagement analytics
+- `GET /api/admin/analytics/performance` - Academic performance analytics
+- `GET /api/admin/reports/users` - User reports (supports CSV export)
+- `GET /api/admin/reports/courses` - Course reports with enrollment data
+- `GET /api/admin/dashboard` - Administrative dashboard data
+- `GET /api/admin/system-health` - System health status
+- `GET /api/admin/recent-activities` - Recent system activities
+
+#### Features
+- **Time Period Filtering**: Support for 7d, 30d, 90d, and 1y periods
+- **Custom Date Ranges**: Flexible date range filtering for reports
+- **CSV Export**: Export functionality for user and course reports
+- **Real-time Statistics**: Live system statistics and metrics
+- **Activity Monitoring**: Track submissions, forum posts, and announcements
+- **Performance Analytics**: Grade distribution and academic performance metrics
+- **User Growth Analytics**: User registration trends and role breakdown
+- **Engagement Metrics**: Daily activity tracking and engagement analytics
+
+#### Security
+- **Admin Authorization**: All endpoints require ADMIN role
+- **JWT Authentication**: Protected with JWT authentication
+- **Role-based Access**: Strict admin-only access control
+
+#### Documentation
+- **Comprehensive README**: Detailed documentation for AdminModule
+- **API Examples**: Complete usage examples with TypeScript
+- **Error Handling**: Documented error responses and handling
+- **Performance Notes**: Guidelines for optimization and caching
+
+### Fixed
+- **Missing Admin Endpoint**: Fixed "Cannot GET /api/admin/stats" error
+- **Module Integration**: Properly integrated AdminModule into app.module.ts
+- **Route Resolution**: Admin routes now properly resolve with global 'api' prefix
+
+### Technical Details
+- **Database Queries**: Optimized TypeORM queries for statistics generation
+- **Error Handling**: Comprehensive error handling with descriptive messages
+- **Type Safety**: Full TypeScript support with proper type definitions
+- **Query Performance**: Efficient aggregation queries for large datasets
+- **Memory Usage**: Optimized memory usage for large data processing
+
+### Breaking Changes
+None. This is a backward-compatible addition.
+
 ## [1.0.0] - 2024-05-22
 
 ### Added
@@ -164,11 +227,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### API Endpoints Summary
 
-- **Total Endpoints**: 50+ REST API endpoints
-- **Authentication Required**: 45+ endpoints
+- **Total Endpoints**: 65+ REST API endpoints (including new admin endpoints)
+- **Authentication Required**: 60+ endpoints
 - **Public Endpoints**: 5 endpoints (login, health check)
-- **Admin Only**: 15+ endpoints
-- **Lecturer Accessible**: 30+ endpoints
+- **Admin Only**: 30+ endpoints (includes new admin statistics endpoints)
+- **Lecturer Accessible**: 35+ endpoints
 - **Student Accessible**: 25+ endpoints
 
 ### Database Statistics
@@ -185,6 +248,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 lms-universitas-v1/
 ├── backend/                 # NestJS backend application
 │   ├── src/
+│   │   ├── admin/          # NEW: Administrative module with statistics
 │   │   ├── auth/           # Authentication module
 │   │   ├── users/          # User management module
 │   │   ├── courses/        # Course management module
@@ -218,23 +282,21 @@ lms-universitas-v1/
 - **Email Notifications**: Email integration not included
 - **Video Conferencing**: Third-party integration not available
 - **Mobile Apps**: Native mobile applications not developed
-- **Advanced Analytics**: Detailed reporting dashboard not implemented
 - **Multilingual Support**: Currently supports Indonesian/English only
 - **Offline Support**: No offline functionality
 - **Advanced Search**: Basic search functionality only
 
 ### Future Roadmap
 
-#### Version 1.1 (Planned)
+#### Version 1.2 (Planned)
 - **Real-time Notifications**: WebSocket implementation
 - **Email Integration**: SMTP email notifications
 - **Advanced Search**: Full-text search with Elasticsearch
 - **Bulk Operations**: Bulk user import/export
 - **Enhanced Security**: Two-factor authentication
 
-#### Version 1.2 (Planned)
+#### Version 1.3 (Planned)
 - **Video Integration**: Zoom/Teams integration
-- **Advanced Analytics**: Comprehensive reporting dashboard
 - **Mobile Optimization**: Progressive Web App features
 - **API Rate Limiting**: Advanced rate limiting
 - **Audit Logs**: Comprehensive activity logging
@@ -248,4 +310,4 @@ lms-universitas-v1/
 
 ---
 
-**Note**: This is the initial release of LMS Universitas v1.0. For the latest updates and releases, please check the [GitHub repository](https://github.com/HaikalE/lms-universitas-v1).
+**Note**: This changelog documents all changes to LMS Universitas. For the latest updates and releases, please check the [GitHub repository](https://github.com/HaikalE/lms-universitas-v1).
