@@ -409,7 +409,7 @@ const CourseStudentManagementPage: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <span>Daftar Mahasiswa</span>
             {studentsQuery.search && (
-              <Badge variant="secondary">
+              <Badge variant="info">
                 {students.length} hasil untuk "{studentsQuery.search}"
               </Badge>
             )}
@@ -505,7 +505,7 @@ const CourseStudentManagementPage: React.FC = () => {
                         <span className="truncate">{student.email}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <Badge variant={student.isActive ? 'default' : 'secondary'}>
+                        <Badge variant={student.isActive ? 'default' : 'warning'}>
                           {student.isActive ? 'Aktif' : 'Tidak Aktif'}
                         </Badge>
                         {student.enrolledAt && (
