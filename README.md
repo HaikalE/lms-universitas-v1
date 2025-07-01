@@ -16,6 +16,7 @@ Learning Management System untuk Universitas yang dibangun dengan teknologi mode
 - 📝 **Pengumpulan Tugas** dengan file upload
 - 💬 **Forum Diskusi** per mata kuliah
 - 📈 **Lihat Nilai** tugas dan ujian
+- 👥 **Daftar Teman Sekelas** dengan pencarian
 - 🔔 **Notifikasi** untuk tugas baru dan pengumuman
 
 ### 👨‍🏫 Untuk Dosen
@@ -23,15 +24,48 @@ Learning Management System untuk Universitas yang dibangun dengan teknologi mode
 - 📋 **Membuat dan Mengelola Tugas** dengan berbagai tipe
 - ✅ **Sistem Penilaian** dengan feedback
 - 📢 **Pengumuman** untuk kelas
-- 👥 **Manajemen Peserta** kelas
+- 👥 **Manajemen Mahasiswa** lengkap dengan:
+  - ➕ Pendaftaran mahasiswa (individual/bulk)
+  - 🔍 Pencarian dan filter mahasiswa
+  - 📊 Statistik kelas real-time
+  - 📁 Export data mahasiswa
+  - 🗑️ Penghapusan mahasiswa dari kelas
 - 📊 **Analytics** performa mahasiswa
 
 ### 👨‍💼 Untuk Administrator
 - 👤 **Manajemen Pengguna** (mahasiswa, dosen, admin)
 - 📚 **Manajemen Mata Kuliah** dan kelas
-- 📊 **Pendaftaran Mahasiswa** ke mata kuliah
+- 📊 **Pendaftaran Mahasiswa** ke mata kuliah dengan bulk operations
 - 🔧 **Pengaturan Sistem** dan monitoring
 - 🗄️ **Backup & Restore** data
+
+## 🆕 New Features (v1.0.1)
+
+### 🎯 **Fitur Pengelolaan Mahasiswa yang Lengkap**
+Sistem pengelolaan mahasiswa yang telah diimplementasikan secara komprehensif:
+
+#### **Untuk Dosen & Admin:**
+- **Tambah Mahasiswa**: 
+  - 📧 Tambah via email individual
+  - 📋 Bulk selection dari daftar mahasiswa tersedia
+  - ✅ Validasi otomatis dan duplicate prevention
+- **Kelola Daftar Mahasiswa**:
+  - 🔍 Search real-time berdasarkan nama, NIM, atau email
+  - 🗂️ Sorting by nama, NIM, atau tanggal daftar
+  - 📄 Pagination untuk handling data besar
+- **Analytics & Export**:
+  - 📊 Statistik real-time (total, aktif, pendaftar baru)
+  - 📁 Export ke CSV untuk Excel
+  - 📈 Tracking enrollment history
+- **Advanced Management**:
+  - 🗑️ Remove mahasiswa dari kelas
+  - 👁️ View detail mahasiswa
+  - 🔄 Bulk operations untuk multiple mahasiswa
+
+#### **Untuk Mahasiswa:**
+- 👥 **Lihat Teman Sekelas**: Akses daftar mahasiswa dalam kelas yang sama
+- 🔍 **Pencarian Mahasiswa**: Cari teman sekelas dengan mudah
+- 📇 **Info Kontak**: Lihat email dan informasi kontak teman
 
 ## 🛠️ Teknologi
 
@@ -54,7 +88,7 @@ Learning Management System untuk Universitas yang dibangun dengan teknologi mode
 ### Database
 - **PostgreSQL 14+** dengan skema yang terstruktur
 - **TypeORM Migrations** untuk version control database
-- **Relasi Lengkap** antar entitas
+- **Relasi Lengkap** antar entitas dengan junction tables
 - **Indexing** untuk performa optimal
 
 ## 🚀 Quick Start
@@ -139,7 +173,8 @@ Users (mahasiswa, dosen, admin)
 │   │   ├── Submissions (pengumpulan tugas)
 │   │   └── Grades (nilai)
 │   ├── Forums & Posts (diskusi)
-│   └── Announcements (pengumuman)
+│   ├── Announcements (pengumuman)
+│   └── Course Enrollments (pendaftaran mahasiswa) ✨ NEW
 └── Notifications (notifikasi)
 ```
 
@@ -152,6 +187,9 @@ lms-universitas-v1/
 │   │   ├── auth/           # Authentication
 │   │   ├── users/          # User Management
 │   │   ├── courses/        # Course Management
+│   │   │   ├── dto/        # DTO termasuk student management ✨
+│   │   │   ├── courses.controller.ts  # Endpoints student mgmt ✨
+│   │   │   └── courses.service.ts     # Business logic ✨
 │   │   ├── assignments/    # Assignment System
 │   │   ├── forums/         # Discussion Forums
 │   │   ├── announcements/  # Announcements
@@ -164,11 +202,16 @@ lms-universitas-v1/
 │   ├── src/
 │   │   ├── components/    # UI Components
 │   │   ├── pages/         # Page Components
+│   │   │   └── courses/   # Course pages
+│   │   │       ├── CourseDetailPage.tsx          # Tab mahasiswa ✨
+│   │   │       └── CourseStudentManagementPage.tsx ✨ NEW
 │   │   ├── services/      # API Services
+│   │   │   └── courseService.ts  # Student mgmt APIs ✨
 │   │   ├── contexts/      # React Contexts
 │   │   └── types/         # TypeScript Types
 │   └── build/            # Production Build
 ├── docs/                  # Documentation
+│   └── STUDENT_MANAGEMENT_FEATURE.md ✨ NEW
 ├── scripts/               # Utility Scripts
 └── docker-compose.yml     # Docker Config
 ```
@@ -239,6 +282,14 @@ npm run test:coverage    # Coverage report
 - `POST /api/courses` - Create course (Admin)
 - `GET /api/courses/:id/materials` - Get course materials
 - `POST /api/courses/:id/materials` - Upload material (Lecturer)
+
+### ✨ Student Management (New)
+- `GET /api/courses/:id/students` - List course students
+- `POST /api/courses/:id/students/enroll` - Enroll single student
+- `POST /api/courses/:id/students/enroll-multiple` - Bulk enroll students
+- `POST /api/courses/:id/students/add-by-email` - Add student by email
+- `DELETE /api/courses/:id/students/:studentId` - Remove student
+- `GET /api/courses/:id/students/available` - Get available students
 
 ### Assignments
 - `GET /api/assignments` - List assignments
@@ -322,11 +373,12 @@ npm run test:coverage   # Coverage report
 ## 📚 Dokumentasi
 
 | Dokumen | Deskripsi |
-|---------|----------|
+|---------|-----------|
 | [SETUP.md](docs/SETUP.md) | Panduan instalasi lengkap |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Panduan deployment production |
 | [API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) | Dokumentasi REST API |
 | [FEATURES.md](docs/FEATURES.md) | Deskripsi fitur lengkap |
+| [STUDENT_MANAGEMENT_FEATURE.md](STUDENT_MANAGEMENT_FEATURE.md) | ✨ Dokumentasi fitur manajemen mahasiswa |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Panduan troubleshooting |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Panduan kontribusi |
 
@@ -340,16 +392,18 @@ npm run test:coverage   # Coverage report
 - **File Upload Security** dengan type validation
 - **CORS Protection** yang dapat dikonfigurasi
 - **Rate Limiting** untuk API endpoints
+- **Permission Matrix** untuk student management ✨
 
 ## 🎯 Performance
 
 - **Database Indexing** untuk query optimization
-- **Pagination** di semua list endpoints
+- **Pagination** di semua list endpoints (including student lists) ✨
 - **Caching Headers** untuk static assets
 - **Gzip Compression** untuk responses
 - **Code Splitting** di frontend
 - **Lazy Loading** untuk routes
 - **Connection Pooling** untuk database
+- **Bulk Operations** untuk student enrollment ✨
 
 ## 🔄 Backup & Recovery
 
@@ -385,6 +439,16 @@ npm run test:coverage   # Coverage report
    ```bash
    # Reset database
    ./scripts/reset-db.sh
+   ```
+
+4. **Student Management Issues** ✨
+   ```bash
+   # Check junction table
+   sudo -u postgres psql lms_db
+   SELECT * FROM course_enrollments;
+   
+   # Verify user roles
+   SELECT id, fullName, role FROM users WHERE role = 'student';
    ```
 
 Lihat panduan lengkap di [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
@@ -427,6 +491,7 @@ Project ini menggunakan [MIT License](LICENSE). Anda bebas menggunakan, memodifi
 - 🔍 Advanced search dengan Elasticsearch
 - 📱 Progressive Web App features
 - 🔐 Two-factor authentication
+- 📊 Enhanced student analytics & reporting
 
 ### Version 1.2
 - 🎥 Video conferencing integration
@@ -434,6 +499,7 @@ Project ini menggunakan [MIT License](LICENSE). Anda bebas menggunakan, memodifi
 - 📱 Mobile app (React Native)
 - 🌐 Multi-language support
 - 🤖 AI-powered recommendations
+- 🎓 Student performance predictions
 
 ### Version 2.0
 - 🏗️ Microservices architecture
