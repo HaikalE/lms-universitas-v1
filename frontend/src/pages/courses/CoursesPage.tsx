@@ -288,7 +288,7 @@ const CoursesPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <Badge variant="secondary">{course.code}</Badge>
+              <Badge variant="default">{course.code}</Badge>
               <h3 className="font-semibold text-lg">{course.name}</h3>
             </div>
             
@@ -425,7 +425,7 @@ const CoursesPage: React.FC = () => {
           {(filters.semester || filters.credits || filters.lecturer) && (
             <div className="flex flex-wrap gap-2 mt-4">
               {filters.semester && (
-                <Badge variant="secondary" className="flex items-center gap-1">
+                <Badge variant="default" className="flex items-center gap-1">
                   Semester {filters.semester}
                   <button
                     onClick={() => setFilters({...filters, semester: ''})}
@@ -436,7 +436,7 @@ const CoursesPage: React.FC = () => {
                 </Badge>
               )}
               {filters.credits && (
-                <Badge variant="secondary" className="flex items-center gap-1">
+                <Badge variant="default" className="flex items-center gap-1">
                   {filters.credits} SKS
                   <button
                     onClick={() => setFilters({...filters, credits: ''})}
@@ -447,7 +447,7 @@ const CoursesPage: React.FC = () => {
                 </Badge>
               )}
               {filters.lecturer && (
-                <Badge variant="secondary" className="flex items-center gap-1">
+                <Badge variant="default" className="flex items-center gap-1">
                   Dosen: {filters.lecturer}
                   <button
                     onClick={() => setFilters({...filters, lecturer: ''})}
