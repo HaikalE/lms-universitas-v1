@@ -566,7 +566,7 @@ const CourseDetailPage: React.FC = () => {
               {tab.icon}
               {tab.label}
               {tab.id === 'students' && (
-                <Badge variant="secondary" className="ml-1">
+                <Badge variant="default" className="ml-1">
                   {students.length}
                 </Badge>
               )}
