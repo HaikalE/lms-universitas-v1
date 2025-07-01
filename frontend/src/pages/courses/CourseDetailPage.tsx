@@ -26,7 +26,13 @@ import {
   MoreVertical,
   Share2,
   Star,
-  AlertCircle
+  AlertCircle,
+  Search,
+  UserPlus,
+  UserMinus,
+  Mail,
+  Filter,
+  X
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -35,7 +41,7 @@ import { Loader } from '../../components/ui/Loader';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { courseService } from '../../services/courseService';
+import { courseService, CourseStudent } from '../../services/courseService';
 import { assignmentService } from '../../services/assignmentService';
 import { forumService } from '../../services/forumService';
 import { Course, CourseMaterial, MaterialType, Assignment, ForumPost, UserRole } from '../../types';
@@ -55,6 +61,19 @@ interface MaterialFormData {
   url?: string;
 }
 
+interface StudentFormData {
+  email: string;
+  selectedStudentIds: string[];
+}
+
+interface StudentsQueryParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: 'fullName' | 'studentId' | 'enrolledAt';
+  sortOrder?: 'ASC' | 'DESC';
+}
+
 const CourseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -63,15 +82,28 @@ const CourseDetailPage: React.FC = () => {
   const [materials, setMaterials] = useState<CourseMaterial[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [forums, setForums] = useState<ForumPost[]>([]);
+  const [students, setStudents] = useState<CourseStudent[]>([]);
+  const [availableStudents, setAvailableStudents] = useState<CourseStudent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [studentsLoading, setStudentsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [materialModalOpen, setMaterialModalOpen] = useState(false);
+  const [studentModalOpen, setStudentModalOpen] = useState(false);
   const [deleteMaterialModalOpen, setDeleteMaterialModalOpen] = useState(false);
+  const [removeStudentModalOpen, setRemoveStudentModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<CourseMaterial | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<CourseStudent | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<CourseMaterial | null>(null);
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
+  const [studentsQuery, setStudentsQuery] = useState<StudentsQueryParams>({
+    page: 1,
+    limit: 20,
+    sortBy: 'fullName',
+    sortOrder: 'ASC'
+  });
+  const [studentsMeta, setStudentsMeta] = useState<any>({});
   
   const [materialForm, setMaterialForm] = useState<MaterialFormData>({
     title: '',
@@ -79,6 +111,11 @@ const CourseDetailPage: React.FC = () => {
     type: MaterialType.PDF,
     week: 1,
     orderIndex: 1,
+  });
+
+  const [studentForm, setStudentForm] = useState<StudentFormData>({
+    email: '',
+    selectedStudentIds: [],
   });
 
   const isAdmin = user?.role === UserRole.ADMIN;
@@ -97,7 +134,7 @@ const CourseDetailPage: React.FC = () => {
     if (course) {
       fetchTabData();
     }
-  }, [course, activeTab]);
+  }, [course, activeTab, studentsQuery]);
 
   const fetchCourseData = async () => {
     try {
@@ -129,9 +166,115 @@ const CourseDetailPage: React.FC = () => {
       const forumsData = await forumService.getForumPosts(course.id);      
       setForums(forumsData.data); // Access the .data property
       break;
+        case 'students':
+          await fetchStudents();
+          break;
       }
     } catch (error) {
       console.error('Error fetching tab data:', error);
+    }
+  };
+
+  const fetchStudents = async () => {
+    if (!course) return;
+
+    try {
+      setStudentsLoading(true);
+      const response = await courseService.getCourseStudents(course.id, studentsQuery);
+      setStudents(response.data);
+      setStudentsMeta(response.meta);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      toast.error('Gagal memuat data mahasiswa');
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
+  const fetchAvailableStudents = async () => {
+    if (!course || !canManageCourse) return;
+
+    try {
+      const data = await courseService.getAvailableStudents(course.id);
+      setAvailableStudents(data);
+    } catch (error) {
+      console.error('Error fetching available students:', error);
+      toast.error('Gagal memuat data mahasiswa tersedia');
+    }
+  };
+
+  const handleStudentSearch = (searchTerm: string) => {
+    setStudentsQuery(prev => ({
+      ...prev,
+      search: searchTerm,
+      page: 1
+    }));
+  };
+
+  const handleEnrollStudentByEmail = async () => {
+    if (!course || !studentForm.email.trim()) {
+      toast.error('Email mahasiswa wajib diisi');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await courseService.addStudentByEmail(course.id, { email: studentForm.email });
+      toast.success('Mahasiswa berhasil ditambahkan');
+      setStudentModalOpen(false);
+      setStudentForm({ email: '', selectedStudentIds: [] });
+      fetchStudents();
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 'Gagal menambahkan mahasiswa';
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEnrollMultipleStudents = async () => {
+    if (!course || studentForm.selectedStudentIds.length === 0) {
+      toast.error('Pilih minimal satu mahasiswa');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const result = await courseService.enrollMultipleStudents(course.id, {
+        studentIds: studentForm.selectedStudentIds
+      });
+      
+      toast.success(result.message);
+      
+      if (result.errors && result.errors.length > 0) {
+        result.errors.forEach(error => toast.error(error));
+      }
+
+      setStudentModalOpen(false);
+      setStudentForm({ email: '', selectedStudentIds: [] });
+      fetchStudents();
+      fetchAvailableStudents();
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 'Gagal menambahkan mahasiswa';
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemoveStudent = async () => {
+    if (!course || !selectedStudent) return;
+
+    try {
+      await courseService.removeStudentFromCourse(course.id, selectedStudent.id);
+      toast.success('Mahasiswa berhasil dihapus dari mata kuliah');
+      setRemoveStudentModalOpen(false);
+      setSelectedStudent(null);
+      fetchStudents();
+      fetchAvailableStudents();
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 'Gagal menghapus mahasiswa';
+      toast.error(errorMessage);
     }
   };
 
@@ -263,6 +406,13 @@ const CourseDetailPage: React.FC = () => {
     setFormErrors({});
   };
 
+  const resetStudentForm = () => {
+    setStudentForm({
+      email: '',
+      selectedStudentIds: [],
+    });
+  };
+
   const getMaterialIcon = (type: MaterialType) => {
     switch (type) {
       case MaterialType.PDF:
@@ -371,7 +521,7 @@ const CourseDetailPage: React.FC = () => {
           </div>
           <div className="flex items-center">
             <Users className="w-5 h-5 mr-2" />
-            <span>{course.studentsCount || 0} Mahasiswa</span>
+            <span>{students.length} Mahasiswa</span>
           </div>
         </div>
 
@@ -415,6 +565,11 @@ const CourseDetailPage: React.FC = () => {
             >
               {tab.icon}
               {tab.label}
+              {tab.id === 'students' && (
+                <Badge variant="secondary" className="ml-1">
+                  {students.length}
+                </Badge>
+              )}
             </button>
           ))}
         </div>
@@ -469,7 +624,7 @@ const CourseDetailPage: React.FC = () => {
                       <div className="text-sm text-gray-600">Diskusi</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-purple-600">{course.studentsCount || 0}</div>
+                      <div className="text-3xl font-bold text-purple-600">{students.length}</div>
                       <div className="text-sm text-gray-600">Mahasiswa</div>
                     </div>
                   </div>
@@ -516,7 +671,7 @@ const CourseDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Materials Tab */}
+        {/* Materials Tab - Keep existing implementation */}
         {activeTab === 'materials' && (
           <div className="space-y-6">
             {canManageCourse && (
@@ -676,7 +831,7 @@ const CourseDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Assignments Tab */}
+        {/* Assignments Tab - Keep existing implementation */}
         {activeTab === 'assignments' && (
           <div className="space-y-6">
             {canManageCourse && (
@@ -730,7 +885,7 @@ const CourseDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Forums Tab */}
+        {/* Forums Tab - Keep existing implementation */}
         {activeTab === 'forums' && (
           <div className="space-y-6">
             <div className="flex justify-end">
@@ -774,30 +929,143 @@ const CourseDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Students Tab */}
+        {/* Students Tab - NEW IMPLEMENTATION */}
         {activeTab === 'students' && (
           <div className="space-y-6">
-            {canManageCourse && (
-              <div className="flex justify-end">
-                <Button onClick={() => navigate(`/courses/${course.id}/students/manage`)}>
-                  <Users className="w-4 h-4 mr-2" />
-                  Kelola Mahasiswa
+            {/* Header with Actions */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Cari mahasiswa..."
+                    className="pl-10 w-64"
+                    value={studentsQuery.search || ''}
+                    onChange={(e) => handleStudentSearch(e.target.value)}
+                  />
+                </div>
+                <Select
+                  value={studentsQuery.sortBy}
+                  onChange={(e) => setStudentsQuery(prev => ({ 
+                    ...prev, 
+                    sortBy: e.target.value as any,
+                    page: 1 
+                  }))}
+                  className="w-40"
+                >
+                  <option value="fullName">Nama</option>
+                  <option value="studentId">NIM</option>
+                  <option value="enrolledAt">Tanggal Daftar</option>
+                </Select>
+              </div>
+
+              {canManageCourse && (
+                <Button 
+                  onClick={() => {
+                    setStudentModalOpen(true);
+                    fetchAvailableStudents();
+                  }}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Tambah Mahasiswa
                 </Button>
+              )}
+            </div>
+
+            {/* Students List */}
+            {studentsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader size="large" />
+              </div>
+            ) : students.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">
+                    {studentsQuery.search ? 'Tidak ada mahasiswa yang ditemukan' : 'Belum ada mahasiswa yang terdaftar'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {students.map(student => (
+                    <Card key={student.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3 flex-1">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                              {student.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-gray-900 truncate">{student.fullName}</h4>
+                              <p className="text-sm text-gray-600">{student.studentId}</p>
+                              <p className="text-xs text-gray-500 truncate">{student.email}</p>
+                            </div>
+                          </div>
+
+                          {canManageCourse && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50 hover:border-red-200 p-2"
+                              onClick={() => {
+                                setSelectedStudent(student);
+                                setRemoveStudentModalOpen(true);
+                              }}
+                            >
+                              <UserMinus className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {studentsMeta.totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={studentsQuery.page === 1}
+                      onClick={() => setStudentsQuery(prev => ({ ...prev, page: prev.page! - 1 }))}
+                    >
+                      Sebelumnya
+                    </Button>
+                    <span className="text-sm text-gray-600">
+                      Halaman {studentsQuery.page} dari {studentsMeta.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={studentsQuery.page === studentsMeta.totalPages}
+                      onClick={() => setStudentsQuery(prev => ({ ...prev, page: prev.page! + 1 }))}
+                    >
+                      Selanjutnya
+                    </Button>
+                  </div>
+                )}
+
+                {/* Stats */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center text-sm text-gray-600">
+                      <span>Total mahasiswa: {studentsMeta.total || students.length}</span>
+                      {studentsQuery.search && (
+                        <span>Menampilkan hasil pencarian untuk "{studentsQuery.search}"</span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Daftar Mahasiswa ({course.studentsCount || 0})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">Fitur ini sedang dalam pengembangan...</p>
-              </CardContent>
-            </Card>
           </div>
         )}
 
-        {/* Settings Tab */}
+        {/* Settings Tab - Keep existing implementation */}
         {activeTab === 'settings' && canManageCourse && (
           <div className="space-y-6">
             <Card>
@@ -827,7 +1095,159 @@ const CourseDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* Material Form Modal */}
+      {/* Add Student Modal */}
+      {studentModalOpen && (
+        <Modal
+          onClose={() => {
+            setStudentModalOpen(false);
+            resetStudentForm();
+          }}
+          title="Tambah Mahasiswa"
+          className="max-w-2xl"
+        >
+          <div className="space-y-6">
+            {/* Add by Email */}
+            <div>
+              <h3 className="font-medium text-gray-900 mb-3">Tambah dengan Email</h3>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Input
+                    type="email"
+                    placeholder="Email mahasiswa..."
+                    value={studentForm.email}
+                    onChange={(e) => setStudentForm(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+                <Button
+                  onClick={handleEnrollStudentByEmail}
+                  disabled={submitting || !studentForm.email.trim()}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Tambah
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t pt-6">
+              <h3 className="font-medium text-gray-900 mb-3">Pilih dari Daftar Mahasiswa</h3>
+              
+              {availableStudents.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  Tidak ada mahasiswa yang tersedia untuk ditambahkan
+                </p>
+              ) : (
+                <>
+                  <div className="max-h-64 overflow-y-auto border rounded-lg">
+                    {availableStudents.map(student => (
+                      <label
+                        key={student.id}
+                        className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={studentForm.selectedStudentIds.includes(student.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setStudentForm(prev => ({
+                                ...prev,
+                                selectedStudentIds: [...prev.selectedStudentIds, student.id]
+                              }));
+                            } else {
+                              setStudentForm(prev => ({
+                                ...prev,
+                                selectedStudentIds: prev.selectedStudentIds.filter(id => id !== student.id)
+                              }));
+                            }
+                          }}
+                          className="mr-3"
+                        />
+                        <div className="flex items-center space-x-3 flex-1">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                            {student.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{student.fullName}</p>
+                            <p className="text-sm text-gray-600">{student.studentId} • {student.email}</p>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  {studentForm.selectedStudentIds.length > 0 && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        {studentForm.selectedStudentIds.length} mahasiswa dipilih
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStudentModalOpen(false);
+                  resetStudentForm();
+                }}
+                disabled={submitting}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleEnrollMultipleStudents}
+                disabled={submitting || studentForm.selectedStudentIds.length === 0}
+              >
+                {submitting ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Menambahkan...
+                  </div>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Tambah {studentForm.selectedStudentIds.length} Mahasiswa
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Remove Student Modal */}
+      {removeStudentModalOpen && selectedStudent && (
+        <Modal
+          onClose={() => setRemoveStudentModalOpen(false)}
+          title="Konfirmasi Hapus Mahasiswa"
+        >
+          <div className="space-y-4">
+            <p>
+              Apakah Anda yakin ingin menghapus <strong>{selectedStudent.fullName}</strong> ({selectedStudent.studentId}) dari mata kuliah ini?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setRemoveStudentModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                variant="default"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleRemoveStudent}
+              >
+                <UserMinus className="w-4 h-4 mr-2" />
+                Hapus
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Material Form Modal - Keep existing implementation */}
       {materialModalOpen && (
         <Modal
           onClose={() => {
@@ -1042,7 +1462,7 @@ const CourseDetailPage: React.FC = () => {
         </Modal>
       )}
 
-      {/* Delete Material Modal */}
+      {/* Delete Material Modal - Keep existing implementation */}
       {deleteMaterialModalOpen && (
         <Modal
           onClose={() => setDeleteMaterialModalOpen(false)}
