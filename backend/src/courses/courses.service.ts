@@ -21,6 +21,12 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { QueryCoursesDto } from './dto/query-courses.dto';
 import { CreateCourseMaterialDto } from './dto/create-course-material.dto';
 import { UpdateCourseMaterialDto } from './dto/update-course-material.dto';
+import { 
+  EnrollStudentDto, 
+  EnrollMultipleStudentsDto, 
+  QueryCourseStudentsDto,
+  AddStudentByEmailDto 
+} from './dto/enroll-student.dto';
 
 @Injectable()
 export class CoursesService {
@@ -448,5 +454,328 @@ export class CoursesService {
       announcements: announcementsCount,
       forumPosts: forumPostsCount,
     };
+  }
+
+  // Student Management Methods
+  async getCourseStudents(courseId: string, queryDto: QueryCourseStudentsDto, currentUser: User) {
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+
+    if (!course) {
+      throw new NotFoundException('Mata kuliah tidak ditemukan');
+    }
+
+    // Check permission: only admin, lecturer of the course, or enrolled students can view
+    if (
+      currentUser.role !== UserRole.ADMIN &&
+      course.lecturerId !== currentUser.id &&
+      currentUser.role === UserRole.STUDENT
+    ) {
+      // For students, verify they are enrolled in the course
+      const isEnrolled = await this.courseRepository
+        .createQueryBuilder('course')
+        .innerJoin('course.students', 'student')
+        .where('course.id = :courseId', { courseId })
+        .andWhere('student.id = :studentId', { studentId: currentUser.id })
+        .getOne();
+
+      if (!isEnrolled) {
+        throw new ForbiddenException('Anda tidak memiliki akses untuk melihat daftar mahasiswa');
+      }
+    }
+
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      sortBy = 'fullName',
+      sortOrder = 'ASC',
+    } = queryDto;
+
+    const queryBuilder = this.courseRepository
+      .createQueryBuilder('course')
+      .innerJoinAndSelect('course.students', 'student')
+      .where('course.id = :courseId', { courseId })
+      .andWhere('student.role = :role', { role: UserRole.STUDENT })
+      .select([
+        'student.id',
+        'student.fullName',
+        'student.studentId',
+        'student.email',
+        'student.avatar',
+        'student.isActive',
+      ]);
+
+    // Apply search filter
+    if (search) {
+      queryBuilder.andWhere(
+        '(student.fullName ILIKE :search OR student.studentId ILIKE :search OR student.email ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Apply sorting
+    queryBuilder.orderBy(`student.${sortBy}`, sortOrder);
+
+    // Apply pagination
+    const offset = (Number(page) - 1) * Number(limit);
+    queryBuilder.skip(offset).take(Number(limit));
+
+    const [results, total] = await queryBuilder.getManyAndCount();
+    const students = results.length > 0 ? results[0].students : [];
+
+    return {
+      data: students,
+      meta: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
+      },
+    };
+  }
+
+  async enrollStudent(courseId: string, enrollStudentDto: EnrollStudentDto, currentUser: User) {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['students'],
+    });
+
+    if (!course) {
+      throw new NotFoundException('Mata kuliah tidak ditemukan');
+    }
+
+    // Check permission: only admin or lecturer of the course can enroll students
+    if (
+      currentUser.role !== UserRole.ADMIN &&
+      course.lecturerId !== currentUser.id
+    ) {
+      throw new ForbiddenException('Anda tidak memiliki akses untuk menambah mahasiswa');
+    }
+
+    // Verify student exists and has STUDENT role
+    const student = await this.userRepository.findOne({
+      where: { id: enrollStudentDto.studentId, role: UserRole.STUDENT },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Mahasiswa tidak ditemukan');
+    }
+
+    // Check if student is already enrolled
+    const isAlreadyEnrolled = course.students.some(s => s.id === student.id);
+    if (isAlreadyEnrolled) {
+      throw new ConflictException('Mahasiswa sudah terdaftar di mata kuliah ini');
+    }
+
+    // Add student to course
+    course.students.push(student);
+    await this.courseRepository.save(course);
+
+    return {
+      message: 'Mahasiswa berhasil ditambahkan ke mata kuliah',
+      student: {
+        id: student.id,
+        fullName: student.fullName,
+        studentId: student.studentId,
+        email: student.email,
+      },
+    };
+  }
+
+  async enrollMultipleStudents(
+    courseId: string,
+    enrollMultipleDto: EnrollMultipleStudentsDto,
+    currentUser: User,
+  ) {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['students'],
+    });
+
+    if (!course) {
+      throw new NotFoundException('Mata kuliah tidak ditemukan');
+    }
+
+    // Check permission
+    if (
+      currentUser.role !== UserRole.ADMIN &&
+      course.lecturerId !== currentUser.id
+    ) {
+      throw new ForbiddenException('Anda tidak memiliki akses untuk menambah mahasiswa');
+    }
+
+    const results = [];
+    const errors = [];
+
+    for (const studentId of enrollMultipleDto.studentIds) {
+      try {
+        const student = await this.userRepository.findOne({
+          where: { id: studentId, role: UserRole.STUDENT },
+        });
+
+        if (!student) {
+          errors.push(`Mahasiswa dengan ID ${studentId} tidak ditemukan`);
+          continue;
+        }
+
+        const isAlreadyEnrolled = course.students.some(s => s.id === student.id);
+        if (isAlreadyEnrolled) {
+          errors.push(`${student.fullName} sudah terdaftar di mata kuliah ini`);
+          continue;
+        }
+
+        course.students.push(student);
+        results.push({
+          id: student.id,
+          fullName: student.fullName,
+          studentId: student.studentId,
+          email: student.email,
+        });
+      } catch (error) {
+        errors.push(`Error saat menambahkan mahasiswa dengan ID ${studentId}: ${error.message}`);
+      }
+    }
+
+    if (results.length > 0) {
+      await this.courseRepository.save(course);
+    }
+
+    return {
+      message: `${results.length} mahasiswa berhasil ditambahkan`,
+      enrolledStudents: results,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  }
+
+  async addStudentByEmail(
+    courseId: string,
+    addStudentDto: AddStudentByEmailDto,
+    currentUser: User,
+  ) {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['students'],
+    });
+
+    if (!course) {
+      throw new NotFoundException('Mata kuliah tidak ditemukan');
+    }
+
+    // Check permission
+    if (
+      currentUser.role !== UserRole.ADMIN &&
+      course.lecturerId !== currentUser.id
+    ) {
+      throw new ForbiddenException('Anda tidak memiliki akses untuk menambah mahasiswa');
+    }
+
+    // Find student by email
+    const student = await this.userRepository.findOne({
+      where: { email: addStudentDto.email, role: UserRole.STUDENT },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Mahasiswa dengan email tersebut tidak ditemukan');
+    }
+
+    // Check if student is already enrolled
+    const isAlreadyEnrolled = course.students.some(s => s.id === student.id);
+    if (isAlreadyEnrolled) {
+      throw new ConflictException('Mahasiswa sudah terdaftar di mata kuliah ini');
+    }
+
+    // Add student to course
+    course.students.push(student);
+    await this.courseRepository.save(course);
+
+    return {
+      message: 'Mahasiswa berhasil ditambahkan ke mata kuliah',
+      student: {
+        id: student.id,
+        fullName: student.fullName,
+        studentId: student.studentId,
+        email: student.email,
+      },
+    };
+  }
+
+  async removeStudentFromCourse(courseId: string, studentId: string, currentUser: User) {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['students'],
+    });
+
+    if (!course) {
+      throw new NotFoundException('Mata kuliah tidak ditemukan');
+    }
+
+    // Check permission
+    if (
+      currentUser.role !== UserRole.ADMIN &&
+      course.lecturerId !== currentUser.id
+    ) {
+      throw new ForbiddenException('Anda tidak memiliki akses untuk menghapus mahasiswa');
+    }
+
+    // Find student in course
+    const studentIndex = course.students.findIndex(s => s.id === studentId);
+    if (studentIndex === -1) {
+      throw new NotFoundException('Mahasiswa tidak terdaftar di mata kuliah ini');
+    }
+
+    const removedStudent = course.students[studentIndex];
+
+    // Remove student from course
+    course.students.splice(studentIndex, 1);
+    await this.courseRepository.save(course);
+
+    return {
+      message: 'Mahasiswa berhasil dihapus dari mata kuliah',
+      student: {
+        id: removedStudent.id,
+        fullName: removedStudent.fullName,
+        studentId: removedStudent.studentId,
+        email: removedStudent.email,
+      },
+    };
+  }
+
+  // Helper method to get available students (not enrolled in the course)
+  async getAvailableStudents(courseId: string, currentUser: User) {
+    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+
+    if (!course) {
+      throw new NotFoundException('Mata kuliah tidak ditemukan');
+    }
+
+    // Check permission
+    if (
+      currentUser.role !== UserRole.ADMIN &&
+      course.lecturerId !== currentUser.id
+    ) {
+      throw new ForbiddenException('Anda tidak memiliki akses untuk melihat data mahasiswa');
+    }
+
+    // Get all students not enrolled in this course
+    const availableStudents = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: UserRole.STUDENT })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .andWhere(`user.id NOT IN (
+        SELECT student.id 
+        FROM course_enrollments ce 
+        INNER JOIN users student ON ce.\"studentId\" = student.id 
+        WHERE ce.\"courseId\" = :courseId
+      )`, { courseId })
+      .select([
+        'user.id',
+        'user.fullName',
+        'user.studentId',
+        'user.email',
+      ])
+      .orderBy('user.fullName', 'ASC')
+      .getMany();
+
+    return availableStudents;
   }
 }
