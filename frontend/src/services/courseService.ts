@@ -1,5 +1,34 @@
 import api from './api';
-import { ApiResponse, Course, CourseMaterial } from '../types';
+import { ApiResponse, Course, CourseMaterial, User } from '../types';
+
+interface CourseStudent {
+  id: string;
+  fullName: string;
+  studentId: string;
+  email: string;
+  avatar?: string;
+  isActive: boolean;
+}
+
+interface EnrollStudentRequest {
+  studentId: string;
+}
+
+interface EnrollMultipleStudentsRequest {
+  studentIds: string[];
+}
+
+interface AddStudentByEmailRequest {
+  email: string;
+}
+
+interface QueryCourseStudentsParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: 'fullName' | 'studentId' | 'enrolledAt';
+  sortOrder?: 'ASC' | 'DESC';
+}
 
 export const courseService = {
   getCourses: async (params?: any): Promise<ApiResponse<Course[]>> => {
@@ -71,4 +100,56 @@ export const courseService = {
     const response = await api.get(`/courses/${courseId}/stats`);
     return response.data;
   },
+
+  // Student Management Methods
+  getCourseStudents: async (
+    courseId: string,
+    params?: QueryCourseStudentsParams
+  ): Promise<ApiResponse<CourseStudent[]>> => {
+    const response = await api.get(`/courses/${courseId}/students`, { params });
+    return response.data;
+  },
+
+  enrollStudent: async (
+    courseId: string,
+    studentData: EnrollStudentRequest
+  ): Promise<{ message: string; student: CourseStudent }> => {
+    const response = await api.post(`/courses/${courseId}/students/enroll`, studentData);
+    return response.data;
+  },
+
+  enrollMultipleStudents: async (
+    courseId: string,
+    studentsData: EnrollMultipleStudentsRequest
+  ): Promise<{
+    message: string;
+    enrolledStudents: CourseStudent[];
+    errors?: string[];
+  }> => {
+    const response = await api.post(`/courses/${courseId}/students/enroll-multiple`, studentsData);
+    return response.data;
+  },
+
+  addStudentByEmail: async (
+    courseId: string,
+    studentData: AddStudentByEmailRequest
+  ): Promise<{ message: string; student: CourseStudent }> => {
+    const response = await api.post(`/courses/${courseId}/students/add-by-email`, studentData);
+    return response.data;
+  },
+
+  removeStudentFromCourse: async (
+    courseId: string,
+    studentId: string
+  ): Promise<{ message: string; student: CourseStudent }> => {
+    const response = await api.delete(`/courses/${courseId}/students/${studentId}`);
+    return response.data;
+  },
+
+  getAvailableStudents: async (courseId: string): Promise<CourseStudent[]> => {
+    const response = await api.get(`/courses/${courseId}/students/available`);
+    return response.data;
+  },
 };
+
+export type { CourseStudent, QueryCourseStudentsParams };
