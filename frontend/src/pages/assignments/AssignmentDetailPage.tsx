@@ -145,11 +145,12 @@ const AssignmentDetailPage: React.FC = () => {
         formData.append('file', submissionFile);
       }
       
-      // ✅ FIX: Handle response with proper message
+      // ✅ FIX: Handle response without expecting message property
       const response = await assignmentService.submitAssignment(assignmentId!, formData);
       
       setSubmitSuccess(true);
-      setSuccessMessage(response.message || (isDraft ? 'Draft berhasil disimpan!' : 'Tugas berhasil dikirim!'));
+      // ✅ FIX: Use default message instead of response.message
+      setSuccessMessage(isDraft ? 'Draft berhasil disimpan!' : 'Tugas berhasil dikirim!');
       
       // Clear the selected file since it's now saved
       setSubmissionFile(null);
