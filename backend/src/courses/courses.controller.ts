@@ -20,6 +20,12 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { QueryCoursesDto } from './dto/query-courses.dto';
 import { CreateCourseMaterialDto } from './dto/create-course-material.dto';
 import { UpdateCourseMaterialDto } from './dto/update-course-material.dto';
+import { 
+  EnrollStudentDto, 
+  EnrollMultipleStudentsDto, 
+  QueryCourseStudentsDto,
+  AddStudentByEmailDto 
+} from './dto/enroll-student.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -445,5 +451,69 @@ export class CoursesController {
     @GetUser() user: User,
   ) {
     return this.coursesService.deleteCourseMaterial(courseId, materialId, user);
+  }
+
+  // Student Management Endpoints
+  @Get(':id/students')
+  getCourseStudents(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @Query() queryDto: QueryCourseStudentsDto,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.getCourseStudents(courseId, queryDto, user);
+  }
+
+  @Post(':id/students/enroll')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.LECTURER)
+  enrollStudent(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @Body() enrollStudentDto: EnrollStudentDto,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.enrollStudent(courseId, enrollStudentDto, user);
+  }
+
+  @Post(':id/students/enroll-multiple')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.LECTURER)
+  enrollMultipleStudents(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @Body() enrollMultipleDto: EnrollMultipleStudentsDto,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.enrollMultipleStudents(courseId, enrollMultipleDto, user);
+  }
+
+  @Post(':id/students/add-by-email')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.LECTURER)
+  addStudentByEmail(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @Body() addStudentDto: AddStudentByEmailDto,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.addStudentByEmail(courseId, addStudentDto, user);
+  }
+
+  @Delete(':id/students/:studentId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.LECTURER)
+  removeStudentFromCourse(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.removeStudentFromCourse(courseId, studentId, user);
+  }
+
+  @Get(':id/students/available')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.LECTURER)
+  getAvailableStudents(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.getAvailableStudents(courseId, user);
   }
 }
