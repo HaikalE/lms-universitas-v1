@@ -1103,7 +1103,7 @@ const CourseDetailPage: React.FC = () => {
             resetStudentForm();
           }}
           title="Tambah Mahasiswa"
-          className="max-w-2xl"
+          size="lg"
         >
           <div className="space-y-6">
             {/* Add by Email */}
