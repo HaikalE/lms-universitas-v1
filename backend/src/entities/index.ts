@@ -1,9 +1,14 @@
 export { User, UserRole } from './user.entity';
 export { Course } from './course.entity';
-export { CourseMaterial, MaterialType } from './course-material.entity';
-export { Assignment, AssignmentType } from './assignment.entity';
-export { Submission, SubmissionStatus } from './submission.entity';
+export { CourseMaterial } from './course-material.entity';
+export { Assignment } from './assignment.entity';
+export { Submission } from './submission.entity';
 export { Grade } from './grade.entity';
-export { ForumPost } from './forum-post.entity';
-export { Announcement, AnnouncementPriority } from './announcement.entity';
-export { Notification, NotificationType } from './notification.entity';
+export { Announcement } from './announcement.entity';
+export { Notification } from './notification.entity';
+
+// Enhanced Forum Entities
+export { ForumPost, PostCategory } from './forum-post.entity';
+export { ForumLike } from './forum-like.entity';
+export { ForumAttachment } from './forum-attachment.entity';
+export { ForumNotification, NotificationType } from './forum-notification.entity';
