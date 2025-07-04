@@ -475,7 +475,7 @@ const CourseStudentManagementPage: React.FC = () => {
                                 className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
                                 onClick={() => {
                                   // View student details
-                                  toast.info('Fitur detail mahasiswa akan segera tersedia');
+                                  toast('Fitur detail mahasiswa akan segera tersedia');
                                   setShowActionMenu(null);
                                 }}
                               >
