@@ -491,9 +491,10 @@ export class CoursesService {
       sortOrder = 'ASC',
     } = queryDto;
 
-    const queryBuilder = this.courseRepository
-      .createQueryBuilder('course')
-      .innerJoinAndSelect('course.students', 'student')
+    // Fixed query: Query students directly via course enrollments
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('student')
+      .innerJoin('student.courses', 'course')
       .where('course.id = :courseId', { courseId })
       .andWhere('student.role = :role', { role: UserRole.STUDENT })
       .select([
@@ -503,6 +504,7 @@ export class CoursesService {
         'student.email',
         'student.avatar',
         'student.isActive',
+        'student.createdAt'
       ]);
 
     // Apply search filter
@@ -514,17 +516,29 @@ export class CoursesService {
     }
 
     // Apply sorting
-    queryBuilder.orderBy(`student.${sortBy}`, sortOrder);
+    const allowedSortFields = ['fullName', 'studentId', 'email', 'createdAt'];
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'fullName';
+    queryBuilder.orderBy(`student.${sortField}`, sortOrder);
 
     // Apply pagination
     const offset = (Number(page) - 1) * Number(limit);
     queryBuilder.skip(offset).take(Number(limit));
 
-    const [results, total] = await queryBuilder.getManyAndCount();
-    const students = results.length > 0 ? results[0].students : [];
+    const [students, total] = await queryBuilder.getManyAndCount();
+
+    // Format response with enrolledAt field (use createdAt as placeholder)
+    const formattedStudents = students.map(student => ({
+      id: student.id,
+      fullName: student.fullName,
+      studentId: student.studentId,
+      email: student.email,
+      avatar: student.avatar,
+      isActive: student.isActive,
+      enrolledAt: student.createdAt, // Using createdAt as enrollment date placeholder
+    }));
 
     return {
-      data: students,
+      data: formattedStudents,
       meta: {
         total,
         page: Number(page),
@@ -764,8 +778,8 @@ export class CoursesService {
       .andWhere(`user.id NOT IN (
         SELECT student.id 
         FROM course_enrollments ce 
-        INNER JOIN users student ON ce.\"studentId\" = student.id 
-        WHERE ce.\"courseId\" = :courseId
+        INNER JOIN users student ON ce."studentId" = student.id 
+        WHERE ce."courseId" = :courseId
       )`, { courseId })
       .select([
         'user.id',
