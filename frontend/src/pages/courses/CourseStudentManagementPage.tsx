@@ -127,7 +127,7 @@ const CourseStudentManagementPage: React.FC = () => {
       
       // Update stats
       setStats({
-        totalStudents: response.meta.total || response.data.length,
+        totalStudents: response.meta?.total || response.data.length,
         recentEnrollments: response.data.filter(s => 
           new Date(s.enrolledAt || new Date()).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
         ).length,
