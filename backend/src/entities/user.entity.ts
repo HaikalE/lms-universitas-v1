@@ -12,6 +12,8 @@ import { Course } from './course.entity';
 import { Assignment } from './assignment.entity';
 import { Submission } from './submission.entity';
 import { ForumPost } from './forum-post.entity';
+import { ForumLike } from './forum-like.entity';
+import { ForumNotification } from './forum-notification.entity';
 import { Announcement } from './announcement.entity';
 import { Grade } from './grade.entity';
 
@@ -86,7 +88,33 @@ export class User {
   @OneToMany(() => Grade, (grade) => grade.student)
   grades: Grade[];
 
-  // Relations untuk forum
+  // Enhanced Forum Relations
   @OneToMany(() => ForumPost, (post) => post.author)
   forumPosts: ForumPost[];
+
+  @OneToMany(() => ForumLike, (like) => like.user)
+  forumLikes: ForumLike[];
+
+  @OneToMany(() => ForumNotification, (notification) => notification.user)
+  forumNotifications: ForumNotification[];
+
+  @OneToMany(() => ForumNotification, (notification) => notification.triggeredBy)
+  triggeredNotifications: ForumNotification[];
+
+  // Virtual properties for forum stats
+  get isLecturer(): boolean {
+    return this.role === UserRole.LECTURER;
+  }
+
+  get isStudent(): boolean {
+    return this.role === UserRole.STUDENT;
+  }
+
+  get isAdmin(): boolean {
+    return this.role === UserRole.ADMIN;
+  }
+
+  get canModerate(): boolean {
+    return this.role === UserRole.LECTURER || this.role === UserRole.ADMIN;
+  }
 }
