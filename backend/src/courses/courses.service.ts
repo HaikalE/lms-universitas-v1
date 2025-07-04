@@ -491,10 +491,10 @@ export class CoursesService {
       sortOrder = 'ASC',
     } = queryDto;
 
-    // Fixed query: Query students directly via course enrollments
+    // Fixed query: Use the correct relation name 'coursesAsStudent' 
     const queryBuilder = this.userRepository
       .createQueryBuilder('student')
-      .innerJoin('student.courses', 'course')
+      .innerJoin('student.coursesAsStudent', 'course')
       .where('course.id = :courseId', { courseId })
       .andWhere('student.role = :role', { role: UserRole.STUDENT })
       .select([
