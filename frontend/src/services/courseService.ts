@@ -8,6 +8,7 @@ interface CourseStudent {
   email: string;
   avatar?: string;
   isActive: boolean;
+  enrolledAt?: string; // Added missing enrolledAt property
 }
 
 interface EnrollStudentRequest {
