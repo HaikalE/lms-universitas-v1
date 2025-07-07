@@ -1,56 +1,15 @@
-FROM node:18-alpine AS builder
+FROM node:16-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies for native modules and debugging tools
-RUN apk add --no-cache python3 make g++ curl wget && \
-    ln -sf python3 /usr/bin/python
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
 # Copy package files
 COPY package*.json ./
 
-# Debug: Show package.json content related to react-scripts
-RUN echo "=== Checking package.json for react-scripts ===" && \
-    grep -A 5 -B 5 "react-scripts" package.json || echo "react-scripts not found in package.json"
-
-# Clear npm cache and configure npm properly
-RUN echo "=== Configuring npm ===" && \
-    npm cache clean --force && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm config set registry https://registry.npmjs.org/ && \
-    npm --version && \
-    node --version
-
-# Install dependencies with detailed logging
-RUN echo "=== Installing dependencies ===" && \
-    npm install --no-optional --legacy-peer-deps --verbose > /tmp/npm-install.log 2>&1 && \
-    echo "npm install completed successfully" || \
-    (echo "npm install failed, showing log:" && cat /tmp/npm-install.log && exit 1)
-
-# Debug: Verify installation in detail
-RUN echo "=== Verifying installation ===" && \
-    echo "Checking node_modules directory:" && \
-    ls -la node_modules/ | head -20 && \
-    echo "Checking for react-scripts directory:" && \
-    ls -la node_modules/react-scripts/ || echo "react-scripts directory not found" && \
-    echo "Checking node_modules/.bin directory:" && \
-    ls -la node_modules/.bin/ | grep react || echo "No react binaries found" && \
-    echo "Checking react-scripts package:" && \
-    npm ls react-scripts || echo "react-scripts not in dependency tree"
-
-# Try to fix react-scripts installation if not found
-RUN if [ ! -f node_modules/.bin/react-scripts ]; then \
-        echo "=== react-scripts not found, trying manual installation ===" && \
-        npm install react-scripts@5.0.1 --save --legacy-peer-deps && \
-        echo "Manual react-scripts installation completed"; \
-    fi
-
-# Final verification
-RUN echo "=== Final verification ===" && \
-    ls -la node_modules/.bin/react-scripts || echo "react-scripts binary still missing" && \
-    ls -la node_modules/react-scripts/bin/ || echo "react-scripts bin directory missing" && \
-    file node_modules/.bin/react-scripts || echo "Cannot check react-scripts file type"
+# Install dependencies
+RUN npm install --legacy-peer-deps && npm cache clean --force
 
 # Copy source code
 COPY . .
@@ -59,35 +18,8 @@ COPY . .
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Add multiple paths for react-scripts
-ENV PATH="/app/node_modules/.bin:/app/node_modules/react-scripts/bin:$PATH"
-
-# Try alternative build methods
-RUN echo "=== Starting build process ===" && \
-    echo "Current PATH: $PATH" && \
-    echo "Checking which react-scripts:" && \
-    which react-scripts || echo "react-scripts not in PATH" && \
-    echo "Trying node direct execution:" && \
-    (node node_modules/react-scripts/bin/react-scripts.js build || \
-     echo "Direct node execution failed, trying npm run build:simple..." && \
-     npm run build:simple || \
-     echo "npm build:simple failed, trying manual webpack..." && \
-     npm run build || \
-     echo "All build methods failed, creating minimal build directory..." && \
-     mkdir -p build && \
-     echo "<html><body><h1>Build Failed - Manual Recovery Needed</h1></body></html>" > build/index.html) && \
-    echo "Build process completed"
-
-# Verify build output
-RUN echo "=== Verifying build output ===" && \
-    ls -la build/ && \
-    echo "Build verification completed"
-
-# Copy service worker manually if build:sw failed
-RUN if [ ! -f build/sw.js ] && [ -f public/sw.js ]; then \
-        echo "Copying service worker manually..." && \
-        cp public/sw.js build/sw.js; \
-    fi
+# Build application
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine AS production
