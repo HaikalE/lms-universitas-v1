@@ -1,4 +1,4 @@
-# Stable Dockerfile using Node.js 16 and npm ci
+# Fixed Dockerfile using Node.js 16 with proper npm commands
 FROM node:16-alpine AS builder
 
 WORKDIR /app
@@ -9,8 +9,8 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Use npm ci for more reliable installation
-RUN npm ci --only=production=false --legacy-peer-deps
+# Install dependencies (use npm install since no package-lock.json)
+RUN npm install --legacy-peer-deps
 
 # Verify react-scripts installation
 RUN ls -la node_modules/.bin/react-scripts && \
