@@ -18,6 +18,7 @@ import AssignmentDetailPage from './pages/assignments/AssignmentDetailPage';
 import CreateAssignmentPage from './pages/assignments/CreateAssignmentPage';
 import ForumsPage from './pages/forums/ForumsPage';
 import ForumDetailPage from './pages/forums/ForumDetailPage';
+import CreateForumPostPage from './pages/forums/CreateForumPostPage'; // FIXED: Tambah import yang hilang
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import AdminUsersPage from './pages/admin/UsersPage';
@@ -64,8 +65,12 @@ function App() {
                         <Route path="/courses/:courseId/assignments/create" element={<CreateAssignmentPage />} />
                         <Route path="/assignments" element={<AssignmentsPage />} />
                         <Route path="/assignments/:id" element={<AssignmentDetailPage />} />
+                        
+                        {/* FIXED: Forum Routes - Urutan penting! /forums/create harus sebelum /forums/:id */}
                         <Route path="/forums" element={<ForumsPage />} />
+                        <Route path="/forums/create" element={<CreateForumPostPage />} />
                         <Route path="/forums/:id" element={<ForumDetailPage />} />
+                        
                         <Route path="/announcements" element={<AnnouncementsPage />} />
                         <Route path="/profile" element={<ProfilePage />} />
                         
