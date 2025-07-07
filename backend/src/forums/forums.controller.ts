@@ -11,6 +11,9 @@ import {
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
+  BadRequestException,
+  ValidationPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { ForumsService } from './forums.service';
 import { CreateForumPostDto } from './dto/create-forum-post.dto';
@@ -30,17 +33,39 @@ export class ForumsController {
   // CREATE FORUM POST
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UsePipes(new ValidationPipe({ 
+    whitelist: true, 
+    forbidNonWhitelisted: true,
+    transform: true,
+    validationError: { target: false }
+  }))
   async create(@Body() createForumPostDto: CreateForumPostDto, @GetUser() user: User) {
     try {
-      console.log('📝 Creating forum post:', {
-        title: createForumPostDto.title,
-        courseId: createForumPostDto.courseId,
-        userId: user.id
-      });
+      console.log('📝 Creating forum post request received:');
+      console.log('   - User:', user.id, user.fullName);
+      console.log('   - Title:', createForumPostDto.title);
+      console.log('   - CourseId:', createForumPostDto.courseId);
+      console.log('   - Content length:', createForumPostDto.content?.length || 0);
+      console.log('   - ParentId:', createForumPostDto.parentId || 'none (new post)');
+      
+      // Validate required fields
+      if (!createForumPostDto.title?.trim()) {
+        throw new BadRequestException('Judul post wajib diisi');
+      }
+      
+      if (!createForumPostDto.content?.trim()) {
+        throw new BadRequestException('Konten post wajib diisi');
+      }
+      
+      if (!createForumPostDto.courseId?.trim()) {
+        throw new BadRequestException('Course ID wajib diisi');
+      }
       
       const post = await this.forumsService.create(createForumPostDto, user);
       
-      console.log('✅ Forum post created successfully:', post.id);
+      console.log('✅ Forum post created successfully:');
+      console.log('   - Post ID:', post.id);
+      console.log('   - Title:', post.title);
       
       return {
         success: true,
@@ -48,7 +73,10 @@ export class ForumsController {
         data: post,
       };
     } catch (error) {
-      console.error('❌ Error creating forum post:', error.message);
+      console.error('❌ Error creating forum post:');
+      console.error('   - Error type:', error.constructor.name);
+      console.error('   - Error message:', error.message);
+      console.error('   - Request data:', createForumPostDto);
       throw error;
     }
   }
@@ -62,6 +90,8 @@ export class ForumsController {
   ) {
     try {
       console.log('🔍 Fetching forum posts for course:', courseId);
+      console.log('   - User:', user.id);
+      console.log('   - Query params:', queryDto);
       
       const result = await this.forumsService.findByCourse(courseId, queryDto, user);
       
@@ -82,6 +112,7 @@ export class ForumsController {
   async findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
       console.log('🔍 Fetching forum post:', id);
+      console.log('   - User:', user.id);
       
       const post = await this.forumsService.findOne(id, user);
       
@@ -106,6 +137,8 @@ export class ForumsController {
   ) {
     try {
       console.log('✏️ Updating forum post:', id);
+      console.log('   - User:', user.id);
+      console.log('   - Update data:', updateForumPostDto);
       
       const post = await this.forumsService.update(id, updateForumPostDto, user);
       
@@ -127,6 +160,7 @@ export class ForumsController {
   async remove(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
       console.log('🗑️ Deleting forum post:', id);
+      console.log('   - User:', user.id);
       
       const result = await this.forumsService.remove(id, user);
       
@@ -149,6 +183,7 @@ export class ForumsController {
   async togglePin(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
       console.log('📌 Toggling pin for forum post:', id);
+      console.log('   - User:', user.id, user.role);
       
       const result = await this.forumsService.togglePin(id, user);
       
@@ -171,6 +206,7 @@ export class ForumsController {
   async toggleLock(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
       console.log('🔒 Toggling lock for forum post:', id);
+      console.log('   - User:', user.id, user.role);
       
       const result = await this.forumsService.toggleLock(id, user);
       
@@ -191,6 +227,7 @@ export class ForumsController {
   async toggleLike(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
       console.log('❤️ Toggling like for forum post:', id);
+      console.log('   - User:', user.id);
       
       const result = await this.forumsService.toggleLike(id, user);
       
