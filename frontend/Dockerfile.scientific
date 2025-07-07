@@ -1,0 +1,67 @@
+# Scientific solution: Fix dependency conflicts and PUBLIC_URL
+FROM node:16-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ bash
+
+# Copy package files
+COPY package*.json ./
+
+# SCIENTIFIC FIX: Clear cache and fix dependency conflicts
+RUN npm cache clean --force && \
+    rm -rf node_modules package-lock.json
+
+# SCIENTIFIC FIX: Install with explicit dependency resolution
+RUN echo "=== Installing with dependency fixes ===" && \
+    npm install --legacy-peer-deps && \
+    npm install ajv@^8.0.0 --legacy-peer-deps && \
+    npm install ajv-keywords@^5.0.0 --legacy-peer-deps && \
+    echo "=== Dependencies installed ==="
+
+# Copy source code
+COPY . .
+
+# SCIENTIFIC FIX: Set environment variables properly
+ENV PUBLIC_URL=""
+ENV GENERATE_SOURCEMAP=false
+ENV REACT_APP_API_URL=http://localhost:3000/api
+
+# SCIENTIFIC FIX: Build with explicit environment and skip service worker
+RUN echo "=== Building React app ===" && \
+    echo "PUBLIC_URL: '$PUBLIC_URL'" && \
+    echo "REACT_APP_API_URL: '$REACT_APP_API_URL'" && \
+    npm run build:simple && \
+    echo "=== Build completed ==="
+
+# SCIENTIFIC FIX: Replace any remaining %PUBLIC_URL% placeholders
+RUN echo "=== Fixing PUBLIC_URL placeholders ===" && \
+    find build/ -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" \) -exec sed -i 's|%PUBLIC_URL%||g' {} \; && \
+    echo "=== Placeholders fixed ==="
+
+# Create missing favicon.ico if not exists
+RUN if [ ! -f build/favicon.ico ]; then \
+        echo "Creating placeholder favicon..." && \
+        touch build/favicon.ico; \
+    fi
+
+# Create manifest.json if not exists
+RUN if [ ! -f build/manifest.json ]; then \
+        echo "Creating manifest.json..." && \
+        echo '{"short_name":"LMS","name":"LMS Universitas","start_url":"./","display":"standalone"}' > build/manifest.json; \
+    fi
+
+# Verify build
+RUN echo "=== Build verification ===" && \
+    ls -la build/ && \
+    head -5 build/index.html
+
+# Production stage
+FROM nginx:alpine
+
+COPY --from=builder /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
