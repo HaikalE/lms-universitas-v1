@@ -36,7 +36,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.fixed
+      dockerfile: Dockerfile.emergency
       args:
         # API URL now hardcoded in api.ts, but keep this for consistency
         REACT_APP_API_URL: http://localhost:3000/api
