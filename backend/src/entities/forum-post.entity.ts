@@ -34,6 +34,16 @@ export class ForumPost {
   @Column({ default: 0 })
   likesCount: number;
 
+  // NEW: Add missing fields that frontend expects
+  @Column({ default: 0 })
+  viewsCount: number;
+
+  @Column({ default: false })
+  isAnswer: boolean;
+
+  @Column({ default: false })
+  isAnswered: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
