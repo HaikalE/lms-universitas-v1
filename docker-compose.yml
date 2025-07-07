@@ -36,7 +36,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.node16
       args:
         # API URL now hardcoded in api.ts, but keep this for consistency
         REACT_APP_API_URL: http://localhost:3000/api
@@ -49,6 +49,19 @@ services:
     networks:
       - lms-network
     restart: unless-stopped
+
+  # Alternative frontend builds (uncomment to use)
+  # frontend-yarn:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile.yarn
+  #     args:
+  #       REACT_APP_API_URL: http://localhost:3000/api
+  #   container_name: lms-frontend-yarn
+  #   ports:
+  #     - "3002:80"
+  #   networks:
+  #     - lms-network
 
 networks:
   lms-network:
