@@ -24,8 +24,7 @@ interface FormData {
   title: string;
   content: string;
   courseId: string;
-  type: 'question' | 'discussion' | 'announcement';
-  tags: string[];
+  // REMOVED: type and tags - tidak diperlukan backend
 }
 
 interface FormErrors {
@@ -39,14 +38,12 @@ const CreateForumPostPage: React.FC = () => {
   const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tagInput, setTagInput] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<FormData>({
     title: '',
     content: '',
     courseId: '',
-    type: 'discussion',
-    tags: []
+    // REMOVED: type and tags
   });
 
   const isLecturer = user?.role === 'lecturer';
@@ -58,15 +55,18 @@ const CreateForumPostPage: React.FC = () => {
 
   const fetchCourses = async () => {
     try {
+      console.log('🔍 Fetching courses for forum post creation...');
       const courses = await courseService.getMyCourses();
       setCourses(courses);
+      console.log(`✅ Found ${courses.length} courses`);
       
       // Auto-select if only one course
       if (courses.length === 1) {
         setFormData(prev => ({ ...prev, courseId: courses[0].id }));
+        console.log('📌 Auto-selected course:', courses[0].name);
       }
     } catch (error) {
-      console.error('Error fetching courses:', error);
+      console.error('❌ Error fetching courses:', error);
     }
   };
 
@@ -99,59 +99,40 @@ const CreateForumPostPage: React.FC = () => {
     e.preventDefault();
     
     if (!validateForm()) {
+      console.log('❌ Form validation failed');
       return;
     }
 
     try {
       setLoading(true);
       
-      const forumPost = await forumService.createForumPost({
-        ...formData,
-        tags: formData.tags.filter(tag => tag.trim())
+      console.log('📝 Submitting forum post data:', {
+        title: formData.title,
+        courseId: formData.courseId,
+        contentLength: formData.content.length
       });
+      
+      // FIXED: Kirim hanya data yang diperlukan backend
+      const postData = {
+        title: formData.title.trim(),
+        content: formData.content.trim(),
+        courseId: formData.courseId
+        // REMOVED: type and tags - tidak ada di backend DTO
+      };
+      
+      console.log('🚀 Creating forum post with data:', postData);
+      
+      const forumPost = await forumService.createForumPost(postData);
+      
+      console.log('✅ Forum post created successfully:', forumPost.id);
       
       // Redirect to the new post
       navigate(`/forums/${forumPost.id}`);
     } catch (error) {
-      console.error('Error creating forum post:', error);
+      console.error('❌ Error creating forum post:', error);
       alert('Gagal membuat diskusi. Silakan coba lagi.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      e.preventDefault();
-      
-      const newTag = tagInput.trim().toLowerCase();
-      if (!formData.tags.includes(newTag) && formData.tags.length < 5) {
-        setFormData(prev => ({
-          ...prev,
-          tags: [...prev.tags, newTag]
-        }));
-        setTagInput('');
-      }
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'question':
-        return <HelpCircle className="w-5 h-5" />;
-      case 'discussion':
-        return <MessageSquare className="w-5 h-5" />;
-      case 'announcement':
-        return <TrendingUp className="w-5 h-5" />;
-      default:
-        return <MessageSquare className="w-5 h-5" />;
     }
   };
 
@@ -186,7 +167,10 @@ const CreateForumPostPage: React.FC = () => {
           <CardContent>
             <select
               value={formData.courseId}
-              onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, courseId: e.target.value });
+                console.log('📚 Course selected:', e.target.value);
+              }}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                 errors.courseId ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -204,68 +188,6 @@ const CreateForumPostPage: React.FC = () => {
                 {errors.courseId}
               </p>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Post Type */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tipe Diskusi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                {
-                  value: 'question',
-                  label: 'Pertanyaan',
-                  description: 'Ajukan pertanyaan untuk mendapatkan jawaban',
-                  icon: <HelpCircle className="w-6 h-6" />,
-                  color: 'blue'
-                },
-                {
-                  value: 'discussion',
-                  label: 'Diskusi',
-                  description: 'Mulai diskusi atau berbagi pendapat',
-                  icon: <MessageSquare className="w-6 h-6" />,
-                  color: 'green'
-                },
-                {
-                  value: 'announcement',
-                  label: 'Pengumuman',
-                  description: 'Bagikan informasi penting',
-                  icon: <TrendingUp className="w-6 h-6" />,
-                  color: 'purple',
-                  disabled: !isLecturer && !isAdmin
-                }
-              ].map((type) => (
-                <label
-                  key={type.value}
-                  className={`relative flex flex-col p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    formData.type === type.value
-                      ? `border-${type.color}-500 bg-${type.color}-50`
-                      : 'border-gray-200 hover:border-gray-300'
-                  } ${type.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="type"
-                    value={type.value}
-                    checked={formData.type === type.value}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                    disabled={type.disabled}
-                    className="sr-only"
-                  />
-                  <div className={`flex items-center gap-3 mb-2 text-${type.color}-600`}>
-                    {type.icon}
-                    <span className="font-semibold">{type.label}</span>
-                  </div>
-                  <p className="text-sm text-gray-600">{type.description}</p>
-                  {type.disabled && (
-                    <p className="text-xs text-red-600 mt-2">Hanya untuk dosen/admin</p>
-                  )}
-                </label>
-              ))}
-            </div>
           </CardContent>
         </Card>
 
@@ -337,55 +259,8 @@ const CreateForumPostPage: React.FC = () => {
                 <li>• Jelaskan konteks dan latar belakang masalah</li>
                 <li>• Sertakan detail yang relevan (kode, screenshot, dll)</li>
                 <li>• Gunakan format yang rapi dan mudah dibaca</li>
-                <li>• Tambahkan tag yang sesuai untuk memudahkan pencarian</li>
+                <li>• Pastikan konten sesuai dengan mata kuliah yang dipilih</li>
               </ul>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tags */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Tag className="w-5 h-5" />
-              Tags (Opsional)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {formData.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-1"
-                  >
-                    <Tag className="w-3 h-3" />
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 hover:text-blue-900"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              
-              {formData.tags.length < 5 && (
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleAddTag}
-                  placeholder="Ketik tag dan tekan Enter (maksimal 5 tag)"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              )}
-              
-              <p className="text-sm text-gray-500">
-                Tag membantu orang lain menemukan diskusi Anda. Gunakan kata kunci yang relevan.
-              </p>
             </div>
           </CardContent>
         </Card>
