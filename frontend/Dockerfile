@@ -2,14 +2,38 @@ FROM node:16-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++
+# Install build dependencies and debugging tools
+RUN apk add --no-cache python3 make g++ curl bash
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps && npm cache clean --force
+# Clear npm cache and configure
+RUN npm cache clean --force && \
+    npm config set registry https://registry.npmjs.org/
+
+# Install dependencies with verbose logging
+RUN echo "=== Installing dependencies ===" && \
+    npm install --legacy-peer-deps --verbose && \
+    echo "=== Installation completed ==="
+
+# Debug: Check if react-scripts was installed
+RUN echo "=== Checking react-scripts installation ===" && \
+    ls -la node_modules/.bin/ | grep react || echo "No react binaries found" && \
+    ls -la node_modules/react-scripts/ || echo "react-scripts directory missing" && \
+    npm ls react-scripts || echo "react-scripts not in dependency tree"
+
+# Force install react-scripts if not found
+RUN if [ ! -f node_modules/.bin/react-scripts ]; then \
+        echo "=== Force installing react-scripts ===" && \
+        npm install react-scripts@5.0.1 --save --legacy-peer-deps; \
+    fi
+
+# Final verification and PATH setup
+RUN echo "=== Final verification ===" && \
+    ls -la node_modules/.bin/react-scripts && \
+    chmod +x node_modules/.bin/react-scripts && \
+    echo "react-scripts found and executable"
 
 # Copy source code
 COPY . .
@@ -18,8 +42,32 @@ COPY . .
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Build application
-RUN npm run build
+# Add node_modules/.bin to PATH
+ENV PATH="/app/node_modules/.bin:$PATH"
+
+# Try multiple build approaches
+RUN echo "=== Starting build process ===" && \
+    echo "Current PATH: $PATH" && \
+    which react-scripts && \
+    react-scripts --version && \
+    (npm run build:simple || \
+     echo "build:simple failed, trying direct react-scripts build..." && \
+     react-scripts build || \
+     echo "react-scripts build failed, trying node direct execution..." && \
+     node node_modules/react-scripts/bin/react-scripts.js build || \
+     echo "All build methods failed!") && \
+    echo "=== Build process completed ==="
+
+# Copy service worker if exists
+RUN if [ -f public/sw.js ] && [ ! -f build/sw.js ]; then \
+        echo "Copying service worker..." && \
+        cp public/sw.js build/sw.js; \
+    fi
+
+# Verify build output
+RUN echo "=== Build verification ===" && \
+    ls -la build/ && \
+    ls -la build/static/ || echo "No static directory found"
 
 # Production stage
 FROM nginx:alpine AS production
