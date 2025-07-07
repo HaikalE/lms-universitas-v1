@@ -128,6 +128,116 @@ export class ForumsController {
     }
   }
 
+  // GET REPLIES FOR A FORUM POST
+  @Get(':id/replies')
+  async getPostReplies(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() queryDto: any,
+    @GetUser() user: User,
+  ) {
+    try {
+      console.log('💬 Fetching replies for forum post:', id);
+      console.log('   - User:', user.id);
+      console.log('   - Query params:', queryDto);
+      
+      const replies = await this.forumsService.getPostReplies(id, queryDto, user);
+      
+      console.log(`✅ Found ${replies.length} replies`);
+      
+      return {
+        success: true,
+        data: replies,
+      };
+    } catch (error) {
+      console.error('❌ Error fetching replies:', error.message);
+      throw error;
+    }
+  }
+
+  // CREATE REPLY FOR A FORUM POST
+  @Post(':id/replies')
+  async createReply(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() replyData: { content: string; parentId?: string },
+    @GetUser() user: User,
+  ) {
+    try {
+      console.log('💬 Creating reply for forum post:', id);
+      console.log('   - User:', user.id);
+      console.log('   - Content length:', replyData.content?.length || 0);
+      console.log('   - Parent reply ID:', replyData.parentId || 'none (direct reply)');
+      
+      if (!replyData.content?.trim()) {
+        throw new BadRequestException('Konten balasan wajib diisi');
+      }
+      
+      const reply = await this.forumsService.createReply(id, replyData, user);
+      
+      console.log('✅ Reply created successfully:', reply.id);
+      
+      return {
+        success: true,
+        message: 'Balasan berhasil dibuat',
+        data: reply,
+      };
+    } catch (error) {
+      console.error('❌ Error creating reply:', error.message);
+      throw error;
+    }
+  }
+
+  // MARK POST AS VIEWED
+  @Post(':id/view')
+  async markAsViewed(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
+    try {
+      console.log('👁️ Marking post as viewed:', id);
+      console.log('   - User:', user.id);
+      
+      await this.forumsService.markAsViewed(id, user);
+      
+      console.log('✅ Post marked as viewed successfully');
+      
+      return {
+        success: true,
+        message: 'Post telah ditandai sebagai dilihat',
+      };
+    } catch (error) {
+      console.error('❌ Error marking post as viewed:', error.message);
+      // Don't throw error for view tracking to avoid disrupting user experience
+      return {
+        success: false,
+        message: 'Gagal menandai sebagai dilihat',
+      };
+    }
+  }
+
+  // MARK REPLY AS ANSWER
+  @Patch(':id/answer/:replyId')
+  async markAsAnswer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('replyId', ParseUUIDPipe) replyId: string,
+    @GetUser() user: User,
+  ) {
+    try {
+      console.log('✅ Marking reply as answer:');
+      console.log('   - Post ID:', id);
+      console.log('   - Reply ID:', replyId);
+      console.log('   - User:', user.id);
+      
+      const result = await this.forumsService.markAsAnswer(id, replyId, user);
+      
+      console.log('✅ Reply marked as answer successfully');
+      
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      console.error('❌ Error marking reply as answer:', error.message);
+      throw error;
+    }
+  }
+
   // UPDATE FORUM POST
   @Patch(':id')
   async update(
@@ -239,6 +349,74 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error toggling like:', error.message);
+      throw error;
+    }
+  }
+
+  // LIKE REPLY ENDPOINT  
+  @Post('replies/:replyId/like')
+  async likeReply(@Param('replyId', ParseUUIDPipe) replyId: string, @GetUser() user: User) {
+    try {
+      console.log('❤️ Toggling like for reply:', replyId);
+      console.log('   - User:', user.id);
+      
+      const result = await this.forumsService.toggleLike(replyId, user);
+      
+      console.log('✅ Reply like toggled successfully');
+      
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error) {
+      console.error('❌ Error liking reply:', error.message);
+      throw error;
+    }
+  }
+
+  // UPDATE REPLY ENDPOINT
+  @Patch('replies/:replyId')
+  async updateReply(
+    @Param('replyId', ParseUUIDPipe) replyId: string,
+    @Body() updateData: { content: string },
+    @GetUser() user: User,
+  ) {
+    try {
+      console.log('✏️ Updating reply:', replyId);
+      console.log('   - User:', user.id);
+      
+      const reply = await this.forumsService.update(replyId, updateData, user);
+      
+      console.log('✅ Reply updated successfully');
+      
+      return {
+        success: true,
+        message: 'Balasan berhasil diperbarui',
+        data: reply,
+      };
+    } catch (error) {
+      console.error('❌ Error updating reply:', error.message);
+      throw error;
+    }
+  }
+
+  // DELETE REPLY ENDPOINT
+  @Delete('replies/:replyId')
+  async deleteReply(@Param('replyId', ParseUUIDPipe) replyId: string, @GetUser() user: User) {
+    try {
+      console.log('🗑️ Deleting reply:', replyId);
+      console.log('   - User:', user.id);
+      
+      const result = await this.forumsService.remove(replyId, user);
+      
+      console.log('✅ Reply deleted successfully');
+      
+      return {
+        success: true,
+        message: 'Balasan berhasil dihapus',
+      };
+    } catch (error) {
+      console.error('❌ Error deleting reply:', error.message);
       throw error;
     }
   }
