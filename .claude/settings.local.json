@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm start)",
+      "Bash(npm install:*)",
+      "Bash(chmod:*)",
+      "Bash(ls:*)",
+      "Bash(bash:*)",
+      "Bash(dos2unix:*)",
+      "Bash(sed:*)",
+      "Bash(PORT=3001 npm start)",
+      "Bash(PORT=3002 npm start)",
+      "Bash(ss:*)",
+      "Bash(PORT=3003 npm run start:dev)",
+      "Bash(node:*)",
+      "Bash(PORT=3004 npm start)",
+      "Bash(pkill:*)"
+    ],
+    "deny": []
+  }
+}

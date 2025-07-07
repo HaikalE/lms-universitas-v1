@@ -85,7 +85,7 @@ const AssignmentDetailPage: React.FC = () => {
         // Load existing file info if available
         if (assignmentData.mySubmission.fileName) {
           setExistingFileName(assignmentData.mySubmission.fileName);
-          setExistingFilePath(assignmentData.mySubmission.filePath);
+          setExistingFilePath(assignmentData.mySubmission.filePath ?? null);
         }
       }
     } catch (err: any) {
