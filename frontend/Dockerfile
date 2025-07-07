@@ -2,11 +2,16 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies - Fixed: Changed from npm ci to npm install
-RUN npm install && npm cache clean --force
+# Clear npm cache and install dependencies
+RUN npm cache clean --force && \
+    npm install --no-optional --legacy-peer-deps && \
+    npm ls react-scripts || echo "react-scripts check failed"
 
 # Copy source code
 COPY . .
@@ -15,8 +20,15 @@ COPY . .
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Build application
-RUN npm run build
+# Add node_modules/.bin to PATH
+ENV PATH="/app/node_modules/.bin:$PATH"
+
+# Debug: Check if react-scripts is available
+RUN which react-scripts || echo "react-scripts not found in PATH"
+RUN ls -la node_modules/.bin/ | grep react || echo "react-scripts binary not found"
+
+# Build application with explicit path
+RUN npx react-scripts build && npm run build:sw
 
 # Production stage
 FROM nginx:alpine AS production
