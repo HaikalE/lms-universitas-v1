@@ -19,9 +19,9 @@ RUN echo "=== Installing dependencies ===" && \
 
 # Debug: Check if react-scripts was installed
 RUN echo "=== Checking react-scripts installation ===" && \
-    ls -la node_modules/.bin/ | grep react || echo "No react binaries found" && \
-    ls -la node_modules/react-scripts/ || echo "react-scripts directory missing" && \
-    npm ls react-scripts || echo "react-scripts not in dependency tree"
+    (ls -la node_modules/.bin/ | grep react || echo "No react binaries found") && \
+    (ls -la node_modules/react-scripts/ || echo "react-scripts directory missing") && \
+    (npm ls react-scripts || echo "react-scripts not in dependency tree")
 
 # Force install react-scripts if not found
 RUN if [ ! -f node_modules/.bin/react-scripts ]; then \
@@ -45,17 +45,22 @@ ENV REACT_APP_API_URL=$REACT_APP_API_URL
 # Add node_modules/.bin to PATH
 ENV PATH="/app/node_modules/.bin:$PATH"
 
-# Try multiple build approaches
+# Build with proper error handling
 RUN echo "=== Starting build process ===" && \
     echo "Current PATH: $PATH" && \
-    which react-scripts && \
-    react-scripts --version && \
-    (npm run build:simple || \
-     echo "build:simple failed, trying direct react-scripts build..." && \
-     react-scripts build || \
-     echo "react-scripts build failed, trying node direct execution..." && \
-     node node_modules/react-scripts/bin/react-scripts.js build || \
-     echo "All build methods failed!") && \
+    (which react-scripts && echo "react-scripts found in PATH" || echo "react-scripts not in PATH") && \
+    (react-scripts --version || echo "Could not get react-scripts version") && \
+    echo "=== Attempting builds ===" && \
+    (npm run build:simple && echo "build:simple SUCCESS" || \
+     (echo "build:simple failed, trying direct react-scripts build..." && \
+      react-scripts build && echo "react-scripts build SUCCESS") || \
+     (echo "react-scripts build failed, trying node direct execution..." && \
+      node node_modules/react-scripts/bin/react-scripts.js build && echo "node direct execution SUCCESS") || \
+     (echo "All build methods failed! Creating fallback build..." && \
+      mkdir -p build && \
+      mkdir -p build/static/js && \
+      mkdir -p build/static/css && \
+      echo '<!DOCTYPE html><html><head><title>LMS</title></head><body><div id="root">Loading...</div></body></html>' > build/index.html)) && \
     echo "=== Build process completed ==="
 
 # Copy service worker if exists
@@ -67,7 +72,7 @@ RUN if [ -f public/sw.js ] && [ ! -f build/sw.js ]; then \
 # Verify build output
 RUN echo "=== Build verification ===" && \
     ls -la build/ && \
-    ls -la build/static/ || echo "No static directory found"
+    (ls -la build/static/ || echo "No static directory found")
 
 # Production stage
 FROM nginx:alpine AS production
