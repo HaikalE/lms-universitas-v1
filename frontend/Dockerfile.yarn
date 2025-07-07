@@ -1,22 +1,19 @@
-# Alternative robust Dockerfile using Yarn
+# Fixed Dockerfile.yarn - use existing yarn, don't reinstall
 FROM node:16-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies and yarn
-RUN apk add --no-cache python3 make g++ curl bash && \
-    npm install -g yarn@1.22.19
+# Install build dependencies (yarn already exists in node:16)
+RUN apk add --no-cache python3 make g++ curl bash
 
 # Copy package files
 COPY package*.json ./
 
-# Generate yarn.lock if not exists, then install
-RUN if [ ! -f yarn.lock ]; then \
-        echo "Generating yarn.lock..." && \
-        yarn install --frozen-lockfile=false; \
-    else \
-        yarn install --frozen-lockfile; \
-    fi
+# Use existing yarn (don't install again)
+RUN echo "=== Using existing yarn ===" && \
+    yarn --version && \
+    echo "=== Installing dependencies with yarn ===" && \
+    yarn install --frozen-lockfile=false --network-timeout 100000
 
 # Verify react-scripts installation
 RUN echo "=== Verifying react-scripts with yarn ===" && \
