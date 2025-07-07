@@ -1,18 +1,28 @@
-# Alternative Dockerfile using Yarn instead of npm
-FROM node:18-alpine AS builder-yarn
+# Alternative robust Dockerfile using Yarn
+FROM node:16-alpine AS builder
 
 WORKDIR /app
 
 # Install build dependencies and yarn
-RUN apk add --no-cache python3 make g++ curl && \
-    ln -sf python3 /usr/bin/python && \
-    npm install -g yarn
+RUN apk add --no-cache python3 make g++ curl bash && \
+    npm install -g yarn@1.22.19
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with yarn (more reliable than npm)
-RUN yarn install --frozen-lockfile --network-timeout 100000
+# Generate yarn.lock if not exists, then install
+RUN if [ ! -f yarn.lock ]; then \
+        echo "Generating yarn.lock..." && \
+        yarn install --frozen-lockfile=false; \
+    else \
+        yarn install --frozen-lockfile; \
+    fi
+
+# Verify react-scripts installation
+RUN echo "=== Verifying react-scripts with yarn ===" && \
+    yarn list react-scripts && \
+    ls -la node_modules/.bin/react-scripts && \
+    chmod +x node_modules/.bin/react-scripts
 
 # Copy source code
 COPY . .
@@ -21,13 +31,19 @@ COPY . .
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Build with yarn
-RUN yarn build
+# Add PATH
+ENV PATH="/app/node_modules/.bin:$PATH"
 
-# Production stage remains the same
+# Build with yarn
+RUN echo "=== Building with yarn ===" && \
+    which react-scripts && \
+    react-scripts --version && \
+    yarn build
+
+# Production stage
 FROM nginx:alpine AS production
 
-COPY --from=builder-yarn /app/build /usr/share/nginx/html
+COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 RUN addgroup -g 1001 -S nginx-user && \
