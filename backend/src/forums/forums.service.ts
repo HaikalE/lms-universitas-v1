@@ -27,6 +27,11 @@ export class ForumsService {
   async create(createForumPostDto: CreateForumPostDto, currentUser: User) {
     const { courseId, parentId } = createForumPostDto;
 
+    console.log('🔍 Creating forum post in service:');
+    console.log('   - CourseId:', courseId);
+    console.log('   - ParentId:', parentId || 'none (new post)');
+    console.log('   - User:', currentUser.id);
+
     // Verify access to course
     const course = await this.verifyUserCourseAccess(courseId, currentUser);
 
@@ -50,10 +55,18 @@ export class ForumsService {
       parent: parentPost,
     });
 
-    return this.forumPostRepository.save(post);
+    const savedPost = await this.forumPostRepository.save(post);
+    
+    // Return with relations for complete data
+    return this.forumPostRepository.findOne({
+      where: { id: savedPost.id },
+      relations: ['author', 'course', 'parent'],
+    });
   }
 
   async findByCourse(courseId: string, queryDto: QueryForumPostsDto, currentUser: User) {
+    console.log('🔍 Finding posts by course in service:', courseId);
+    
     // Verify access to course
     await this.verifyUserCourseAccess(courseId, currentUser);
 
@@ -132,6 +145,8 @@ export class ForumsService {
   }
 
   async findOne(id: string, currentUser: User) {
+    console.log('🔍 Finding single post in service:', id);
+    
     const post = await this.forumPostRepository.findOne({
       where: { id },
       relations: ['author', 'course', 'parent'],
@@ -147,10 +162,186 @@ export class ForumsService {
     // Get the full tree of replies
     const tree = await this.forumPostRepository.findDescendantsTree(post);
 
+    console.log('✅ Post found with tree structure');
     return tree;
   }
 
+  // NEW: Get replies for a specific post
+  async getPostReplies(postId: string, queryDto: any, currentUser: User): Promise<ForumPost[]> {
+    console.log('💬 Getting replies for post:', postId);
+    
+    const post = await this.forumPostRepository.findOne({
+      where: { id: postId },
+      relations: ['course'],
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post tidak ditemukan');
+    }
+
+    // Verify access to course
+    await this.verifyUserCourseAccess(post.courseId, currentUser);
+
+    const { sort = 'oldest' } = queryDto;
+
+    const queryBuilder = this.forumPostRepository
+      .createQueryBuilder('reply')
+      .leftJoinAndSelect('reply.author', 'author')
+      .leftJoinAndSelect('reply.children', 'children')
+      .leftJoinAndSelect('children.author', 'childAuthor')
+      .where('reply.parent = :postId', { postId })
+      .select([
+        'reply.id',
+        'reply.content',
+        'reply.likesCount',
+        'reply.createdAt',
+        'reply.updatedAt',
+        'author.id',
+        'author.fullName',
+        'author.role',
+        'children.id',
+        'children.content',
+        'children.createdAt',
+        'childAuthor.id',
+        'childAuthor.fullName',
+        'childAuthor.role',
+      ]);
+
+    // Apply sorting
+    switch (sort) {
+      case 'latest':
+        queryBuilder.orderBy('reply.createdAt', 'DESC');
+        break;
+      case 'popular':
+        queryBuilder.orderBy('reply.likesCount', 'DESC');
+        break;
+      case 'oldest':
+      default:
+        queryBuilder.orderBy('reply.createdAt', 'ASC');
+        break;
+    }
+
+    const replies = await queryBuilder.getMany();
+    console.log(`✅ Found ${replies.length} replies`);
+    return replies;
+  }
+
+  // NEW: Create reply for a post
+  async createReply(postId: string, replyData: { content: string; parentId?: string }, currentUser: User): Promise<ForumPost> {
+    console.log('💬 Creating reply for post:', postId);
+    
+    const post = await this.forumPostRepository.findOne({
+      where: { id: postId },
+      relations: ['course'],
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post tidak ditemukan');
+    }
+
+    if (post.isLocked) {
+      throw new ForbiddenException('Post telah dikunci untuk balasan');
+    }
+
+    // Verify access to course
+    await this.verifyUserCourseAccess(post.courseId, currentUser);
+
+    // Determine parent - either the specific reply or the main post
+    let parentPost = post;
+    if (replyData.parentId && replyData.parentId !== postId) {
+      const specificParent = await this.forumPostRepository.findOne({
+        where: { id: replyData.parentId },
+      });
+      if (specificParent) {
+        parentPost = specificParent;
+      }
+    }
+
+    const reply = this.forumPostRepository.create({
+      title: '', // Replies don't need titles
+      content: replyData.content,
+      courseId: post.courseId,
+      authorId: currentUser.id,
+      parent: parentPost,
+    });
+
+    const savedReply = await this.forumPostRepository.save(reply);
+    
+    // Return with relations
+    return this.forumPostRepository.findOne({
+      where: { id: savedReply.id },
+      relations: ['author', 'course', 'parent'],
+    });
+  }
+
+  // NEW: Mark post as viewed
+  async markAsViewed(postId: string, currentUser: User): Promise<void> {
+    console.log('👁️ Marking post as viewed:', postId);
+    
+    const post = await this.forumPostRepository.findOne({
+      where: { id: postId },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post tidak ditemukan');
+    }
+
+    // Verify access to course
+    await this.verifyUserCourseAccess(post.courseId, currentUser);
+
+    // In a real app, you'd track individual views in a separate table
+    // For now, just increment view count
+    post.viewsCount = (post.viewsCount || 0) + 1;
+    await this.forumPostRepository.save(post);
+    
+    console.log('✅ Post marked as viewed');
+  }
+
+  // NEW: Mark reply as answer
+  async markAsAnswer(postId: string, replyId: string, currentUser: User): Promise<{ message: string }> {
+    console.log('✅ Marking reply as answer:', { postId, replyId });
+    
+    const post = await this.forumPostRepository.findOne({
+      where: { id: postId },
+      relations: ['author'],
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post tidak ditemukan');
+    }
+
+    // Only post owner can mark answers
+    if (post.authorId !== currentUser.id) {
+      throw new ForbiddenException('Hanya pemilik post yang dapat menandai jawaban');
+    }
+
+    const reply = await this.forumPostRepository.findOne({
+      where: { id: replyId },
+    });
+
+    if (!reply) {
+      throw new NotFoundException('Balasan tidak ditemukan');
+    }
+
+    // Verify access to course
+    await this.verifyUserCourseAccess(post.courseId, currentUser);
+
+    // In a real app, you'd have an isAnswer field or separate answer tracking
+    // For now, we'll just mark it conceptually
+    reply.isAnswer = true;
+    await this.forumPostRepository.save(reply);
+
+    // Mark post as answered
+    post.isAnswered = true;
+    await this.forumPostRepository.save(post);
+    
+    console.log('✅ Reply marked as answer successfully');
+    return { message: 'Balasan berhasil ditandai sebagai jawaban' };
+  }
+
   async update(id: string, updateForumPostDto: UpdateForumPostDto, currentUser: User) {
+    console.log('✏️ Updating post in service:', id);
+    
     const post = await this.forumPostRepository.findOne({
       where: { id },
       relations: ['author', 'course'],
@@ -174,10 +365,15 @@ export class ForumsService {
     }
 
     Object.assign(post, updateForumPostDto);
-    return this.forumPostRepository.save(post);
+    const updatedPost = await this.forumPostRepository.save(post);
+    
+    console.log('✅ Post updated successfully');
+    return updatedPost;
   }
 
   async remove(id: string, currentUser: User) {
+    console.log('🗑️ Removing post in service:', id);
+    
     const post = await this.forumPostRepository.findOne({
       where: { id },
       relations: ['author', 'course'],
@@ -201,10 +397,13 @@ export class ForumsService {
     }
 
     await this.forumPostRepository.remove(post);
+    console.log('✅ Post removed successfully');
     return { message: 'Post berhasil dihapus' };
   }
 
   async togglePin(id: string, currentUser: User) {
+    console.log('📌 Toggling pin in service:', id);
+    
     const post = await this.forumPostRepository.findOne({
       where: { id },
       relations: ['course'],
@@ -226,6 +425,7 @@ export class ForumsService {
     post.isPinned = !post.isPinned;
     await this.forumPostRepository.save(post);
 
+    console.log('✅ Pin toggled successfully');
     return {
       message: post.isPinned ? 'Post berhasil di-pin' : 'Post berhasil di-unpin',
       isPinned: post.isPinned,
@@ -233,6 +433,8 @@ export class ForumsService {
   }
 
   async toggleLock(id: string, currentUser: User) {
+    console.log('🔒 Toggling lock in service:', id);
+    
     const post = await this.forumPostRepository.findOne({
       where: { id },
       relations: ['course'],
@@ -254,6 +456,7 @@ export class ForumsService {
     post.isLocked = !post.isLocked;
     await this.forumPostRepository.save(post);
 
+    console.log('✅ Lock toggled successfully');
     return {
       message: post.isLocked ? 'Post berhasil dikunci' : 'Post berhasil dibuka',
       isLocked: post.isLocked,
@@ -261,6 +464,8 @@ export class ForumsService {
   }
 
   async toggleLike(id: string, currentUser: User) {
+    console.log('❤️ Toggling like in service:', id);
+    
     const post = await this.forumPostRepository.findOne({
       where: { id },
     });
@@ -273,9 +478,10 @@ export class ForumsService {
     await this.verifyUserCourseAccess(post.courseId, currentUser);
 
     // Simple like count increment (in real app, you'd track individual likes)
-    post.likesCount += 1;
+    post.likesCount = (post.likesCount || 0) + 1;
     await this.forumPostRepository.save(post);
 
+    console.log('✅ Like toggled successfully');
     return {
       message: 'Like berhasil ditambahkan',
       likesCount: post.likesCount,
@@ -283,6 +489,8 @@ export class ForumsService {
   }
 
   private async verifyUserCourseAccess(courseId: string, currentUser: User): Promise<Course> {
+    console.log('🔍 Verifying course access:', { courseId, userId: currentUser.id, role: currentUser.role });
+    
     const queryBuilder = this.courseRepository
       .createQueryBuilder('course')
       .where('course.id = :courseId', { courseId });
@@ -305,6 +513,7 @@ export class ForumsService {
       throw new NotFoundException('Mata kuliah tidak ditemukan atau Anda tidak memiliki akses');
     }
 
+    console.log('✅ Course access verified:', course.name);
     return course;
   }
 }
