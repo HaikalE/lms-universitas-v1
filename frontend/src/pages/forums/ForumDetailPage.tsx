@@ -44,7 +44,7 @@ const ForumDetailPage: React.FC = () => {
   const [sortReplies, setSortReplies] = useState<'latest' | 'oldest' | 'popular'>('oldest');
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
 
-  const isOwner = user?.id === post?.userId;
+  const isOwner = user?.id === post?.authorId; // FIXED: Use authorId instead of userId
   const isLecturer = user?.role === 'lecturer';
   const isAdmin = user?.role === 'admin';
   const canModerate = isOwner || isLecturer || isAdmin;
@@ -59,18 +59,33 @@ const ForumDetailPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch post details
+      console.log('🔍 Fetching forum post details for ID:', id);
+      
+      // FIXED: Fetch post details (includes tree structure with replies)
       const postResponse = await forumService.getForumPost(id!);
-      setPost(postResponse.data);
+      console.log('✅ Forum post fetched:', postResponse.data);
       
-      // Fetch replies
-      const repliesResponse = await forumService.getForumReplies(id!, { sort: sortReplies });
-      setReplies(repliesResponse.data);
+      const postData = postResponse.data;
+      setPost(postData);
       
-      // Mark as viewed
-      await forumService.markPostAsViewed(id!);
+      // FIXED: Extract replies from tree structure
+      if (postData.children && Array.isArray(postData.children)) {
+        console.log(`📝 Found ${postData.children.length} direct replies in tree structure`);
+        setReplies(postData.children);
+      } else {
+        console.log('📝 No replies found in tree structure');
+        setReplies([]);
+      }
+      
+      // Mark as viewed (non-blocking)
+      try {
+        await forumService.markPostAsViewed(id!);
+      } catch (viewError) {
+        console.warn('⚠️ Could not mark post as viewed:', viewError);
+      }
+      
     } catch (error) {
-      console.error('Error fetching post details:', error);
+      console.error('❌ Error fetching post details:', error);
     } finally {
       setLoading(false);
     }
@@ -80,20 +95,28 @@ const ForumDetailPage: React.FC = () => {
     if (!post) return;
     
     try {
-      await forumService.likePost(post.id);
+      console.log('❤️ Liking post:', post.id);
+      await forumService.toggleLike(post.id);
+      
+      // Update local state
       setPost({
         ...post,
         isLiked: !post.isLiked,
         likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1
       });
+      
+      console.log('✅ Post like toggled successfully');
     } catch (error) {
-      console.error('Error liking post:', error);
+      console.error('❌ Error liking post:', error);
     }
   };
 
   const handleLikeReply = async (replyId: string) => {
     try {
+      console.log('❤️ Liking reply:', replyId);
+      // Note: This endpoint might not exist yet, handle gracefully
       await forumService.likeReply(replyId);
+      
       setReplies(replies.map(reply => 
         reply.id === replyId 
           ? {
@@ -103,8 +126,10 @@ const ForumDetailPage: React.FC = () => {
             }
           : reply
       ));
+      
+      console.log('✅ Reply like toggled successfully');
     } catch (error) {
-      console.error('Error liking reply:', error);
+      console.error('❌ Error liking reply (endpoint may not exist):', error);
     }
   };
 
@@ -112,22 +137,38 @@ const ForumDetailPage: React.FC = () => {
     if (!replyContent.trim() || !post) return;
     
     try {
-      const response = await forumService.createReply(post.id, {
-        content: replyContent,
-        parentId: replyingTo
-      });
+      console.log('💬 Creating reply for post:', post.id);
       
-      setReplies([...replies, response.data]);
+      // FIXED: Use createForumPost with parentId for replies
+      const replyData = {
+        title: '', // Replies don't need titles
+        content: replyContent.trim(),
+        courseId: post.courseId,
+        parentId: replyingTo || post.id // Use post.id if not replying to specific reply
+      };
+      
+      console.log('🚀 Submitting reply data:', replyData);
+      
+      const newReply = await forumService.createForumPost(replyData);
+      
+      console.log('✅ Reply created successfully:', newReply);
+      
+      // Add to local replies state
+      setReplies([...replies, newReply]);
       setReplyContent('');
       setReplyingTo(null);
       
-      // Update reply count
-      setPost({
-        ...post,
-        repliesCount: post.repliesCount + 1
-      });
+      // Update reply count if available
+      if (post.repliesCount !== undefined) {
+        setPost({
+          ...post,
+          repliesCount: post.repliesCount + 1
+        });
+      }
+      
     } catch (error) {
-      console.error('Error submitting reply:', error);
+      console.error('❌ Error submitting reply:', error);
+      alert('Gagal mengirim balasan. Silakan coba lagi.');
     }
   };
 
@@ -135,14 +176,19 @@ const ForumDetailPage: React.FC = () => {
     if (!editContent.trim()) return;
     
     try {
-      await forumService.updateReply(replyId, { content: editContent });
+      console.log('✏️ Updating reply:', replyId);
+      
+      await forumService.updateForumPost(replyId, { content: editContent });
+      
       setReplies(replies.map(reply => 
         reply.id === replyId ? { ...reply, content: editContent } : reply
       ));
       setEditingReply(null);
       setEditContent('');
+      
+      console.log('✅ Reply updated successfully');
     } catch (error) {
-      console.error('Error updating reply:', error);
+      console.error('❌ Error updating reply:', error);
     }
   };
 
@@ -150,17 +196,22 @@ const ForumDetailPage: React.FC = () => {
     if (!window.confirm('Yakin ingin menghapus balasan ini?')) return;
     
     try {
-      await forumService.deleteReply(replyId);
+      console.log('🗑️ Deleting reply:', replyId);
+      
+      await forumService.deleteForumPost(replyId);
+      
       setReplies(replies.filter(reply => reply.id !== replyId));
       
-      if (post) {
+      if (post && post.repliesCount !== undefined) {
         setPost({
           ...post,
           repliesCount: post.repliesCount - 1
         });
       }
+      
+      console.log('✅ Reply deleted successfully');
     } catch (error) {
-      console.error('Error deleting reply:', error);
+      console.error('❌ Error deleting reply:', error);
     }
   };
 
@@ -168,14 +219,19 @@ const ForumDetailPage: React.FC = () => {
     if (!post || !isOwner) return;
     
     try {
+      console.log('✅ Marking reply as answer:', replyId);
+      // Note: This endpoint might not exist yet
       await forumService.markAsAnswer(post.id, replyId);
+      
       setReplies(replies.map(reply => ({
         ...reply,
         isAnswer: reply.id === replyId
       })));
       setPost({ ...post, isAnswered: true });
+      
+      console.log('✅ Reply marked as answer successfully');
     } catch (error) {
-      console.error('Error marking as answer:', error);
+      console.error('❌ Error marking as answer (endpoint may not exist):', error);
     }
   };
 
@@ -183,10 +239,14 @@ const ForumDetailPage: React.FC = () => {
     if (!post || !canModerate) return;
     
     try {
-      await forumService.pinPost(post.id);
+      console.log('📌 Toggling pin for post:', post.id);
+      
+      await forumService.togglePin(post.id);
       setPost({ ...post, isPinned: !post.isPinned });
+      
+      console.log('✅ Post pin toggled successfully');
     } catch (error) {
-      console.error('Error pinning post:', error);
+      console.error('❌ Error pinning post:', error);
     }
   };
 
@@ -257,9 +317,9 @@ const ForumDetailPage: React.FC = () => {
                 <User className="w-6 h-6 text-gray-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">{post.user?.name}</h3>
+                <h3 className="font-semibold text-gray-900">{post.author?.fullName || 'Unknown User'}</h3>
                 <div className="flex items-center gap-3 text-sm text-gray-500">
-                  <span>{post.user?.role === 'lecturer' ? 'Dosen' : 'Mahasiswa'}</span>
+                  <span>{post.author?.role === 'lecturer' ? 'Dosen' : 'Mahasiswa'}</span>
                   <span>•</span>
                   <span>{getTimeAgo(post.createdAt)}</span>
                 </div>
@@ -325,26 +385,11 @@ const ForumDetailPage: React.FC = () => {
               )}
               <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded flex items-center gap-1">
                 <BookOpen className="w-3 h-3" />
-                {post.course?.name}
+                {post.course?.name || 'Unknown Course'}
               </span>
             </div>
             
             <h1 className="text-2xl font-bold text-gray-900 mb-3">{post.title}</h1>
-            
-            {/* Tags */}
-            {post.tags && post.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {post.tags.map((tag, index) => (
-                  <span 
-                    key={index}
-                    className="bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full flex items-center gap-1"
-                  >
-                    <Tag className="w-3 h-3" />
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Post Content */}
@@ -365,24 +410,23 @@ const ForumDetailPage: React.FC = () => {
                 }`}
               >
                 <Heart className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
-                <span>{post.likesCount}</span>
+                <span>{post.likesCount || 0}</span>
               </button>
               
               <div className="flex items-center gap-2 text-gray-600">
                 <Eye className="w-5 h-5" />
-                <span>{post.viewsCount} views</span>
+                <span>{post.viewsCount || 0} views</span>
               </div>
               
               <div className="flex items-center gap-2 text-gray-600">
                 <MessageCircle className="w-5 h-5" />
-                <span>{post.repliesCount} balasan</span>
+                <span>{replies.length} balasan</span>
               </div>
             </div>
             
             <button
               onClick={() => {
                 setReplyingTo(null);
-                // Focus on reply editor
                 const editorElement = document.querySelector('[data-testid="reply-editor"]');
                 if (editorElement) {
                   editorElement.scrollIntoView({ behavior: 'smooth' });
@@ -423,7 +467,7 @@ const ForumDetailPage: React.FC = () => {
           <div className="bg-gray-50 p-4 rounded-lg" data-testid="reply-editor">
             {replyingTo && (
               <div className="mb-2 text-sm text-gray-600">
-                Membalas ke: {replies.find(r => r.id === replyingTo)?.user?.name}
+                Membalas ke: {replies.find(r => r.id === replyingTo)?.author?.fullName || 'Unknown User'}
                 <button
                   onClick={() => setReplyingTo(null)}
                   className="ml-2 text-red-600 hover:underline"
@@ -477,7 +521,7 @@ const ForumDetailPage: React.FC = () => {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-gray-900">{reply.user?.name}</h4>
+                          <h4 className="font-semibold text-gray-900">{reply.author?.fullName || 'Unknown User'}</h4>
                           {reply.isAnswer && (
                             <span className="bg-green-600 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
                               <Award className="w-3 h-3" />
@@ -489,7 +533,7 @@ const ForumDetailPage: React.FC = () => {
                       </div>
                     </div>
                     
-                    {(user?.id === reply.userId || canModerate) && (
+                    {(user?.id === reply.authorId || canModerate) && (
                       <div className="relative">
                         <button
                           onClick={() => setShowActions(showActions === reply.id ? null : reply.id)}
@@ -509,7 +553,7 @@ const ForumDetailPage: React.FC = () => {
                                 Tandai sebagai Jawaban
                               </button>
                             )}
-                            {user?.id === reply.userId && (
+                            {user?.id === reply.authorId && (
                               <>
                                 <button
                                   onClick={() => {
@@ -581,7 +625,7 @@ const ForumDetailPage: React.FC = () => {
                       } transition-colors`}
                     >
                       <ThumbsUp className={`w-4 h-4 ${reply.isLiked ? 'fill-current' : ''}`} />
-                      <span>{reply.likesCount}</span>
+                      <span>{reply.likesCount || 0}</span>
                     </button>
                     
                     <button
@@ -600,7 +644,7 @@ const ForumDetailPage: React.FC = () => {
                   </div>
 
                   {/* Nested Replies */}
-                  {reply.replies && reply.replies.length > 0 && (
+                  {reply.children && reply.children.length > 0 && (
                     <div className="mt-4 ml-8 space-y-3">
                       <button
                         onClick={() => toggleReplyExpansion(reply.id)}
@@ -609,27 +653,26 @@ const ForumDetailPage: React.FC = () => {
                         {expandedReplies.has(reply.id) ? (
                           <>
                             <ChevronUp className="w-4 h-4" />
-                            Sembunyikan {reply.replies.length} balasan
+                            Sembunyikan {reply.children.length} balasan
                           </>
                         ) : (
                           <>
                             <ChevronDown className="w-4 h-4" />
-                            Lihat {reply.replies.length} balasan
+                            Lihat {reply.children.length} balasan
                           </>
                         )}
                       </button>
                       
                       {expandedReplies.has(reply.id) && (
                         <div className="space-y-3">
-                          {reply.replies.map((nestedReply) => (
+                          {reply.children.map((nestedReply) => (
                             <div key={nestedReply.id} className="p-3 bg-gray-50 rounded-lg">
-                              {/* Nested reply content - simplified version */}
                               <div className="flex items-center gap-2 mb-2">
                                 <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                                   <User className="w-4 h-4 text-gray-600" />
                                 </div>
                                 <div>
-                                  <p className="font-medium text-sm">{nestedReply.user?.name}</p>
+                                  <p className="font-medium text-sm">{nestedReply.author?.fullName || 'Unknown User'}</p>
                                   <p className="text-xs text-gray-500">{getTimeAgo(nestedReply.createdAt)}</p>
                                 </div>
                               </div>
