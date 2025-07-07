@@ -1,4 +1,4 @@
-# EMERGENCY: Manual React build without npm scripts
+# EMERGENCY: Manual React build without npm scripts - FIXED
 FROM node:16-alpine AS builder
 
 WORKDIR /app
@@ -21,57 +21,57 @@ RUN echo "=== MANUAL REACT BUILD ===" && \
     mkdir -p build && \
     cp -r public/* build/ 2>/dev/null || echo "No public files to copy"
 
-# Ensure build directory exists with at least index.html
+# Create fallback HTML if React build failed
 RUN if [ ! -f build/index.html ]; then \
         echo "Creating fallback index.html..." && \
         mkdir -p build && \
-        cat > build/index.html << 'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LMS Universitas</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        button:hover { background: #0056b3; }
-        h1 { text-align: center; margin-bottom: 30px; color: #333; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>LMS Universitas</h1>
-        <form action="http://localhost:3000/api/auth/login" method="POST">
-            <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email" placeholder="admin@universitas.ac.id" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" placeholder="admin123" required>
-            </div>
-            <button type="submit">Login</button>
-        </form>
-        <p style="text-align: center; margin-top: 20px; font-size: 14px; color: #666;">
-            Demo Accounts:<br>
-            <strong>Admin:</strong> admin@universitas.ac.id / admin123<br>
-            <strong>Dosen:</strong> dr.ahmad@universitas.ac.id / lecturer123<br>
-            <strong>Mahasiswa:</strong> andi.pratama@student.ac.id / student123
-        </p>
-    </div>
-</body>
-</html>
-EOF
+        echo '<!DOCTYPE html>' > build/index.html && \
+        echo '<html lang="en">' >> build/index.html && \
+        echo '<head>' >> build/index.html && \
+        echo '    <meta charset="utf-8" />' >> build/index.html && \
+        echo '    <meta name="viewport" content="width=device-width, initial-scale=1" />' >> build/index.html && \
+        echo '    <title>LMS Universitas</title>' >> build/index.html && \
+        echo '    <style>' >> build/index.html && \
+        echo '        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }' >> build/index.html && \
+        echo '        .container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }' >> build/index.html && \
+        echo '        .form-group { margin-bottom: 20px; }' >> build/index.html && \
+        echo '        label { display: block; margin-bottom: 5px; font-weight: bold; }' >> build/index.html && \
+        echo '        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }' >> build/index.html && \
+        echo '        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }' >> build/index.html && \
+        echo '        button:hover { background: #0056b3; }' >> build/index.html && \
+        echo '        h1 { text-align: center; margin-bottom: 30px; color: #333; }' >> build/index.html && \
+        echo '        .demo-accounts { text-align: center; margin-top: 20px; font-size: 14px; color: #666; }' >> build/index.html && \
+        echo '    </style>' >> build/index.html && \
+        echo '</head>' >> build/index.html && \
+        echo '<body>' >> build/index.html && \
+        echo '    <div class="container">' >> build/index.html && \
+        echo '        <h1>LMS Universitas</h1>' >> build/index.html && \
+        echo '        <form action="http://localhost:3000/api/auth/login" method="POST">' >> build/index.html && \
+        echo '            <div class="form-group">' >> build/index.html && \
+        echo '                <label for="email">Email:</label>' >> build/index.html && \
+        echo '                <input type="email" id="email" name="email" placeholder="admin@universitas.ac.id" required>' >> build/index.html && \
+        echo '            </div>' >> build/index.html && \
+        echo '            <div class="form-group">' >> build/index.html && \
+        echo '                <label for="password">Password:</label>' >> build/index.html && \
+        echo '                <input type="password" id="password" name="password" placeholder="admin123" required>' >> build/index.html && \
+        echo '            </div>' >> build/index.html && \
+        echo '            <button type="submit">Login</button>' >> build/index.html && \
+        echo '        </form>' >> build/index.html && \
+        echo '        <div class="demo-accounts">' >> build/index.html && \
+        echo '            <strong>Demo Accounts:</strong><br>' >> build/index.html && \
+        echo '            <strong>Admin:</strong> admin@universitas.ac.id / admin123<br>' >> build/index.html && \
+        echo '            <strong>Dosen:</strong> dr.ahmad@universitas.ac.id / lecturer123<br>' >> build/index.html && \
+        echo '            <strong>Mahasiswa:</strong> andi.pratama@student.ac.id / student123' >> build/index.html && \
+        echo '        </div>' >> build/index.html && \
+        echo '    </div>' >> build/index.html && \
+        echo '</body>' >> build/index.html && \
+        echo '</html>' >> build/index.html; \
     fi
 
 # Verify build
 RUN echo "=== BUILD VERIFICATION ===" && \
-    ls -la build/
+    ls -la build/ && \
+    head -5 build/index.html
 
 # Production stage
 FROM nginx:alpine
