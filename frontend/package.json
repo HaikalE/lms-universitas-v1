@@ -44,7 +44,9 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build && npm run build:sw",
+    "build:simple": "react-scripts build",
     "build:sw": "node scripts/build-sw.js",
+    "build:docker": "react-scripts build && npm run build:sw",
     "test": "react-scripts test",
     "test:coverage": "react-scripts test --coverage --watchAll=false",
     "test:ci": "CI=true react-scripts test --coverage --watchAll=false",
