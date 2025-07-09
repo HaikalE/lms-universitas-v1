@@ -144,37 +144,14 @@ export interface Grade {
   };
 }
 
-// Forward declaration for ForumReply
-export interface ForumReply {
-  id: string;
-  content: string;
-  authorId: string; // FIXED: Use authorId to match backend
-  userId?: string; // Keep for backward compatibility
-  isLiked: boolean;
-  likesCount: number;
-  isAnswer: boolean;
-  createdAt: string;
-  updatedAt?: string;
-  author: {
-    id: string;
-    fullName: string; // FIXED: Use fullName to match backend User entity
-    role?: UserRole;
-  };
-  user?: {
-    id: string;
-    name: string;
-    role?: UserRole;
-  };
-  children?: ForumReply[]; // FIXED: Add children for nested replies
-  replies?: ForumReply[];
-}
-
 export enum ForumPostType {
   QUESTION = 'question',
   DISCUSSION = 'discussion',
   ANNOUNCEMENT = 'announcement',
 }
 
+// UNIFIED: Use single ForumPost interface for both posts and replies
+// This matches the backend entity structure
 export interface ForumPost {
   id: string;
   title: string;
@@ -184,15 +161,20 @@ export interface ForumPost {
   isLocked: boolean;
   likesCount: number;
   viewsCount: number;
-  repliesCount: number;
+  repliesCount?: number; // Optional for compatibility
   isLiked?: boolean;
   isAnswered?: boolean;
+  
+  // FIXED: Add isAnswer field to match backend entity
+  isAnswer: boolean;
+  
   tags?: string[];
-  authorId: string; // FIXED: Add authorId to match backend entity
-  courseId: string; // FIXED: Add courseId to match backend entity
+  authorId: string;
+  courseId: string;
   userId?: string; // Keep for backward compatibility
   createdAt: string;
   updatedAt?: string;
+  
   author: {
     id: string;
     fullName: string;
@@ -203,13 +185,21 @@ export interface ForumPost {
     name: string;
     role: UserRole;
   };
-  children?: ForumPost[]; // For tree structure replies
+  
+  // Tree structure - children are also ForumPost objects
+  children?: ForumPost[];
+  parent?: ForumPost;
+  
   course?: {
     id: string;
     code: string;
     name: string;
   };
 }
+
+// DEPRECATED: Remove ForumReply interface - use ForumPost for all
+// Keeping as type alias for backward compatibility during transition
+export type ForumReply = ForumPost;
 
 export interface Announcement {
   id: string;
