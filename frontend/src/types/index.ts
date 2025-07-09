@@ -148,17 +148,24 @@ export interface Grade {
 export interface ForumReply {
   id: string;
   content: string;
-  userId: string;
+  authorId: string; // FIXED: Use authorId to match backend
+  userId?: string; // Keep for backward compatibility
   isLiked: boolean;
   likesCount: number;
   isAnswer: boolean;
   createdAt: string;
   updatedAt?: string;
-  user: {
+  author: {
+    id: string;
+    fullName: string; // FIXED: Use fullName to match backend User entity
+    role?: UserRole;
+  };
+  user?: {
     id: string;
     name: string;
     role?: UserRole;
   };
+  children?: ForumReply[]; // FIXED: Add children for nested replies
   replies?: ForumReply[];
 }
 
@@ -181,7 +188,9 @@ export interface ForumPost {
   isLiked?: boolean;
   isAnswered?: boolean;
   tags?: string[];
-  userId?: string;
+  authorId: string; // FIXED: Add authorId to match backend entity
+  courseId: string; // FIXED: Add courseId to match backend entity
+  userId?: string; // Keep for backward compatibility
   createdAt: string;
   updatedAt?: string;
   author: {
@@ -194,7 +203,7 @@ export interface ForumPost {
     name: string;
     role: UserRole;
   };
-  children?: ForumPost[];
+  children?: ForumPost[]; // For tree structure replies
   course?: {
     id: string;
     code: string;
