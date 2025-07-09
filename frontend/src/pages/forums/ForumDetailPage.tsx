@@ -26,7 +26,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { RichTextEditor } from '../../components/ui/RichTextEditor';
 import { useAuth } from '../../contexts/AuthContext';
 import { forumService } from '../../services';
-import { ForumPost, ForumReply } from '../../types';
+import { ForumPost } from '../../types';
 
 const ForumDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +34,8 @@ const ForumDetailPage: React.FC = () => {
   const { user } = useAuth();
   
   const [post, setPost] = useState<ForumPost | null>(null);
-  const [replies, setReplies] = useState<ForumReply[]>([]);
+  // FIXED: Use ForumPost[] instead of ForumReply[] to match backend data structure
+  const [replies, setReplies] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyContent, setReplyContent] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -44,7 +45,7 @@ const ForumDetailPage: React.FC = () => {
   const [sortReplies, setSortReplies] = useState<'latest' | 'oldest' | 'popular'>('oldest');
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
 
-  const isOwner = user?.id === post?.authorId; // FIXED: Use authorId instead of userId
+  const isOwner = user?.id === post?.authorId;
   const isLecturer = user?.role === 'lecturer';
   const isAdmin = user?.role === 'admin';
   const canModerate = isOwner || isLecturer || isAdmin;
@@ -61,14 +62,14 @@ const ForumDetailPage: React.FC = () => {
       
       console.log('🔍 Fetching forum post details for ID:', id);
       
-      // FIXED: Fetch post details (includes tree structure with replies)
+      // Fetch post details (includes tree structure with replies)
       const postResponse = await forumService.getForumPost(id!);
       console.log('✅ Forum post fetched:', postResponse.data);
       
       const postData = postResponse.data;
       setPost(postData);
       
-      // FIXED: Extract replies from tree structure
+      // FIXED: Extract replies from tree structure - now compatible types
       if (postData.children && Array.isArray(postData.children)) {
         console.log(`📝 Found ${postData.children.length} direct replies in tree structure`);
         setReplies(postData.children);
@@ -139,7 +140,7 @@ const ForumDetailPage: React.FC = () => {
     try {
       console.log('💬 Creating reply for post:', post.id);
       
-      // FIXED: Use createForumPost with parentId for replies
+      // Use createForumPost with parentId for replies
       const replyData = {
         title: '', // Replies don't need titles
         content: replyContent.trim(),
