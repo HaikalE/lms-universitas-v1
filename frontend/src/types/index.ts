@@ -150,8 +150,7 @@ export enum ForumPostType {
   ANNOUNCEMENT = 'announcement',
 }
 
-// UNIFIED: Use single ForumPost interface for both posts and replies
-// This matches the backend entity structure
+// ENHANCED: ForumPost interface with student interaction features
 export interface ForumPost {
   id: string;
   title: string;
@@ -161,19 +160,27 @@ export interface ForumPost {
   isLocked: boolean;
   likesCount: number;
   viewsCount: number;
-  repliesCount?: number; // Optional for compatibility
+  repliesCount?: number;
   isLiked?: boolean;
   isAnswered?: boolean;
-  
-  // FIXED: Add isAnswer field to match backend entity
   isAnswer: boolean;
-  
   tags?: string[];
   authorId: string;
   courseId: string;
   userId?: string; // Keep for backward compatibility
   createdAt: string;
   updatedAt?: string;
+  
+  // NEW: Enhanced student interaction features
+  quickReactions?: {
+    thumbsUp: number;
+    heart: number;
+    thinking: number;
+    lightbulb: number;
+  };
+  userReactions?: string[]; // Array of reaction types user has made
+  bookmarked?: boolean;
+  bookmarkCount?: number;
   
   author: {
     id: string;
@@ -195,12 +202,114 @@ export interface ForumPost {
     code: string;
     name: string;
   };
+  
+  // NEW: Additional metadata for student features
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  studyLevel?: string;
+  estimatedReadTime?: number; // in minutes
+  lastActivity?: string; // ISO string
 }
 
-// DEPRECATED: Remove ForumReply interface - use ForumPost for all
-// Keeping as type alias for backward compatibility during transition
+// ENHANCED: ForumReply type alias with additional features
 export type ForumReply = ForumPost;
 
+// NEW: Student engagement interfaces
+export interface StudentReputation {
+  userId: string;
+  totalPoints: number;
+  level: 'newbie' | 'active' | 'helper' | 'expert';
+  badges: StudentBadge[];
+  questionsAsked: number;
+  answersGiven: number;
+  bestAnswers: number;
+  helpfulVotes: number;
+  weeklyActivity: number;
+  studyStreak: number;
+  monthlyRank?: number;
+}
+
+export interface StudentBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: 'bronze' | 'silver' | 'gold' | 'platinum';
+  earnedAt: string;
+  criteria: {
+    requirement: string;
+    threshold: number;
+  };
+}
+
+export interface StudyGroup {
+  id: string;
+  name: string;
+  description: string;
+  courseId: string;
+  createdBy: string;
+  members: User[];
+  maxMembers: number;
+  isPrivate: boolean;
+  tags: string[];
+  createdAt: string;
+  lastActivity: string;
+  stats: {
+    totalPosts: number;
+    activeMembers: number;
+    weeklyActivity: number;
+  };
+}
+
+export interface ForumNotification {
+  id: string;
+  type: 'new_reply' | 'post_liked' | 'mentioned' | 'answer_marked' | 'post_bookmarked';
+  title: string;
+  message: string;
+  postId: string;
+  triggeredBy: string;
+  userId: string;
+  read: boolean;
+  createdAt: string;
+  metadata?: {
+    postTitle?: string;
+    reactionType?: string;
+    points?: number;
+  };
+}
+
+export interface ForumActivity {
+  id: string;
+  type: 'question_asked' | 'answer_given' | 'post_liked' | 'best_answer' | 'mentioned' | 'badge_earned';
+  title: string;
+  description: string;
+  postId?: string;
+  points?: number;
+  timestamp: string;
+  metadata?: any;
+}
+
+// NEW: Enhanced search and filter interfaces
+export interface ForumSearchFilters {
+  query?: string;
+  courseId?: string;
+  type?: ForumPostType | 'all';
+  status?: 'answered' | 'unanswered' | 'all';
+  sortBy?: 'latest' | 'popular' | 'trending' | 'unanswered';
+  timeRange?: 'today' | 'week' | 'month' | 'all';
+  difficulty?: 'beginner' | 'intermediate' | 'advanced' | 'all';
+  tags?: string[];
+  authorRole?: UserRole | 'all';
+}
+
+export interface ForumQuickFilter {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  count?: number;
+  filter: Partial<ForumSearchFilters>;
+}
+
+// Existing interfaces remain the same
 export interface Announcement {
   id: string;
   title: string;
@@ -243,6 +352,9 @@ export enum NotificationType {
   ASSIGNMENT_GRADED = 'assignment_graded',
   ANNOUNCEMENT = 'announcement',
   FORUM_REPLY = 'forum_reply',
+  FORUM_MENTION = 'forum_mention',
+  FORUM_LIKE = 'forum_like',
+  FORUM_BEST_ANSWER = 'forum_best_answer',
   COURSE_ENROLLMENT = 'course_enrollment',
   GENERAL = 'general',
 }
@@ -259,6 +371,7 @@ export interface LoginResponse {
 
 export interface ApiResponse<T> {
   data: T;
+  success?: boolean;
   meta?: {
     total: number;
     page: number;
