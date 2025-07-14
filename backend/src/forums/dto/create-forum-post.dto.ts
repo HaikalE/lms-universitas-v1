@@ -5,7 +5,12 @@ import {
   IsUUID,
   IsEnum,
 } from 'class-validator';
-import { ForumPostType } from '../entities/forum-post.entity';
+
+export enum ForumPostType {
+  DISCUSSION = 'discussion',
+  QUESTION = 'question',
+  ANNOUNCEMENT = 'announcement',
+}
 
 export class CreateForumPostDto {
   @IsNotEmpty({ message: 'Judul post wajib diisi' })
