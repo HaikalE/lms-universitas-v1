@@ -9,7 +9,7 @@ import { Repository, TreeRepository } from 'typeorm';
 import { ForumPost, ForumPostType } from '../entities/forum-post.entity';
 import { Course } from '../entities/course.entity';
 import { User, UserRole } from '../entities/user.entity';
-import { CreateForumPostDto } from './dto/create-forum-post.dto';
+import { CreateForumPostDto, ForumPostType as DTOForumPostType } from './dto/create-forum-post.dto';
 import { UpdateForumPostDto } from './dto/update-forum-post.dto';
 import { QueryForumPostsDto } from './dto/query-forum-posts.dto';
 
@@ -49,11 +49,18 @@ export class ForumsService {
       }
     }
 
+    // Map DTO enum to entity enum
+    const postType = createForumPostDto.type 
+      ? (createForumPostDto.type as unknown as ForumPostType)
+      : ForumPostType.DISCUSSION;
+
     const post = this.forumPostRepository.create({
-      ...createForumPostDto,
+      title: createForumPostDto.title,
+      content: createForumPostDto.content,
+      courseId: createForumPostDto.courseId,
       authorId: currentUser.id,
       parent: parentPost,
-      type: createForumPostDto.type || ForumPostType.DISCUSSION,
+      type: postType,
     });
 
     const savedPost = await this.forumPostRepository.save(post);
@@ -492,7 +499,7 @@ export class ForumsService {
     console.log('❤️ Toggling like in service:', id);
     
     const post = await this.forumPostRepository.findOne({
-      where: { id },
+      where: { id: postId },
     });
 
     if (!post) {
