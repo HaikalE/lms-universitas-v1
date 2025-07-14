@@ -12,6 +12,8 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ValidationPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CoursesService } from './courses.service';
@@ -52,8 +54,73 @@ export class CoursesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  create(@Body() createCourseDto: CreateCourseDto, @GetUser() user: User) {
-    return this.coursesService.create(createCourseDto, user);
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    exceptionFactory: (errors) => {
+      const messages = errors.map(error => {
+        // Get first constraint message
+        const constraints = Object.values(error.constraints || {});
+        return constraints[0] || `Field ${error.property} is invalid`;
+      });
+      
+      console.log('🚨 Course creation validation errors:', {
+        errors: messages,
+        receivedData: errors.map(e => ({ property: e.property, value: e.value }))
+      });
+      
+      throw new BadRequestException({
+        message: messages,
+        error: 'Validation Failed',
+        statusCode: 400
+      });
+    }
+  }))
+  async create(@Body() createCourseDto: CreateCourseDto, @GetUser() user: User) {
+    try {
+      console.log('📚 Creating course with validated data:', {
+        ...createCourseDto,
+        createdBy: user.id
+      });
+
+      // Additional business logic validation
+      if (!createCourseDto.lecturerId || createCourseDto.lecturerId.trim() === '') {
+        throw new BadRequestException('Dosen pengampu wajib dipilih dari dropdown yang tersedia');
+      }
+
+      const result = await this.coursesService.create(createCourseDto, user);
+      
+      console.log('✅ Course created successfully:', {
+        id: result.id,
+        name: result.name,
+        code: result.code
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error in course creation controller:', {
+        error: error.message,
+        dto: createCourseDto,
+        userId: user.id
+      });
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      // Handle other specific errors
+      if (error.message && error.message.includes('duplicate key')) {
+        throw new BadRequestException('Kode mata kuliah sudah digunakan. Silakan gunakan kode yang berbeda.');
+      }
+      
+      if (error.message && error.message.includes('lecturer not found')) {
+        throw new BadRequestException('Dosen yang dipilih tidak ditemukan. Silakan pilih dosen lain dari dropdown.');
+      }
+      
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat membuat mata kuliah. Silakan periksa data dan coba lagi.');
+    }
   }
 
   @Get()
@@ -69,12 +136,82 @@ export class CoursesController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.LECTURER)
-  update(
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    exceptionFactory: (errors) => {
+      const messages = errors.map(error => {
+        const constraints = Object.values(error.constraints || {});
+        return constraints[0] || `Field ${error.property} is invalid`;
+      });
+      
+      console.log('🚨 Course update validation errors:', {
+        errors: messages,
+        receivedData: errors.map(e => ({ property: e.property, value: e.value }))
+      });
+      
+      throw new BadRequestException({
+        message: messages,
+        error: 'Validation Failed',
+        statusCode: 400
+      });
+    }
+  }))
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCourseDto: UpdateCourseDto,
     @GetUser() user: User,
   ) {
-    return this.coursesService.update(id, updateCourseDto, user);
+    try {
+      console.log('📝 Updating course:', {
+        courseId: id,
+        updates: updateCourseDto,
+        updatedBy: user.id
+      });
+
+      // Additional validation for lecturerId if provided
+      if (updateCourseDto.lecturerId !== undefined && 
+          (!updateCourseDto.lecturerId || updateCourseDto.lecturerId.trim() === '')) {
+        throw new BadRequestException('Dosen pengampu wajib dipilih dari dropdown yang tersedia');
+      }
+
+      const result = await this.coursesService.update(id, updateCourseDto, user);
+      
+      console.log('✅ Course updated successfully:', {
+        id: result.id,
+        name: result.name
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error in course update controller:', {
+        error: error.message,
+        courseId: id,
+        dto: updateCourseDto,
+        userId: user.id
+      });
+      
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      // Handle specific errors
+      if (error.message && error.message.includes('duplicate key')) {
+        throw new BadRequestException('Kode mata kuliah sudah digunakan. Silakan gunakan kode yang berbeda.');
+      }
+      
+      if (error.message && error.message.includes('lecturer not found')) {
+        throw new BadRequestException('Dosen yang dipilih tidak ditemukan. Silakan pilih dosen lain dari dropdown.');
+      }
+      
+      if (error.message && error.message.includes('not found')) {
+        throw new BadRequestException('Mata kuliah tidak ditemukan.');
+      }
+      
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat memperbarui mata kuliah. Silakan periksa data dan coba lagi.');
+    }
   }
 
   @Delete(':id')
