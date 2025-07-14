@@ -46,29 +46,84 @@ export class CoursesService {
   ) {}
 
   async create(createCourseDto: CreateCourseDto, currentUser: User) {
-    const { lecturerId, code } = createCourseDto;
+    try {
+      console.log('📚 Creating course in service:', {
+        dto: createCourseDto,
+        createdBy: currentUser.id
+      });
 
-    // Check if course code already exists
-    const existingCourse = await this.courseRepository.findOne({ where: { code } });
-    if (existingCourse) {
-      throw new ConflictException('Kode mata kuliah sudah digunakan');
+      const { lecturerId, code } = createCourseDto;
+
+      // Enhanced validation for lecturer ID
+      if (!lecturerId || lecturerId.trim() === '') {
+        throw new BadRequestException('ID dosen wajib diisi. Silakan pilih dosen dari dropdown.');
+      }
+
+      // Check if course code already exists
+      const existingCourse = await this.courseRepository.findOne({ where: { code } });
+      if (existingCourse) {
+        console.error('❌ Course code already exists:', code);
+        throw new ConflictException('Kode mata kuliah sudah digunakan. Silakan gunakan kode yang berbeda.');
+      }
+
+      // Verify lecturer exists and has correct role
+      const lecturer = await this.userRepository.findOne({
+        where: { id: lecturerId, role: UserRole.LECTURER, isActive: true },
+      });
+      
+      if (!lecturer) {
+        console.error('❌ Lecturer not found or inactive:', lecturerId);
+        throw new NotFoundException('Dosen tidak ditemukan atau tidak aktif. Silakan pilih dosen lain dari dropdown.');
+      }
+
+      console.log('✅ Lecturer found:', {
+        id: lecturer.id,
+        name: lecturer.fullName,
+        lecturerId: lecturer.lecturerId
+      });
+
+      const course = this.courseRepository.create({
+        ...createCourseDto,
+        lecturer,
+        lecturerId,
+      });
+
+      const savedCourse = await this.courseRepository.save(course);
+      
+      console.log('✅ Course created successfully:', {
+        id: savedCourse.id,
+        code: savedCourse.code,
+        name: savedCourse.name
+      });
+
+      return savedCourse;
+    } catch (error) {
+      console.error('❌ Error in course service create:', {
+        error: error.message,
+        dto: createCourseDto,
+        userId: currentUser.id
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof BadRequestException || 
+          error instanceof ConflictException || 
+          error instanceof NotFoundException) {
+        throw error;
+      }
+
+      // Handle database constraint errors
+      if (error.code === '23505' || error.message.includes('duplicate key')) {
+        throw new ConflictException('Kode mata kuliah sudah digunakan. Silakan gunakan kode yang berbeda.');
+      }
+
+      // Handle foreign key constraint errors
+      if (error.code === '23503' || error.message.includes('foreign key')) {
+        throw new BadRequestException('Dosen yang dipilih tidak valid. Silakan pilih dosen lain dari dropdown.');
+      }
+
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat membuat mata kuliah. Silakan periksa data dan coba lagi.');
     }
-
-    // Verify lecturer exists
-    const lecturer = await this.userRepository.findOne({
-      where: { id: lecturerId, role: UserRole.LECTURER },
-    });
-    if (!lecturer) {
-      throw new NotFoundException('Dosen tidak ditemukan');
-    }
-
-    const course = this.courseRepository.create({
-      ...createCourseDto,
-      lecturer,
-      lecturerId,
-    });
-
-    return this.courseRepository.save(course);
   }
 
   async findAll(queryDto: QueryCoursesDto, currentUser: User) {
@@ -182,45 +237,101 @@ export class CoursesService {
   }
 
   async update(id: string, updateCourseDto: UpdateCourseDto, currentUser: User) {
-    const course = await this.courseRepository.findOne({
-      where: { id },
-      relations: ['lecturer'],
-    });
-
-    if (!course) {
-      throw new NotFoundException('Mata kuliah tidak ditemukan');
-    }
-
-    // Check permission: only admin or the assigned lecturer can update
-    if (
-      currentUser.role !== UserRole.ADMIN &&
-      course.lecturerId !== currentUser.id
-    ) {
-      throw new ForbiddenException('Anda tidak memiliki akses untuk mengubah mata kuliah ini');
-    }
-
-    const { code, lecturerId } = updateCourseDto;
-
-    // Check course code uniqueness if being updated
-    if (code && code !== course.code) {
-      const existingCourse = await this.courseRepository.findOne({ where: { code } });
-      if (existingCourse) {
-        throw new ConflictException('Kode mata kuliah sudah digunakan');
-      }
-    }
-
-    // Verify new lecturer if being updated
-    if (lecturerId && lecturerId !== course.lecturerId) {
-      const lecturer = await this.userRepository.findOne({
-        where: { id: lecturerId, role: UserRole.LECTURER },
+    try {
+      console.log('📝 Updating course in service:', {
+        courseId: id,
+        dto: updateCourseDto,
+        updatedBy: currentUser.id
       });
-      if (!lecturer) {
-        throw new NotFoundException('Dosen tidak ditemukan');
-      }
-    }
 
-    Object.assign(course, updateCourseDto);
-    return this.courseRepository.save(course);
+      const course = await this.courseRepository.findOne({
+        where: { id },
+        relations: ['lecturer'],
+      });
+
+      if (!course) {
+        throw new NotFoundException('Mata kuliah tidak ditemukan');
+      }
+
+      // Check permission: only admin or the assigned lecturer can update
+      if (
+        currentUser.role !== UserRole.ADMIN &&
+        course.lecturerId !== currentUser.id
+      ) {
+        throw new ForbiddenException('Anda tidak memiliki akses untuk mengubah mata kuliah ini');
+      }
+
+      const { code, lecturerId } = updateCourseDto;
+
+      // Check course code uniqueness if being updated
+      if (code && code !== course.code) {
+        const existingCourse = await this.courseRepository.findOne({ where: { code } });
+        if (existingCourse) {
+          console.error('❌ Course code already exists during update:', code);
+          throw new ConflictException('Kode mata kuliah sudah digunakan. Silakan gunakan kode yang berbeda.');
+        }
+      }
+
+      // Verify new lecturer if being updated
+      if (lecturerId && lecturerId !== course.lecturerId) {
+        // Enhanced validation for lecturer ID
+        if (lecturerId.trim() === '') {
+          throw new BadRequestException('ID dosen wajib diisi. Silakan pilih dosen dari dropdown.');
+        }
+
+        const lecturer = await this.userRepository.findOne({
+          where: { id: lecturerId, role: UserRole.LECTURER, isActive: true },
+        });
+        
+        if (!lecturer) {
+          console.error('❌ New lecturer not found or inactive during update:', lecturerId);
+          throw new NotFoundException('Dosen tidak ditemukan atau tidak aktif. Silakan pilih dosen lain dari dropdown.');
+        }
+
+        console.log('✅ New lecturer found for update:', {
+          id: lecturer.id,
+          name: lecturer.fullName
+        });
+      }
+
+      Object.assign(course, updateCourseDto);
+      const updatedCourse = await this.courseRepository.save(course);
+
+      console.log('✅ Course updated successfully:', {
+        id: updatedCourse.id,
+        code: updatedCourse.code
+      });
+
+      return updatedCourse;
+    } catch (error) {
+      console.error('❌ Error in course service update:', {
+        error: error.message,
+        courseId: id,
+        dto: updateCourseDto,
+        userId: currentUser.id
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof BadRequestException || 
+          error instanceof ConflictException || 
+          error instanceof NotFoundException ||
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Handle database constraint errors
+      if (error.code === '23505' || error.message.includes('duplicate key')) {
+        throw new ConflictException('Kode mata kuliah sudah digunakan. Silakan gunakan kode yang berbeda.');
+      }
+
+      // Handle foreign key constraint errors
+      if (error.code === '23503' || error.message.includes('foreign key')) {
+        throw new BadRequestException('Dosen yang dipilih tidak valid. Silakan pilih dosen lain dari dropdown.');
+      }
+
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat memperbarui mata kuliah. Silakan periksa data dan coba lagi.');
+    }
   }
 
   async remove(id: string, currentUser: User) {
