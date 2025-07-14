@@ -3,8 +3,9 @@ import {
   IsString,
   IsOptional,
   IsUUID,
-  ValidateIf,
+  IsEnum,
 } from 'class-validator';
+import { ForumPostType } from '../entities/forum-post.entity';
 
 export class CreateForumPostDto {
   @IsNotEmpty({ message: 'Judul post wajib diisi' })
@@ -22,4 +23,8 @@ export class CreateForumPostDto {
   @IsOptional()
   @IsUUID('4', { message: 'Parent ID harus berupa UUID yang valid' })
   parentId?: string;
+
+  @IsOptional()
+  @IsEnum(ForumPostType, { message: 'Tipe post harus salah satu dari: discussion, question, announcement' })
+  type?: ForumPostType;
 }
