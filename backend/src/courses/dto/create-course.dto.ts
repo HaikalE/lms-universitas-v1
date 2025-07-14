@@ -31,8 +31,8 @@ export class CreateCourseDto {
   @IsString({ message: 'Semester harus berupa string' })
   semester: string;
 
-  @IsNotEmpty({ message: 'ID dosen wajib diisi' })
-  @IsUUID('4', { message: 'ID dosen harus berupa UUID yang valid' })
+  @IsNotEmpty({ message: 'ID dosen wajib diisi. Silakan pilih dosen pengampu dari dropdown.' })
+  @IsUUID('4', { message: 'ID dosen tidak valid. Silakan pilih dosen dari dropdown yang tersedia.' })
   lecturerId: string;
 
   @IsOptional()
