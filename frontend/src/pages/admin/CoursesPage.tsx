@@ -11,7 +11,7 @@ import { userService } from '../../services/userService';
 import { Course, User, UserRole, ApiResponse } from '../../types';
 import { 
   Plus, Search, Edit, Trash2, Users, BookOpen, 
-  Calendar, Award, Eye, UserPlus 
+  Calendar, Award, Eye, UserPlus, AlertCircle 
 } from 'lucide-react';
 
 const AdminCoursesPage: React.FC = () => {
@@ -379,16 +379,87 @@ const CreateCourseModal: React.FC<{
     lecturerId: '',
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Enhanced form validation
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!formData.code.trim()) {
+      newErrors.code = 'Kode mata kuliah wajib diisi';
+    }
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Nama mata kuliah wajib diisi';
+    }
+
+    if (!formData.semester) {
+      newErrors.semester = 'Semester wajib dipilih';
+    }
+
+    if (!formData.lecturerId) {
+      newErrors.lecturerId = 'Dosen pengampu wajib dipilih';
+    }
+
+    if (formData.credits < 1 || formData.credits > 6) {
+      newErrors.credits = 'SKS harus antara 1-6';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setErrors({});
+
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
+      console.log('Creating course with data:', formData);
       await courseService.createCourse(formData);
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating course:', error);
+      
+      // Handle specific validation errors from backend
+      if (error.response && error.response.data) {
+        const errorMessage = error.response.data.message;
+        if (typeof errorMessage === 'string') {
+          if (errorMessage.includes('uuid')) {
+            setErrors({ lecturerId: 'Pilih dosen pengampu yang valid' });
+          } else if (errorMessage.includes('code')) {
+            setErrors({ code: 'Kode mata kuliah sudah digunakan' });
+          } else {
+            setErrors({ general: errorMessage });
+          }
+        } else if (Array.isArray(errorMessage)) {
+          const fieldErrors: {[key: string]: string} = {};
+          errorMessage.forEach((msg: string) => {
+            if (msg.includes('lecturerId')) {
+              fieldErrors.lecturerId = 'ID dosen harus berupa UUID yang valid';
+            } else if (msg.includes('code')) {
+              fieldErrors.code = msg;
+            } else if (msg.includes('name')) {
+              fieldErrors.name = msg;
+            } else if (msg.includes('semester')) {
+              fieldErrors.semester = msg;
+            } else {
+              fieldErrors.general = msg;
+            }
+          });
+          setErrors(fieldErrors);
+        }
+      } else {
+        setErrors({ general: 'Terjadi kesalahan saat membuat mata kuliah. Silakan coba lagi.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -406,25 +477,48 @@ const CreateCourseModal: React.FC<{
   return (
     <Modal title="Tambah Mata Kuliah Baru" onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* General Error Message */}
+        {errors.general && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <div className="mt-2 text-sm text-red-700">{errors.general}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Kode Mata Kuliah"
-            value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            placeholder="contoh: CS101"
-            required
-          />
-          <Select
-            label="SKS"
-            value={formData.credits.toString()}
-            onChange={(e) => setFormData({ ...formData, credits: parseInt(e.target.value) })}
-          >
-            <option value="1">1 SKS</option>
-            <option value="2">2 SKS</option>
-            <option value="3">3 SKS</option>
-            <option value="4">4 SKS</option>
-            <option value="6">6 SKS</option>
-          </Select>
+          <div>
+            <Input
+              label="Kode Mata Kuliah"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              placeholder="contoh: CS101"
+              required
+              className={errors.code ? 'border-red-500' : ''}
+            />
+            {errors.code && <p className="text-red-500 text-sm mt-1">{errors.code}</p>}
+          </div>
+          
+          <div>
+            <Select
+              label="SKS"
+              value={formData.credits.toString()}
+              onChange={(e) => setFormData({ ...formData, credits: parseInt(e.target.value) })}
+              className={errors.credits ? 'border-red-500' : ''}
+            >
+              <option value="1">1 SKS</option>
+              <option value="2">2 SKS</option>
+              <option value="3">3 SKS</option>
+              <option value="4">4 SKS</option>
+              <option value="6">6 SKS</option>
+            </Select>
+            {errors.credits && <p className="text-red-500 text-sm mt-1">{errors.credits}</p>}
+          </div>
+          
           <div className="md:col-span-2">
             <Input
               label="Nama Mata Kuliah"
@@ -432,32 +526,50 @@ const CreateCourseModal: React.FC<{
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="contoh: Algoritma dan Struktur Data"
               required
+              className={errors.name ? 'border-red-500' : ''}
             />
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
-          <Select
-            label="Semester"
-            value={formData.semester}
-            onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-            required
-          >
-            <option value="">Pilih Semester</option>
-            {getSemesterOptions().map(semester => (
-              <option key={semester} value={semester}>{semester}</option>
-            ))}
-          </Select>
-          <Select
-            label="Dosen Pengampu"
-            value={formData.lecturerId}
-            onChange={(e) => setFormData({ ...formData, lecturerId: e.target.value })}
-            required
-          >
-            <option value="">Pilih Dosen</option>
-            {lecturers.map(lecturer => (
-              <option key={lecturer.id} value={lecturer.id}>
-                {lecturer.fullName} ({lecturer.lecturerId})
-              </option>
-            ))}
-          </Select>
+          
+          <div>
+            <Select
+              label="Semester"
+              value={formData.semester}
+              onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+              required
+              className={errors.semester ? 'border-red-500' : ''}
+            >
+              <option value="">Pilih Semester</option>
+              {getSemesterOptions().map(semester => (
+                <option key={semester} value={semester}>{semester}</option>
+              ))}
+            </Select>
+            {errors.semester && <p className="text-red-500 text-sm mt-1">{errors.semester}</p>}
+          </div>
+          
+          <div>
+            <Select
+              label="Dosen Pengampu"
+              value={formData.lecturerId}
+              onChange={(e) => setFormData({ ...formData, lecturerId: e.target.value })}
+              required
+              className={errors.lecturerId ? 'border-red-500' : ''}
+            >
+              <option value="">Pilih Dosen</option>
+              {lecturers.map(lecturer => (
+                <option key={lecturer.id} value={lecturer.id}>
+                  {lecturer.fullName} ({lecturer.lecturerId})
+                </option>
+              ))}
+            </Select>
+            {errors.lecturerId && <p className="text-red-500 text-sm mt-1">{errors.lecturerId}</p>}
+            {lecturers.length === 0 && (
+              <p className="text-yellow-600 text-sm mt-1">
+                Belum ada dosen tersedia. Pastikan ada dosen yang terdaftar dalam sistem.
+              </p>
+            )}
+          </div>
+          
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">Deskripsi</label>
             <textarea
@@ -471,10 +583,10 @@ const CreateCourseModal: React.FC<{
         </div>
 
         <div className="flex justify-end space-x-2 pt-4">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
             Batal
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading || lecturers.length === 0}>
             {loading ? 'Menyimpan...' : 'Simpan'}
           </Button>
         </div>
@@ -500,16 +612,86 @@ const EditCourseModal: React.FC<{
     isActive: course.isActive,
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Enhanced form validation for edit
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!formData.code.trim()) {
+      newErrors.code = 'Kode mata kuliah wajib diisi';
+    }
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Nama mata kuliah wajib diisi';
+    }
+
+    if (!formData.semester) {
+      newErrors.semester = 'Semester wajib dipilih';
+    }
+
+    if (!formData.lecturerId) {
+      newErrors.lecturerId = 'Dosen pengampu wajib dipilih';
+    }
+
+    if (formData.credits < 1 || formData.credits > 6) {
+      newErrors.credits = 'SKS harus antara 1-6';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setErrors({});
+
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
       await courseService.updateCourse(course.id, formData);
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating course:', error);
+      
+      // Handle specific validation errors from backend
+      if (error.response && error.response.data) {
+        const errorMessage = error.response.data.message;
+        if (typeof errorMessage === 'string') {
+          if (errorMessage.includes('uuid')) {
+            setErrors({ lecturerId: 'Pilih dosen pengampu yang valid' });
+          } else if (errorMessage.includes('code')) {
+            setErrors({ code: 'Kode mata kuliah sudah digunakan' });
+          } else {
+            setErrors({ general: errorMessage });
+          }
+        } else if (Array.isArray(errorMessage)) {
+          const fieldErrors: {[key: string]: string} = {};
+          errorMessage.forEach((msg: string) => {
+            if (msg.includes('lecturerId')) {
+              fieldErrors.lecturerId = 'ID dosen harus berupa UUID yang valid';
+            } else if (msg.includes('code')) {
+              fieldErrors.code = msg;
+            } else if (msg.includes('name')) {
+              fieldErrors.name = msg;
+            } else if (msg.includes('semester')) {
+              fieldErrors.semester = msg;
+            } else {
+              fieldErrors.general = msg;
+            }
+          });
+          setErrors(fieldErrors);
+        }
+      } else {
+        setErrors({ general: 'Terjadi kesalahan saat memperbarui mata kuliah. Silakan coba lagi.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -518,51 +700,87 @@ const EditCourseModal: React.FC<{
   return (
     <Modal title="Edit Mata Kuliah" onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* General Error Message */}
+        {errors.general && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <div className="mt-2 text-sm text-red-700">{errors.general}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Kode Mata Kuliah"
-            value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            required
-          />
-          <Select
-            label="SKS"
-            value={formData.credits.toString()}
-            onChange={(e) => setFormData({ ...formData, credits: parseInt(e.target.value) })}
-          >
-            <option value="1">1 SKS</option>
-            <option value="2">2 SKS</option>
-            <option value="3">3 SKS</option>
-            <option value="4">4 SKS</option>
-            <option value="6">6 SKS</option>
-          </Select>
+          <div>
+            <Input
+              label="Kode Mata Kuliah"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              required
+              className={errors.code ? 'border-red-500' : ''}
+            />
+            {errors.code && <p className="text-red-500 text-sm mt-1">{errors.code}</p>}
+          </div>
+          
+          <div>
+            <Select
+              label="SKS"
+              value={formData.credits.toString()}
+              onChange={(e) => setFormData({ ...formData, credits: parseInt(e.target.value) })}
+              className={errors.credits ? 'border-red-500' : ''}
+            >
+              <option value="1">1 SKS</option>
+              <option value="2">2 SKS</option>
+              <option value="3">3 SKS</option>
+              <option value="4">4 SKS</option>
+              <option value="6">6 SKS</option>
+            </Select>
+            {errors.credits && <p className="text-red-500 text-sm mt-1">{errors.credits}</p>}
+          </div>
+          
           <div className="md:col-span-2">
             <Input
               label="Nama Mata Kuliah"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              className={errors.name ? 'border-red-500' : ''}
             />
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
-          <Input
-            label="Semester"
-            value={formData.semester}
-            onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-            required
-          />
-          <Select
-            label="Dosen Pengampu"
-            value={formData.lecturerId}
-            onChange={(e) => setFormData({ ...formData, lecturerId: e.target.value })}
-            required
-          >
-            <option value="">Pilih Dosen</option>
-            {lecturers.map(lecturer => (
-              <option key={lecturer.id} value={lecturer.id}>
-                {lecturer.fullName} ({lecturer.lecturerId})
-              </option>
-            ))}
-          </Select>
+          
+          <div>
+            <Input
+              label="Semester"
+              value={formData.semester}
+              onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+              required
+              className={errors.semester ? 'border-red-500' : ''}
+            />
+            {errors.semester && <p className="text-red-500 text-sm mt-1">{errors.semester}</p>}
+          </div>
+          
+          <div>
+            <Select
+              label="Dosen Pengampu"
+              value={formData.lecturerId}
+              onChange={(e) => setFormData({ ...formData, lecturerId: e.target.value })}
+              required
+              className={errors.lecturerId ? 'border-red-500' : ''}
+            >
+              <option value="">Pilih Dosen</option>
+              {lecturers.map(lecturer => (
+                <option key={lecturer.id} value={lecturer.id}>
+                  {lecturer.fullName} ({lecturer.lecturerId})
+                </option>
+              ))}
+            </Select>
+            {errors.lecturerId && <p className="text-red-500 text-sm mt-1">{errors.lecturerId}</p>}
+          </div>
+          
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">Deskripsi</label>
             <textarea
@@ -573,6 +791,7 @@ const EditCourseModal: React.FC<{
               placeholder="Deskripsi mata kuliah..."
             />
           </div>
+          
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
@@ -588,7 +807,7 @@ const EditCourseModal: React.FC<{
         </div>
 
         <div className="flex justify-end space-x-2 pt-4">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
             Batal
           </Button>
           <Button type="submit" disabled={loading}>
