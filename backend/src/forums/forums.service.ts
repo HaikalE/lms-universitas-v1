@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, TreeRepository } from 'typeorm';
 
-import { ForumPost } from '../entities/forum-post.entity';
+import { ForumPost, ForumPostType } from '../entities/forum-post.entity';
 import { Course } from '../entities/course.entity';
 import { User, UserRole } from '../entities/user.entity';
 import { CreateForumPostDto } from './dto/create-forum-post.dto';
@@ -53,6 +53,7 @@ export class ForumsService {
       ...createForumPostDto,
       authorId: currentUser.id,
       parent: parentPost,
+      type: createForumPostDto.type || ForumPostType.DISCUSSION,
     });
 
     const savedPost = await this.forumPostRepository.save(post);
@@ -66,6 +67,8 @@ export class ForumsService {
 
   async findByCourse(courseId: string, queryDto: QueryForumPostsDto, currentUser: User) {
     console.log('🔍 Finding posts by course in service:', courseId);
+    console.log('   - User:', currentUser.id, currentUser.role);
+    console.log('   - Query params:', queryDto);
     
     // Verify access to course
     await this.verifyUserCourseAccess(courseId, currentUser);
@@ -90,9 +93,12 @@ export class ForumsService {
         'post.id',
         'post.title',
         'post.content',
+        'post.type',
         'post.isPinned',
         'post.isLocked',
+        'post.isAnswered',
         'post.likesCount',
+        'post.viewsCount',
         'post.createdAt',
         'post.updatedAt',
         'author.id',
@@ -101,6 +107,7 @@ export class ForumsService {
         'children.id',
         'children.content',
         'children.createdAt',
+        'children.isAnswer',
         'childAuthor.id',
         'childAuthor.fullName',
         'childAuthor.role',
@@ -123,6 +130,10 @@ export class ForumsService {
       queryBuilder
         .orderBy('post.isPinned', 'DESC')
         .addOrderBy('post.createdAt', 'DESC');
+    } else if (sortBy === 'likesCount') {
+      queryBuilder.orderBy('post.likesCount', sortOrder);
+    } else if (sortBy === 'viewsCount') {
+      queryBuilder.orderBy('post.viewsCount', sortOrder);
     } else {
       queryBuilder.orderBy(`post.${sortBy}`, sortOrder);
     }
@@ -131,7 +142,18 @@ export class ForumsService {
     const offset = (page - 1) * limit;
     queryBuilder.skip(offset).take(limit);
 
+    console.log('🔍 Executing query for courseId:', courseId);
     const [posts, total] = await queryBuilder.getManyAndCount();
+
+    console.log(`✅ Found ${posts.length} posts out of ${total} total for course ${courseId}`);
+    
+    // Log first few posts for debugging
+    if (posts.length > 0) {
+      console.log('📋 Sample posts:');
+      posts.slice(0, 3).forEach(post => {
+        console.log(`   - ${post.title} (${post.id}) by ${post.author?.fullName || 'Unknown'}`);
+      });
+    }
 
     return {
       data: posts,
@@ -193,6 +215,7 @@ export class ForumsService {
       .select([
         'reply.id',
         'reply.content',
+        'reply.isAnswer',
         'reply.likesCount',
         'reply.createdAt',
         'reply.updatedAt',
@@ -202,6 +225,7 @@ export class ForumsService {
         'children.id',
         'children.content',
         'children.createdAt',
+        'children.isAnswer',
         'childAuthor.id',
         'childAuthor.fullName',
         'childAuthor.role',
@@ -260,6 +284,7 @@ export class ForumsService {
     const reply = this.forumPostRepository.create({
       title: '', // Replies don't need titles
       content: replyData.content,
+      type: ForumPostType.DISCUSSION,
       courseId: post.courseId,
       authorId: currentUser.id,
       parent: parentPost,
@@ -510,6 +535,7 @@ export class ForumsService {
     const course = await queryBuilder.getOne();
 
     if (!course) {
+      console.log('❌ Course access denied:', { courseId, userId: currentUser.id });
       throw new NotFoundException('Mata kuliah tidak ditemukan atau Anda tidak memiliki akses');
     }
 
