@@ -53,6 +53,9 @@ export class ForumPost {
   @Column({ default: 0 })
   viewsCount: number;
 
+  @Column({ default: 0 })
+  repliesCount: number;
+
   @Column({ default: false })
   isAnswer: boolean;
 
@@ -82,7 +85,18 @@ export class ForumPost {
   @Index()
   authorId: string;
 
-  // Tree structure untuk replies
+  // Simple parent-child relationship for easier querying
+  @Column({ nullable: true })
+  @Index()
+  parentId: string;
+
+  @ManyToOne(() => ForumPost, (post) => post.replies, { nullable: true })
+  parentPost: ForumPost;
+
+  @OneToMany(() => ForumPost, (post) => post.parentPost)
+  replies: ForumPost[];
+
+  // Tree structure untuk compatibility (can be used for advanced hierarchical operations)
   @TreeParent()
   parent: ForumPost;
 
