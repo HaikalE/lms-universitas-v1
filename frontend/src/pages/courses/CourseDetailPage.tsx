@@ -163,15 +163,31 @@ const CourseDetailPage: React.FC = () => {
           setAssignments(assignmentsData.data);
           break;
         case 'forums':
-      const forumsData = await forumService.getForumPosts(course.id);      
-      setForums(forumsData.data); // Access the .data property
-      break;
+          console.log('🔍 Frontend: Fetching forums for course:', course.id);
+          try {
+            const forumsResponse = await forumService.getForumPosts(course.id);
+            console.log('✅ Frontend: Forum response received:', forumsResponse);
+            
+            // Handle both possible response structures
+            const forumsData = forumsResponse.data || forumsResponse;
+            setForums(Array.isArray(forumsData) ? forumsData : []);
+            
+            console.log(`✅ Frontend: Set ${Array.isArray(forumsData) ? forumsData.length : 0} forum posts`);
+          } catch (forumError) {
+            console.error('❌ Frontend: Error fetching forums:', forumError);
+            setForums([]);
+            // Don't show error to user for forums as it's not critical
+          }
+          break;
         case 'students':
           await fetchStudents();
           break;
       }
     } catch (error) {
       console.error('Error fetching tab data:', error);
+      if (activeTab !== 'forums') {
+        toast.error(`Gagal memuat data ${activeTab}`);
+      }
     }
   };
 
@@ -570,6 +586,11 @@ const CourseDetailPage: React.FC = () => {
                   {students.length}
                 </Badge>
               )}
+              {tab.id === 'forums' && (
+                <Badge variant="default" className="ml-1">
+                  {forums.length}
+                </Badge>
+              )}
             </button>
           ))}
         </div>
@@ -885,11 +906,17 @@ const CourseDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Forums Tab - Keep existing implementation */}
+        {/* Forums Tab - FIXED IMPLEMENTATION */}
         {activeTab === 'forums' && (
           <div className="space-y-6">
-            <div className="flex justify-end">
-              <Button onClick={() => navigate(`/courses/${course.id}/forums/create`)}>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-semibold">Forum Diskusi</h2>
+                <Badge variant="default" className="bg-blue-100 text-blue-800">
+                  {forums.length} diskusi
+                </Badge>
+              </div>
+              <Button onClick={() => navigate(`/forums/create?courseId=${course.id}`)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Buat Diskusi
               </Button>
@@ -899,7 +926,12 @@ const CourseDetailPage: React.FC = () => {
               <Card>
                 <CardContent className="text-center py-12">
                   <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">Belum ada diskusi</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Belum ada diskusi</h3>
+                  <p className="text-gray-500 mb-4">Jadilah yang pertama memulai diskusi!</p>
+                  <Button onClick={() => navigate(`/forums/create?courseId=${course.id}`)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Mulai Diskusi Baru
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -909,14 +941,43 @@ const CourseDetailPage: React.FC = () => {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{forum.title}</h4>
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium text-gray-900">{forum.title}</h4>
+                            {forum.isPinned && (
+                              <Badge variant="default" className="bg-yellow-100 text-yellow-800 text-xs">
+                                📌 Pinned
+                              </Badge>
+                            )}
+                            {forum.type && (
+                              <Badge variant="outline" className="text-xs">
+                                {forum.type}
+                              </Badge>
+                            )}
+                            {forum.isAnswered && (
+                              <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                                ✅ Terjawab
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-600 mt-1 line-clamp-2">{forum.content}</p>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                            <span>{forum.author.fullName}</span>
+                          <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+                            <span className="font-medium">{forum.author?.fullName || 'Unknown'}</span>
                             <span>•</span>
                             <span>{formatDate(forum.createdAt)}</span>
                             <span>•</span>
                             <span>{forum.children?.length || 0} balasan</span>
+                            {forum.likesCount > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>❤️ {forum.likesCount}</span>
+                              </>
+                            )}
+                            {forum.viewsCount > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>👁️ {forum.viewsCount}</span>
+                              </>
+                            )}
                           </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -929,7 +990,7 @@ const CourseDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Students Tab - NEW IMPLEMENTATION */}
+        {/* Students Tab - Keep existing implementation */}
         {activeTab === 'students' && (
           <div className="space-y-6">
             {/* Header with Actions */}
