@@ -9,12 +9,21 @@ import {
   Tree,
   TreeParent,
   TreeChildren,
+  Index,
 } from 'typeorm';
 import { Course } from './course.entity';
 import { User } from './user.entity';
 
+export enum ForumPostType {
+  DISCUSSION = 'discussion',
+  QUESTION = 'question',
+  ANNOUNCEMENT = 'announcement',
+}
+
 @Entity('forum_posts')
 @Tree('materialized-path')
+@Index(['courseId', 'createdAt'])
+@Index(['courseId', 'isPinned'])
 export class ForumPost {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -25,6 +34,13 @@ export class ForumPost {
   @Column({ type: 'text' })
   content: string;
 
+  @Column({
+    type: 'enum',
+    enum: ForumPostType,
+    default: ForumPostType.DISCUSSION,
+  })
+  type: ForumPostType;
+
   @Column({ default: false })
   isPinned: boolean;
 
@@ -34,7 +50,6 @@ export class ForumPost {
   @Column({ default: 0 })
   likesCount: number;
 
-  // NEW: Add missing fields that frontend expects
   @Column({ default: 0 })
   viewsCount: number;
 
@@ -57,12 +72,14 @@ export class ForumPost {
   course: Course;
 
   @Column()
+  @Index()
   courseId: string;
 
   @ManyToOne(() => User, (user) => user.forumPosts)
   author: User;
 
   @Column()
+  @Index()
   authorId: string;
 
   // Tree structure untuk replies
