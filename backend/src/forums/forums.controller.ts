@@ -14,6 +14,8 @@ import {
   BadRequestException,
   ValidationPipe,
   UsePipes,
+  InternalServerErrorException,
+  HttpException,
 } from '@nestjs/common';
 import { ForumsService } from './forums.service';
 import { CreateForumPostDto } from './dto/create-forum-post.dto';
@@ -77,7 +79,16 @@ export class ForumsController {
       console.error('   - Error type:', error.constructor.name);
       console.error('   - Error message:', error.message);
       console.error('   - Request data:', createForumPostDto);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal membuat forum post',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -90,8 +101,13 @@ export class ForumsController {
   ) {
     try {
       console.log('🔍 Fetching forum posts for course:', courseId);
-      console.log('   - User:', user.id);
+      console.log('   - User:', user.id, user.role);
       console.log('   - Query params:', queryDto);
+      
+      // Validate courseId format
+      if (!courseId || courseId.length < 10) {
+        throw new BadRequestException('Invalid course ID format');
+      }
       
       const result = await this.forumsService.findByCourse(courseId, queryDto, user);
       
@@ -99,11 +115,26 @@ export class ForumsController {
       
       return {
         success: true,
+        message: 'Forum posts berhasil diambil',
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error fetching forum posts:', error.message);
-      throw error;
+      console.error('❌ Error fetching forum posts:');
+      console.error('   - Error type:', error.constructor.name);
+      console.error('   - Error message:', error.message);
+      console.error('   - Course ID:', courseId);
+      console.error('   - User:', user?.id);
+      console.error('   - Stack:', error.stack);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal mengambil forum posts',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -120,11 +151,21 @@ export class ForumsController {
       
       return {
         success: true,
+        message: 'Forum post berhasil diambil',
         data: post,
       };
     } catch (error) {
       console.error('❌ Error fetching forum post:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal mengambil forum post',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -146,11 +187,21 @@ export class ForumsController {
       
       return {
         success: true,
+        message: 'Replies berhasil diambil',
         data: replies,
       };
     } catch (error) {
       console.error('❌ Error fetching replies:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal mengambil replies',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -182,7 +233,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error creating reply:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal membuat balasan',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -234,7 +294,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error marking reply as answer:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal menandai jawaban',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -261,7 +330,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error updating forum post:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal memperbarui forum post',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -282,7 +360,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error deleting forum post:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal menghapus forum post',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -305,7 +392,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error toggling pin:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal toggle pin',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -328,7 +424,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error toggling lock:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal toggle lock',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -349,7 +454,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error toggling like:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal toggle like',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -370,7 +484,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error liking reply:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal like reply',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -396,7 +519,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error updating reply:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal memperbarui balasan',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 
@@ -417,7 +549,16 @@ export class ForumsController {
       };
     } catch (error) {
       console.error('❌ Error deleting reply:', error.message);
-      throw error;
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal menghapus balasan',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
     }
   }
 }
