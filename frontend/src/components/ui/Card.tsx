@@ -3,7 +3,7 @@ import React from 'react';
 export interface CardProps {
   children: React.ReactNode;
   className?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 export interface CardHeaderProps {
