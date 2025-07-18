@@ -46,6 +46,11 @@ interface RawMaterialBody {
   isVisible?: string | boolean;
 }
 
+// DTO untuk lecturer management
+interface AddLecturerDto {
+  lecturerId: string;
+}
+
 @Controller('courses')
 @UseGuards(JwtAuthGuard)
 export class CoursesController {
@@ -224,6 +229,42 @@ export class CoursesController {
   @Get(':id/stats')
   getCourseStats(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     return this.coursesService.getCourseStats(id, user);
+  }
+
+  // ===============================
+  // LECTURER MANAGEMENT ENDPOINTS
+  // ===============================
+  
+  @Post(':id/lecturers')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async addLecturerToCourse(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @Body() addLecturerDto: AddLecturerDto,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.addLecturerToCourse(courseId, addLecturerDto.lecturerId, user);
+  }
+
+  @Delete(':id/lecturers/:lecturerId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async removeLecturerFromCourse(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @Param('lecturerId', ParseUUIDPipe) lecturerId: string,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.removeLecturerFromCourse(courseId, lecturerId, user);
+  }
+
+  @Get(':id/lecturers/available')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAvailableLecturers(
+    @Param('id', ParseUUIDPipe) courseId: string,
+    @GetUser() user: User,
+  ) {
+    return this.coursesService.getAvailableLecturers(courseId, user);
   }
 
   // Course Materials endpoints
