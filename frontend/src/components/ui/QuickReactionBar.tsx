@@ -11,7 +11,10 @@ import {
   Coffee
 } from 'lucide-react';
 
+type ReactionType = 'thumbsUp' | 'heart' | 'thinking' | 'lightbulb';
+
 interface QuickReaction {
+  key: ReactionType;
   emoji: string;
   icon: React.ReactNode;
   label: string;
@@ -49,6 +52,7 @@ const QuickReactionBar: React.FC<QuickReactionBarProps> = ({
 
   const reactionTypes: QuickReaction[] = [
     {
+      key: 'thumbsUp',
       emoji: '👍',
       icon: <ThumbsUp className="w-4 h-4" />,
       label: 'Membantu',
@@ -56,6 +60,7 @@ const QuickReactionBar: React.FC<QuickReactionBarProps> = ({
       userReacted: localUserReactions.includes('thumbsUp')
     },
     {
+      key: 'heart',
       emoji: '❤️',
       icon: <Heart className="w-4 h-4" />,
       label: 'Suka',
@@ -63,6 +68,7 @@ const QuickReactionBar: React.FC<QuickReactionBarProps> = ({
       userReacted: localUserReactions.includes('heart')
     },
     {
+      key: 'thinking',
       emoji: '🤔',
       icon: <Brain className="w-4 h-4" />,
       label: 'Menarik',
@@ -70,6 +76,7 @@ const QuickReactionBar: React.FC<QuickReactionBarProps> = ({
       userReacted: localUserReactions.includes('thinking')
     },
     {
+      key: 'lightbulb',
       emoji: '💡',
       icon: <Lightbulb className="w-4 h-4" />,
       label: 'Ide Bagus',
@@ -78,7 +85,7 @@ const QuickReactionBar: React.FC<QuickReactionBarProps> = ({
     }
   ];
 
-  const handleReaction = async (reactionType: string) => {
+  const handleReaction = async (reactionType: ReactionType) => {
     try {
       // Optimistic update
       setLocalReactions(prev => {
@@ -128,8 +135,8 @@ const QuickReactionBar: React.FC<QuickReactionBarProps> = ({
       <div className="flex items-center gap-2">
         {reactionTypes.map((reaction) => (
           <button
-            key={reaction.label}
-            onClick={() => handleReaction(reaction.label.toLowerCase().replace(' ', ''))}
+            key={reaction.key}
+            onClick={() => handleReaction(reaction.key)}
             className={`
               flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium 
               transition-all duration-200 hover:scale-105 active:scale-95
