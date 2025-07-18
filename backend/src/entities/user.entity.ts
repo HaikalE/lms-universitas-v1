@@ -41,6 +41,9 @@ export class User {
   @Column({ unique: true, nullable: true })
   lecturerId: string; // NIDN untuk dosen
 
+  @Column({ unique: true, nullable: true })
+  employeeId: string; // ID karyawan untuk admin/lecturer
+
   @Column({
     type: 'enum',
     enum: UserRole,
@@ -56,6 +59,9 @@ export class User {
 
   @Column({ nullable: true })
   avatar: string;
+
+  @Column({ type: 'text', nullable: true })
+  bio: string;
 
   @Column({ default: true })
   isActive: boolean;
