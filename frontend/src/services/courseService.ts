@@ -31,7 +31,57 @@ interface QueryCourseStudentsParams {
   sortOrder?: 'ASC' | 'DESC';
 }
 
+// ADDED: Interface untuk data form creation
+interface CreateCourseFormData {
+  lecturers: {
+    id: string;
+    fullName: string;
+    lecturerId: string;
+    email: string;
+  }[];
+  statistics: {
+    totalCourses: number;
+    activeCourses: number;
+    totalLecturers: number;
+  };
+  formFields: {
+    semesters: string[];
+    creditOptions: number[];
+    maxStudentsOptions: number[];
+  };
+}
+
 export const courseService = {
+  // ADDED: Method untuk mendapatkan data form creation
+  getCreateCourseData: async (): Promise<{ message: string; data: CreateCourseFormData }> => {
+    try {
+      console.log('📋 Fetching create course form data...');
+      const response = await api.get('/courses/create');
+      console.log('✅ Form data retrieved:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching create course form data:', error);
+      throw error;
+    }
+  },
+
+  // ADDED: Method untuk mendapatkan semua lecturers
+  getAllLecturers: async (): Promise<{ 
+    message: string; 
+    data: { id: string; fullName: string; lecturerId: string; email: string; }[]; 
+    meta: { total: number; userRole: string; }; 
+  }> => {
+    try {
+      console.log('👨‍🏫 Fetching all lecturers...');
+      const response = await api.get('/courses/lecturers');
+      console.log('✅ Lecturers retrieved:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching lecturers:', error);
+      throw error;
+    }
+  },
+
   getCourses: async (params?: any): Promise<ApiResponse<Course[]>> => {
     try {
       console.log('📚 Fetching all courses with params:', params);
@@ -63,6 +113,10 @@ export const courseService = {
     credits: number;
     semester: string;
     lecturerId: string;
+    maxStudents?: number;
+    schedule?: string;
+    location?: string;
+    syllabus?: string;
   }): Promise<Course> => {
     try {
       console.log('➕ Creating course:', courseData.name);
@@ -289,4 +343,4 @@ export const courseService = {
   },
 };
 
-export type { CourseStudent, QueryCourseStudentsParams };
+export type { CourseStudent, QueryCourseStudentsParams, CreateCourseFormData };
