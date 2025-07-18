@@ -36,6 +36,23 @@ export class CreateCourseDto {
   lecturerId: string;
 
   @IsOptional()
+  @IsNumber({}, { message: 'Maksimal mahasiswa harus berupa angka' })
+  @Min(1, { message: 'Maksimal mahasiswa minimal 1' })
+  maxStudents?: number;
+
+  @IsOptional()
+  @IsString({ message: 'Jadwal harus berupa string' })
+  schedule?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Lokasi harus berupa string' })
+  location?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Silabus harus berupa string' })
+  syllabus?: string;
+
+  @IsOptional()
   @IsBoolean({ message: 'Status aktif harus berupa boolean' })
   isActive?: boolean;
 }
