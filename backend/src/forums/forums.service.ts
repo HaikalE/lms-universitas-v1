@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -82,17 +83,38 @@ export class ForumsService {
       return await this.findOne(savedPost.id, currentUser);
     } catch (error) {
       console.error('❌ Error creating forum post:', error.message);
+      console.error('❌ Stack trace:', error.stack);
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        throw new InternalServerErrorException('Database connection error');
+      }
       throw error;
     }
   }
 
-  // Find posts by course
+  // Find posts by course with enhanced error handling
   async findByCourse(courseId: string, queryDto: QueryForumPostsDto, currentUser: User) {
     try {
       console.log('🔍 Finding forum posts for course:', courseId);
+      console.log('🔍 User details:', currentUser?.id, currentUser?.role);
+      console.log('🔍 Query params:', queryDto);
       
-      // Verify course access
-      await this.verifyUserCourseAccess(courseId, currentUser);
+      // Add database connection test
+      try {
+        await this.forumPostRepository.query('SELECT 1');
+        console.log('✅ Database connection successful');
+      } catch (dbError) {
+        console.error('❌ Database connection failed:', dbError.message);
+        throw new InternalServerErrorException('Database connection failed');
+      }
+
+      // Verify course access with better error handling
+      try {
+        await this.verifyUserCourseAccess(courseId, currentUser);
+        console.log('✅ Course access verified');
+      } catch (accessError) {
+        console.error('❌ Course access failed:', accessError.message);
+        throw accessError;
+      }
 
       const {
         page = 1,
@@ -104,82 +126,103 @@ export class ForumsService {
         parentId = null, // Only root posts by default
       } = queryDto;
 
-      const queryBuilder = this.forumPostRepository
-        .createQueryBuilder('post')
-        .leftJoinAndSelect('post.author', 'author')
-        .leftJoinAndSelect('post.course', 'course')
-        .where('post.courseId = :courseId', { courseId })
-        .select([
-          'post.id',
-          'post.title',
-          'post.content',
-          'post.type',
-          'post.likesCount',
-          'post.viewsCount',
-          'post.repliesCount',
-          'post.isPinned',
-          'post.isLocked',
-          'post.isAnswer',
-          'post.isAnswered',
-          'post.createdAt',
-          'post.updatedAt',
-          'author.id',
-          'author.fullName',
-          'author.role',
-          'course.id',
-          'course.name',
-          'course.code',
-        ]);
+      // Build query with proper error handling
+      try {
+        const queryBuilder = this.forumPostRepository
+          .createQueryBuilder('post')
+          .leftJoinAndSelect('post.author', 'author')
+          .leftJoinAndSelect('post.course', 'course')
+          .where('post.courseId = :courseId', { courseId })
+          .select([
+            'post.id',
+            'post.title',
+            'post.content',
+            'post.type',
+            'post.likesCount',
+            'post.viewsCount',
+            'post.repliesCount',
+            'post.isPinned',
+            'post.isLocked',
+            'post.isAnswer',
+            'post.isAnswered',
+            'post.createdAt',
+            'post.updatedAt',
+            'author.id',
+            'author.fullName',
+            'author.role',
+            'course.id',
+            'course.name',
+            'course.code',
+          ]);
 
-      // Filter by parent (null for root posts, specific ID for replies)
-      if (parentId === null) {
-        queryBuilder.andWhere('post.parentId IS NULL');
-      } else {
-        queryBuilder.andWhere('post.parentId = :parentId', { parentId });
+        // Filter by parent (null for root posts, specific ID for replies)
+        if (parentId === null) {
+          queryBuilder.andWhere('post.parentId IS NULL');
+        } else {
+          queryBuilder.andWhere('post.parentId = :parentId', { parentId });
+        }
+
+        // Apply search filter
+        if (search) {
+          queryBuilder.andWhere(
+            '(post.title ILIKE :search OR post.content ILIKE :search)',
+            { search: `%${search}%` }
+          );
+        }
+
+        // Apply type filter
+        if (type && type !== 'all') {
+          queryBuilder.andWhere('post.type = :type', { type });
+        }
+
+        // Apply sorting (pinned posts first, then by specified field)
+        queryBuilder
+          .orderBy('post.isPinned', 'DESC')
+          .addOrderBy(`post.${sortBy}`, sortOrder);
+
+        // Apply pagination
+        const offset = (page - 1) * limit;
+        queryBuilder.skip(offset).take(limit);
+
+        console.log('🔍 Executing query...');
+        const [posts, total] = await queryBuilder.getManyAndCount();
+
+        console.log(`✅ Found ${posts.length} forum posts for course ${courseId}`);
+
+        return {
+          data: posts,
+          meta: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
+      } catch (queryError) {
+        console.error('❌ Query execution error:', queryError.message);
+        console.error('❌ Query stack:', queryError.stack);
+        throw new InternalServerErrorException('Failed to fetch forum posts');
       }
-
-      // Apply search filter
-      if (search) {
-        queryBuilder.andWhere(
-          '(post.title ILIKE :search OR post.content ILIKE :search)',
-          { search: `%${search}%` }
-        );
-      }
-
-      // Apply type filter
-      if (type && type !== 'all') {
-        queryBuilder.andWhere('post.type = :type', { type });
-      }
-
-      // Apply sorting (pinned posts first, then by specified field)
-      queryBuilder
-        .orderBy('post.isPinned', 'DESC')
-        .addOrderBy(`post.${sortBy}`, sortOrder);
-
-      // Apply pagination
-      const offset = (page - 1) * limit;
-      queryBuilder.skip(offset).take(limit);
-
-      const [posts, total] = await queryBuilder.getManyAndCount();
-
-      console.log(`✅ Found ${posts.length} forum posts for course ${courseId}`);
-
-      return {
-        data: posts,
-        meta: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
     } catch (error) {
       console.error('❌ Error finding forum posts:', error.message);
+      console.error('❌ Full error:', error);
+      
+      // Handle specific database errors
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        throw new InternalServerErrorException('Database connection error');
+      }
+      if (error.code === '42P01') { // PostgreSQL: relation does not exist
+        throw new InternalServerErrorException('Database tables not found. Please run migrations.');
+      }
+      if (error.code === '42703') { // PostgreSQL: column does not exist
+        throw new InternalServerErrorException('Database schema error. Please update database.');
+      }
+      
       throw error;
     }
   }
 
-  // Find single post with details
+  // Enhanced findOne with better error handling
   async findOne(id: string, currentUser: User) {
     try {
       console.log('🔍 Finding forum post:', id);
@@ -547,10 +590,20 @@ export class ForumsService {
     }
   }
 
-  // Helper method to verify user has access to course
+  // Helper method to verify user has access to course with enhanced error handling
   private async verifyUserCourseAccess(courseId: string, currentUser: User) {
     try {
       console.log('🔐 Verifying course access:', courseId, 'for user:', currentUser.id);
+
+      // Test if course exists first
+      const courseExists = await this.courseRepository
+        .createQueryBuilder('course')
+        .where('course.id = :id', { id: courseId })
+        .getCount();
+
+      if (courseExists === 0) {
+        throw new NotFoundException('Mata kuliah tidak ditemukan');
+      }
 
       const course = await this.courseRepository.findOne({
         where: { id: courseId },
@@ -591,6 +644,7 @@ export class ForumsService {
       throw new ForbiddenException('Anda tidak memiliki akses ke mata kuliah ini');
     } catch (error) {
       console.error('❌ Course access verification failed:', error.message);
+      console.error('❌ Error details:', error);
       throw error;
     }
   }
