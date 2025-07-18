@@ -56,6 +56,26 @@ interface AddLecturerDto {
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
+  // ===============================
+  // COURSE CREATION FORM SUPPORT
+  // ===============================
+
+  @Get('create')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getCreateCourseData(@GetUser() user: User) {
+    console.log('📋 Getting course creation form data for admin:', user.id);
+    return this.coursesService.getCreateCourseData(user);
+  }
+
+  @Get('lecturers')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.LECTURER)
+  async getAllLecturers(@GetUser() user: User) {
+    console.log('👨‍🏫 Getting all lecturers list for:', user.id);
+    return this.coursesService.getAllLecturers(user);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
