@@ -27,7 +27,7 @@ interface InteractivePostCardProps {
   onQuickReact: (postId: string, reactionType: string) => void;
   onBookmark: (postId: string) => void;
   onShare?: (postId: string) => void;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   showReactionBar?: boolean;
   className?: string;
 }
@@ -102,7 +102,7 @@ const InteractivePostCard: React.FC<InteractivePostCardProps> = ({
     }
     
     if (onClick) {
-      onClick();
+      onClick(e);
     } else {
       navigate(`/forums/${post.id}`);
     }
