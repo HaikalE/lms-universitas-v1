@@ -210,30 +210,85 @@ export class CoursesService {
   }
 
   async findOne(id: string, currentUser: User) {
-    const queryBuilder = this.courseRepository
-      .createQueryBuilder('course')
-      .leftJoinAndSelect('course.lecturer', 'lecturer')
-      .leftJoinAndSelect('course.students', 'students')
-      .where('course.id = :id', { id });
+    try {
+      console.log('🔍 Finding course:', { id, userId: currentUser.id, userRole: currentUser.role });
 
-    // Check access based on user role
-    if (currentUser.role === UserRole.STUDENT) {
-      queryBuilder.andWhere('students.id = :studentId', {
-        studentId: currentUser.id,
+      // First, check if course exists
+      const course = await this.courseRepository.findOne({
+        where: { id },
+        relations: ['lecturer'],
       });
-    } else if (currentUser.role === UserRole.LECTURER) {
-      queryBuilder.andWhere('course.lecturerId = :lecturerId', {
-        lecturerId: currentUser.id,
+
+      if (!course) {
+        throw new NotFoundException('Mata kuliah tidak ditemukan');
+      }
+
+      console.log('✅ Course found:', { 
+        courseId: course.id, 
+        courseName: course.name,
+        lecturerId: course.lecturerId 
       });
+
+      // Check access based on user role
+      let hasAccess = false;
+
+      if (currentUser.role === UserRole.ADMIN) {
+        // Admin has access to all courses
+        hasAccess = true;
+      } else if (currentUser.role === UserRole.LECTURER) {
+        // Lecturer can only access courses they teach
+        hasAccess = course.lecturerId === currentUser.id;
+      } else if (currentUser.role === UserRole.STUDENT) {
+        // Student can only access courses they're enrolled in
+        // Check enrollment using separate query to avoid complex joins
+        const enrollment = await this.courseRepository
+          .createQueryBuilder('course')
+          .innerJoin('course.students', 'student')
+          .where('course.id = :courseId', { courseId: id })
+          .andWhere('student.id = :studentId', { studentId: currentUser.id })
+          .getOne();
+        
+        hasAccess = !!enrollment;
+      }
+
+      if (!hasAccess) {
+        throw new ForbiddenException('Anda tidak memiliki akses ke mata kuliah ini');
+      }
+
+      // If user has access, load course with students for admin/lecturer
+      if (currentUser.role === UserRole.ADMIN || 
+          (currentUser.role === UserRole.LECTURER && course.lecturerId === currentUser.id)) {
+        
+        const courseWithStudents = await this.courseRepository.findOne({
+          where: { id },
+          relations: ['lecturer', 'students'],
+        });
+
+        console.log('✅ Course loaded with students count:', courseWithStudents?.students?.length || 0);
+        return courseWithStudents;
+      }
+
+      // For students, return course without student list
+      console.log('✅ Course loaded for student access');
+      return course;
+
+    } catch (error) {
+      console.error('❌ Error in findOne:', {
+        error: error.message,
+        courseId: id,
+        userId: currentUser.id,
+        userRole: currentUser.role
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof NotFoundException || 
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Handle unexpected errors
+      throw new BadRequestException('Terjadi kesalahan saat mengambil data mata kuliah');
     }
-
-    const course = await queryBuilder.getOne();
-
-    if (!course) {
-      throw new NotFoundException('Mata kuliah tidak ditemukan atau Anda tidak memiliki akses');
-    }
-
-    return course;
   }
 
   async update(id: string, updateCourseDto: UpdateCourseDto, currentUser: User) {
