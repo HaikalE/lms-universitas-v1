@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
+import { MigrationInterface, QueryRunner, TableColumn, TableIndex } from 'typeorm';
 
 export class AddForumPostEnhancements1721050000000 implements MigrationInterface {
   name = 'AddForumPostEnhancements1721050000000';
@@ -36,34 +36,34 @@ export class AddForumPostEnhancements1721050000000 implements MigrationInterface
     // Add indexes for better performance
     await queryRunner.createIndex(
       'forum_posts',
-      {
+      new TableIndex({
         name: 'IDX_forum_posts_courseId_createdAt',
         columnNames: ['courseId', 'createdAt']
-      }
+      })
     );
 
     await queryRunner.createIndex(
       'forum_posts',
-      {
+      new TableIndex({
         name: 'IDX_forum_posts_courseId_isPinned',
         columnNames: ['courseId', 'isPinned']
-      }
+      })
     );
 
     await queryRunner.createIndex(
       'forum_posts',
-      {
+      new TableIndex({
         name: 'IDX_forum_posts_courseId',
         columnNames: ['courseId']
-      }
+      })
     );
 
     await queryRunner.createIndex(
       'forum_posts',
-      {
+      new TableIndex({
         name: 'IDX_forum_posts_authorId',
         columnNames: ['authorId']
-      }
+      })
     );
 
     console.log('✅ Forum post enhancements migration completed successfully');
