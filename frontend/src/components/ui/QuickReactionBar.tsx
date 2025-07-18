@@ -4,7 +4,7 @@ import {
   Heart, 
   MessageCircle, 
   Bookmark,
-  BookmarkCheck,
+  Check,
   Users,
   Brain,
   Lightbulb,
@@ -163,7 +163,10 @@ const QuickReactionBar: React.FC<QuickReactionBarProps> = ({
           title={isBookmarked ? 'Hapus dari tersimpan' : 'Simpan post'}
         >
           {isBookmarked ? (
-            <BookmarkCheck className="w-4 h-4" />
+            <div className="relative">
+              <Bookmark className="w-4 h-4 fill-current" />
+              <Check className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5 bg-yellow-700 text-yellow-100 rounded-full p-0.5" />
+            </div>
           ) : (
             <Bookmark className="w-4 h-4" />
           )}
