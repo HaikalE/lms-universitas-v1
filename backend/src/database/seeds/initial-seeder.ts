@@ -23,7 +23,7 @@ export class InitialSeeder {
       // Create Admin User
       const hashedPassword = await bcrypt.hash('admin123', 10);
       
-      const admin = userRepository.create({
+      const adminData = {
         email: 'admin@university.edu',
         password: hashedPassword,
         fullName: 'System Administrator',
@@ -35,35 +35,38 @@ export class InitialSeeder {
         address: 'University Campus',
         avatar: null,
         bio: 'System Administrator for LMS',
-      });
+      };
 
+      const admin = userRepository.create(adminData);
       const savedAdmin = await userRepository.save(admin);
       console.log('✅ Admin user created:', savedAdmin.email);
 
       // Create Lecturer User
       const lecturerPassword = await bcrypt.hash('lecturer123', 10);
       
-      const lecturer = userRepository.create({
+      const lecturerData = {
         email: 'lecturer@university.edu',
         password: lecturerPassword,
         fullName: 'Dr. John Doe',
         role: UserRole.LECTURER,
         isActive: true,
         studentId: null,
+        lecturerId: 'LEC001',
         employeeId: 'LEC001',
         phone: '+62812345679',
         address: 'University Campus',
         avatar: null,
         bio: 'Computer Science Lecturer',
-      });
+      };
 
+      const lecturer = userRepository.create(lecturerData);
       const savedLecturer = await userRepository.save(lecturer);
       console.log('✅ Lecturer user created:', savedLecturer.email);
 
       // Create Student User
       const studentPassword = await bcrypt.hash('student123', 10);
       
-      const student = userRepository.create({
+      const studentData = {
         email: 'student@university.edu',
         password: studentPassword,
         fullName: 'Alice Smith',
@@ -75,13 +78,14 @@ export class InitialSeeder {
         address: 'Student Dormitory',
         avatar: null,
         bio: 'Computer Science Student',
-      });
+      };
 
+      const student = userRepository.create(studentData);
       const savedStudent = await userRepository.save(student);
       console.log('✅ Student user created:', savedStudent.email);
 
       // Create Sample Course
-      const course = courseRepository.create({
+      const courseData = {
         name: 'Introduction to Computer Science',
         code: 'CS101',
         description: 'Basic concepts of computer science including programming, algorithms, and data structures.',
@@ -93,8 +97,9 @@ export class InitialSeeder {
         schedule: 'Monday & Wednesday 10:00-11:30',
         location: 'Room A101',
         syllabus: 'Introduction to programming concepts, data structures, and basic algorithms.',
-      });
+      };
 
+      const course = courseRepository.create(courseData);
       const savedCourse = await courseRepository.save(course);
       console.log('✅ Sample course created:', savedCourse.code);
 
@@ -104,7 +109,7 @@ export class InitialSeeder {
       console.log('✅ Student enrolled in course');
 
       // Create Sample Forum Posts
-      const forumPost1 = forumPostRepository.create({
+      const forumPost1Data = {
         title: 'Welcome to CS101 Forum',
         content: 'This is the main discussion forum for CS101. Feel free to ask questions and share resources.',
         type: ForumPostType.ANNOUNCEMENT,
@@ -117,12 +122,13 @@ export class InitialSeeder {
         repliesCount: 0,
         isAnswer: false,
         isAnswered: false,
-      });
+      };
 
+      const forumPost1 = forumPostRepository.create(forumPost1Data);
       const savedPost1 = await forumPostRepository.save(forumPost1);
       console.log('✅ Welcome forum post created');
 
-      const forumPost2 = forumPostRepository.create({
+      const forumPost2Data = {
         title: 'Question about Assignment 1',
         content: 'Hi everyone, I have a question about the first assignment. Can someone help me understand the requirements for the algorithm implementation?',
         type: ForumPostType.QUESTION,
@@ -135,13 +141,14 @@ export class InitialSeeder {
         repliesCount: 1,
         isAnswer: false,
         isAnswered: true,
-      });
+      };
 
+      const forumPost2 = forumPostRepository.create(forumPost2Data);
       const savedPost2 = await forumPostRepository.save(forumPost2);
       console.log('✅ Question forum post created');
 
       // Create a reply to the question
-      const reply = forumPostRepository.create({
+      const replyData = {
         title: 'Re: Question about Assignment 1',
         content: 'You need to implement a sorting algorithm using the bubble sort method. Check the lecture slides for reference.',
         type: ForumPostType.DISCUSSION,
@@ -155,8 +162,9 @@ export class InitialSeeder {
         repliesCount: 0,
         isAnswer: true,
         isAnswered: false,
-      });
+      };
 
+      const reply = forumPostRepository.create(replyData);
       await forumPostRepository.save(reply);
       console.log('✅ Reply forum post created');
 
