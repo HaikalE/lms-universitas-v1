@@ -8,6 +8,7 @@ import {
   Check,
   Award,
   User,
+  Users,
   Calendar,
   BookOpen,
   MoreHorizontal,
