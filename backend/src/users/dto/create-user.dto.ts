@@ -38,6 +38,10 @@ export class CreateUserDto {
   lecturerId?: string;
 
   @IsOptional()
+  @IsString({ message: 'ID Karyawan harus berupa string' })
+  employeeId?: string;
+
+  @IsOptional()
   @IsString({ message: 'Nomor telepon harus berupa string' })
   phone?: string;
 
@@ -48,6 +52,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsString({ message: 'Avatar harus berupa string' })
   avatar?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Bio harus berupa string' })
+  bio?: string;
 
   @IsOptional()
   @IsBoolean({ message: 'Status aktif harus berupa boolean' })
