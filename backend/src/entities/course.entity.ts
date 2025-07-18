@@ -36,6 +36,18 @@ export class Course {
   @Column()
   semester: string; // Misal: 2024/1
 
+  @Column({ nullable: true })
+  maxStudents: number; // Maksimal mahasiswa
+
+  @Column({ nullable: true })
+  schedule: string; // Jadwal kuliah
+
+  @Column({ nullable: true })
+  location: string; // Lokasi kelas
+
+  @Column({ type: 'text', nullable: true })
+  syllabus: string; // Silabus mata kuliah
+
   @Column({ default: true })
   isActive: boolean;
 
