@@ -45,6 +45,184 @@ export class CoursesService {
     private forumPostRepository: Repository<ForumPost>,
   ) {}
 
+  // ===============================
+  // COURSE CREATION FORM SUPPORT
+  // ===============================
+
+  async getCreateCourseData(currentUser: User) {
+    try {
+      console.log('📋 Getting course creation form data for admin:', currentUser.id);
+
+      // Only admin can create courses
+      if (currentUser.role !== UserRole.ADMIN) {
+        throw new ForbiddenException('Hanya admin yang dapat membuat mata kuliah');
+      }
+
+      // Get all active lecturers
+      const lecturers = await this.userRepository.find({
+        where: { 
+          role: UserRole.LECTURER, 
+          isActive: true 
+        },
+        select: [
+          'id',
+          'fullName',
+          'lecturerId',
+          'email',
+        ],
+        order: {
+          fullName: 'ASC',
+        },
+      });
+
+      // Get some statistics for the form
+      const totalCourses = await this.courseRepository.count();
+      const activeCourses = await this.courseRepository.count({ 
+        where: { isActive: true } 
+      });
+
+      console.log('✅ Course creation data retrieved:', {
+        lecturersCount: lecturers.length,
+        totalCourses,
+        activeCourses
+      });
+
+      return {
+        message: 'Data untuk form pembuatan mata kuliah berhasil diambil',
+        data: {
+          lecturers: lecturers.map(lecturer => ({
+            id: lecturer.id,
+            fullName: lecturer.fullName,
+            lecturerId: lecturer.lecturerId,
+            email: lecturer.email,
+          })),
+          statistics: {
+            totalCourses,
+            activeCourses,
+            totalLecturers: lecturers.length,
+          },
+          // Form metadata
+          formFields: {
+            semesters: [
+              'Ganjil 2024/2025',
+              'Genap 2024/2025',
+              'Ganjil 2025/2026',
+              'Genap 2025/2026'
+            ],
+            creditOptions: [1, 2, 3, 4, 5, 6],
+            maxStudentsOptions: [10, 15, 20, 25, 30, 35, 40, 50],
+          }
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error getting course creation data:', {
+        error: error.message,
+        adminId: currentUser.id
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat mengambil data form pembuatan mata kuliah');
+    }
+  }
+
+  async getAllLecturers(currentUser: User) {
+    try {
+      console.log('👨‍🏫 Getting all lecturers for user:', currentUser.id);
+
+      // Only admin and lecturers can access this
+      if (currentUser.role !== UserRole.ADMIN && currentUser.role !== UserRole.LECTURER) {
+        throw new ForbiddenException('Akses ditolak. Hanya admin dan dosen yang dapat melihat daftar dosen');
+      }
+
+      // Get all active lecturers with more details for admin
+      const selectFields = currentUser.role === UserRole.ADMIN ? [
+        'id',
+        'fullName', 
+        'lecturerId',
+        'email',
+        'phone',
+        'isActive',
+        'createdAt'
+      ] : [
+        'id',
+        'fullName',
+        'lecturerId',
+        'email'
+      ];
+
+      const lecturers = await this.userRepository.find({
+        where: { 
+          role: UserRole.LECTURER, 
+          isActive: true 
+        },
+        select: selectFields,
+        order: {
+          fullName: 'ASC',
+        },
+      });
+
+      // For admin, also get course count for each lecturer
+      if (currentUser.role === UserRole.ADMIN) {
+        const lecturersWithCourseCount = await Promise.all(
+          lecturers.map(async (lecturer) => {
+            const courseCount = await this.courseRepository.count({
+              where: { lecturerId: lecturer.id, isActive: true }
+            });
+            return {
+              ...lecturer,
+              courseCount,
+            };
+          })
+        );
+
+        console.log('✅ All lecturers retrieved for admin:', {
+          total: lecturersWithCourseCount.length
+        });
+
+        return {
+          message: 'Daftar semua dosen berhasil diambil',
+          data: lecturersWithCourseCount,
+          meta: {
+            total: lecturersWithCourseCount.length,
+            userRole: currentUser.role,
+          }
+        };
+      }
+
+      console.log('✅ All lecturers retrieved for lecturer:', {
+        total: lecturers.length
+      });
+
+      return {
+        message: 'Daftar dosen berhasil diambil',
+        data: lecturers,
+        meta: {
+          total: lecturers.length,
+          userRole: currentUser.role,
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error getting all lecturers:', {
+        error: error.message,
+        userId: currentUser.id,
+        userRole: currentUser.role
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat mengambil daftar dosen');
+    }
+  }
+
   async create(createCourseDto: CreateCourseDto, currentUser: User) {
     try {
       console.log('📚 Creating course in service:', {
