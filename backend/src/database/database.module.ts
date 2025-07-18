@@ -16,7 +16,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           database: configService.get('DB_DATABASE', 'lms_db'),
           entities: [__dirname + '/../**/*.entity{.ts,.js}'],
           synchronize: configService.get('NODE_ENV') !== 'production', // Enable sync for development
-          logging: configService.get('NODE_ENV') === 'development' ? ['error', 'warn', 'log'] : ['error'],
+          logging: configService.get('NODE_ENV') === 'development' ? true : ['error'],
           autoLoadEntities: true,
           retryAttempts: 3,
           retryDelay: 3000,
