@@ -408,6 +408,237 @@ export class CoursesService {
     return { message: 'Mata kuliah berhasil dinonaktifkan' };
   }
 
+  // ===============================
+  // LECTURER MANAGEMENT METHODS
+  // ===============================
+
+  async addLecturerToCourse(courseId: string, lecturerId: string, currentUser: User) {
+    try {
+      console.log('👨‍🏫 Adding lecturer to course:', { courseId, lecturerId, adminId: currentUser.id });
+
+      // Find course
+      const course = await this.courseRepository.findOne({
+        where: { id: courseId },
+        relations: ['lecturer'],
+      });
+
+      if (!course) {
+        throw new NotFoundException('Mata kuliah tidak ditemukan');
+      }
+
+      // Only admin can add lecturers
+      if (currentUser.role !== UserRole.ADMIN) {
+        throw new ForbiddenException('Hanya admin yang dapat menambahkan dosen pengampu');
+      }
+
+      // Verify lecturer exists and has correct role
+      const lecturer = await this.userRepository.findOne({
+        where: { id: lecturerId, role: UserRole.LECTURER, isActive: true },
+      });
+
+      if (!lecturer) {
+        throw new NotFoundException('Dosen tidak ditemukan atau tidak aktif');
+      }
+
+      // Check if lecturer is already assigned to this course
+      if (course.lecturerId === lecturerId) {
+        throw new ConflictException('Dosen ini sudah menjadi pengampu mata kuliah ini');
+      }
+
+      // Update course with new lecturer
+      course.lecturerId = lecturerId;
+      course.lecturer = lecturer;
+      
+      const updatedCourse = await this.courseRepository.save(course);
+
+      console.log('✅ Lecturer added to course successfully:', {
+        courseId: updatedCourse.id,
+        lecturerName: lecturer.fullName
+      });
+
+      return {
+        message: 'Dosen berhasil ditambahkan sebagai pengampu mata kuliah',
+        course: {
+          id: updatedCourse.id,
+          name: updatedCourse.name,
+          code: updatedCourse.code,
+        },
+        lecturer: {
+          id: lecturer.id,
+          fullName: lecturer.fullName,
+          lecturerId: lecturer.lecturerId,
+          email: lecturer.email,
+        },
+      };
+    } catch (error) {
+      console.error('❌ Error adding lecturer to course:', {
+        error: error.message,
+        courseId,
+        lecturerId,
+        adminId: currentUser.id
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof BadRequestException || 
+          error instanceof ConflictException || 
+          error instanceof NotFoundException ||
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat menambahkan dosen pengampu');
+    }
+  }
+
+  async removeLecturerFromCourse(courseId: string, lecturerId: string, currentUser: User) {
+    try {
+      console.log('👨‍🏫 Removing lecturer from course:', { courseId, lecturerId, adminId: currentUser.id });
+
+      // Find course
+      const course = await this.courseRepository.findOne({
+        where: { id: courseId },
+        relations: ['lecturer'],
+      });
+
+      if (!course) {
+        throw new NotFoundException('Mata kuliah tidak ditemukan');
+      }
+
+      // Only admin can remove lecturers
+      if (currentUser.role !== UserRole.ADMIN) {
+        throw new ForbiddenException('Hanya admin yang dapat menghapus dosen pengampu');
+      }
+
+      // Check if lecturer is actually assigned to this course
+      if (course.lecturerId !== lecturerId) {
+        throw new NotFoundException('Dosen ini tidak menjadi pengampu mata kuliah ini');
+      }
+
+      const removedLecturer = course.lecturer;
+
+      // Note: For this implementation, we'll require at least one lecturer per course
+      // In a real system, you might want to allow temporary removal or require 
+      // replacement lecturer assignment
+      throw new BadRequestException('Mata kuliah harus memiliki minimal satu dosen pengampu. Silakan tambahkan dosen lain terlebih dahulu sebelum menghapus dosen ini.');
+
+      // If you want to allow removal, uncomment below and modify as needed:
+      /*
+      course.lecturerId = null;
+      course.lecturer = null;
+      await this.courseRepository.save(course);
+
+      return {
+        message: 'Dosen berhasil dihapus dari mata kuliah',
+        course: {
+          id: course.id,
+          name: course.name,
+          code: course.code,
+        },
+        removedLecturer: {
+          id: removedLecturer.id,
+          fullName: removedLecturer.fullName,
+          lecturerId: removedLecturer.lecturerId,
+          email: removedLecturer.email,
+        },
+      };
+      */
+    } catch (error) {
+      console.error('❌ Error removing lecturer from course:', {
+        error: error.message,
+        courseId,
+        lecturerId,
+        adminId: currentUser.id
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof BadRequestException || 
+          error instanceof ConflictException || 
+          error instanceof NotFoundException ||
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat menghapus dosen pengampu');
+    }
+  }
+
+  async getAvailableLecturers(courseId: string, currentUser: User) {
+    try {
+      console.log('👨‍🏫 Getting available lecturers for course:', { courseId, adminId: currentUser.id });
+
+      // Find course to verify it exists
+      const course = await this.courseRepository.findOne({ where: { id: courseId } });
+
+      if (!course) {
+        throw new NotFoundException('Mata kuliah tidak ditemukan');
+      }
+
+      // Only admin can view available lecturers
+      if (currentUser.role !== UserRole.ADMIN) {
+        throw new ForbiddenException('Hanya admin yang dapat melihat daftar dosen yang tersedia');
+      }
+
+      // Get all active lecturers
+      const availableLecturers = await this.userRepository.find({
+        where: { 
+          role: UserRole.LECTURER, 
+          isActive: true 
+        },
+        select: [
+          'id',
+          'fullName',
+          'lecturerId',
+          'email',
+          'phone',
+        ],
+        order: {
+          fullName: 'ASC',
+        },
+      });
+
+      // Mark current course lecturer
+      const lecturersWithStatus = availableLecturers.map(lecturer => ({
+        ...lecturer,
+        isCurrentLecturer: lecturer.id === course.lecturerId,
+      }));
+
+      console.log('✅ Available lecturers retrieved:', {
+        total: lecturersWithStatus.length,
+        currentLecturerId: course.lecturerId
+      });
+
+      return {
+        data: lecturersWithStatus,
+        meta: {
+          total: lecturersWithStatus.length,
+          currentCourse: {
+            id: course.id,
+            name: course.name,
+            code: course.code,
+            currentLecturerId: course.lecturerId,
+          },
+        },
+      };
+    } catch (error) {
+      console.error('❌ Error getting available lecturers:', {
+        error: error.message,
+        courseId,
+        adminId: currentUser.id
+      });
+
+      // Re-throw known exceptions
+      if (error instanceof NotFoundException ||
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Generic error
+      throw new BadRequestException('Terjadi kesalahan saat mengambil daftar dosen yang tersedia');
+    }
+  }
+
   async getCourseMaterials(courseId: string, currentUser: User) {
     // Verify access to course
     await this.findOne(courseId, currentUser);
