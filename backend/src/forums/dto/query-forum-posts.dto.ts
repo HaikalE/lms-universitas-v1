@@ -5,8 +5,10 @@ import {
   Min,
   Max,
   IsBoolean,
+  IsEnum,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { ForumPostType } from '../../entities/forum-post.entity';
 
 export class QueryForumPostsDto {
   @IsOptional()
@@ -25,6 +27,14 @@ export class QueryForumPostsDto {
   @IsOptional()
   @IsString({ message: 'Search harus berupa string' })
   search?: string;
+
+  @IsOptional()
+  @IsEnum(ForumPostType, { message: 'Type harus berupa discussion, question, atau announcement' })
+  type?: ForumPostType | 'all';
+
+  @IsOptional()
+  @IsString({ message: 'Parent ID harus berupa string' })
+  parentId?: string | null;
 
   @IsOptional()
   @Transform(({ value }) => {
