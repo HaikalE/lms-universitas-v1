@@ -7,6 +7,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
+        const isDevelopment = configService.get('NODE_ENV') === 'development';
+        
         const config = {
           type: 'postgres' as const,
           host: configService.get('DB_HOST', 'localhost'),
@@ -16,7 +18,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           database: configService.get('DB_DATABASE', 'lms_db'),
           entities: [__dirname + '/../**/*.entity{.ts,.js}'],
           synchronize: configService.get('NODE_ENV') !== 'production', // Enable sync for development
-          logging: configService.get('NODE_ENV') === 'development' ? true : ['error'],
+          logging: isDevelopment ? true : false,
           autoLoadEntities: true,
           retryAttempts: 3,
           retryDelay: 3000,
