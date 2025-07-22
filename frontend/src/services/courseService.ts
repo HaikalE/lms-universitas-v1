@@ -180,26 +180,73 @@ export const courseService = {
     lecturerId: string;
   }): Promise<Course> => {
     try {
+      console.log('Creating course with data:', courseData);
       console.log('➕ Creating course:', courseData.name);
+      console.log('🌐 API Request: POST http://localhost:3000/api/courses');
       
-      // FIXED: Add client-side validation
+      // 🔥 ENHANCED: Better client-side validation with detailed logging
       if (!courseData.lecturerId || courseData.lecturerId.trim() === '') {
-        throw new Error('Lecturer ID is required');
+        console.error('🚨 VALIDATION ERROR: Lecturer ID is empty!', {
+          lecturerId: courseData.lecturerId,
+          allData: courseData
+        });
+        throw new Error('Dosen pengampu wajib dipilih dari dropdown yang tersedia');
       }
       
       if (!courseData.code || courseData.code.trim() === '') {
-        throw new Error('Course code is required');
+        console.error('🚨 VALIDATION ERROR: Course code is empty!');
+        throw new Error('Kode mata kuliah wajib diisi');
       }
       
       if (!courseData.name || courseData.name.trim() === '') {
-        throw new Error('Course name is required');
+        console.error('🚨 VALIDATION ERROR: Course name is empty!');
+        throw new Error('Nama mata kuliah wajib diisi');
       }
+
+      // 🔥 ENHANCED: Validate lecturer ID format (should be UUID)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(courseData.lecturerId)) {
+        console.error('🚨 VALIDATION ERROR: Invalid lecturer ID format!', {
+          lecturerId: courseData.lecturerId,
+          expectedFormat: 'UUID v4'
+        });
+        throw new Error('ID dosen tidak valid. Silakan pilih dosen dari dropdown yang tersedia.');
+      }
+
+      console.log('✅ CLIENT VALIDATION PASSED - sending to backend:', {
+        code: courseData.code,
+        name: courseData.name,
+        lecturerId: courseData.lecturerId,
+        credits: courseData.credits,
+        semester: courseData.semester
+      });
       
       const response = await api.post('/courses', courseData);
-      console.log('✅ Course created:', response.data.id);
+      console.log('✅ Course created successfully:', response.data.id);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error creating course:', error);
+      
+      // 🔥 ENHANCED: Better error handling and logging
+      if (error.response) {
+        console.error('🌐 API Response Error:', error.response.status, error.response.data);
+        
+        // Handle specific backend errors
+        if (error.response.status === 400) {
+          const errorMessage = error.response.data?.message || 'Validation error';
+          if (typeof errorMessage === 'string') {
+            if (errorMessage.includes('lecturer') || errorMessage.includes('dosen')) {
+              throw new Error('Dosen yang dipilih tidak valid. Silakan pilih dosen lain dari dropdown.');
+            } else if (errorMessage.includes('code') || errorMessage.includes('duplicate')) {
+              throw new Error('Kode mata kuliah sudah digunakan. Silakan gunakan kode yang berbeda.');
+            }
+          }
+          throw new Error(errorMessage);
+        }
+      } else if (error.message) {
+        throw new Error(error.message);
+      }
+      
       throw error;
     }
   },
