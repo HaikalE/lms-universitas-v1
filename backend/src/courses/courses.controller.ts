@@ -57,8 +57,24 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   // ===============================
-  // COURSE CREATION FORM SUPPORT - FIXED ROUTING
+  // SPECIFIC ROUTES - MUST BE BEFORE :id ROUTE
   // ===============================
+
+  // FIXED: Add dedicated /create endpoint for course creation form data
+  @Get('create')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getCreateCourseForm(@GetUser() user: User) {
+    console.log('📋 Getting course creation form via /create endpoint for admin:', user.id);
+    try {
+      const result = await this.coursesService.getCreateCourseData(user);
+      console.log('✅ Form data retrieved successfully via /create');
+      return result;
+    } catch (error) {
+      console.error('❌ Error getting form data via /create:', error);
+      throw error;
+    }
+  }
 
   // FIXED: Changed from 'create' to 'form-data' to avoid routing conflict
   @Get('form-data')
@@ -91,6 +107,15 @@ export class CoursesController {
   async getAllLecturers(@GetUser() user: User) {
     console.log('👨‍🏫 Getting all lecturers list for:', user.id);
     return this.coursesService.getAllLecturers(user);
+  }
+
+  // ===============================
+  // MAIN CRUD ROUTES
+  // ===============================
+
+  @Get()
+  findAll(@Query() queryDto: QueryCoursesDto, @GetUser() user: User) {
+    return this.coursesService.findAll(queryDto, user);
   }
 
   @Post()
@@ -165,21 +190,9 @@ export class CoursesController {
     }
   }
 
-  @Get()
-  findAll(@Query() queryDto: QueryCoursesDto, @GetUser() user: User) {
-    return this.coursesService.findAll(queryDto, user);
-  }
-
-  // FIXED: Add validation to prevent reserved keywords being used as IDs
+  // FIXED: Removed reserved keyword validation - let specific routes handle their own paths
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
-    // PROTECTION: Validate against reserved keywords that might cause routing conflicts
-    const reservedKeywords = ['create', 'form-data', 'create-data', 'lecturers', 'new', 'edit', 'delete'];
-    if (reservedKeywords.includes(id.toLowerCase())) {
-      console.error(`❌ Attempted to use reserved keyword as course ID: ${id}`);
-      throw new BadRequestException(`"${id}" is a reserved keyword and cannot be used as a course ID`);
-    }
-
     try {
       console.log('🔍 Finding course with ID:', id);
       const result = await this.coursesService.findOne(id, user);
