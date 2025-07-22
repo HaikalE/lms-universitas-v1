@@ -230,7 +230,7 @@ export class CoursesService {
         createdBy: currentUser.id
       });
 
-      const { lecturerId, code } = createCourseDto;
+      const { lecturerId, code, ...courseData } = createCourseDto;
 
       // Enhanced validation for lecturer ID
       if (!lecturerId || lecturerId.trim() === '') {
@@ -260,10 +260,11 @@ export class CoursesService {
         lecturerId: lecturer.lecturerId
       });
 
-      // FIXED: Remove duplicate lecturerId assignment to avoid TypeORM conflict
+      // ✅ FIXED: Create course without TypeORM relation conflict
       const course = this.courseRepository.create({
-        ...createCourseDto,
-        lecturer, // Let TypeORM handle lecturerId from this relation
+        code,
+        ...courseData,
+        lecturerId: lecturer.id, // Explicit assignment to avoid conflict
       });
 
       const savedCourse = await this.courseRepository.save(course);
@@ -274,10 +275,17 @@ export class CoursesService {
         name: savedCourse.name
       });
 
-      return savedCourse;
+      // Return with lecturer details loaded
+      const result = await this.courseRepository.findOne({
+        where: { id: savedCourse.id },
+        relations: ['lecturer'],
+      });
+
+      return result;
     } catch (error) {
       console.error('❌ Error in course service create:', {
         error: error.message,
+        stack: error.stack,
         dto: createCourseDto,
         userId: currentUser.id
       });
