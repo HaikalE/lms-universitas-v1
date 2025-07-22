@@ -87,54 +87,72 @@ export const courseService = {
     }
   },
 
-  // FIXED: Updated endpoint to use new routing structure
+  // FIXED: Updated to use new /create endpoint first, then fallbacks
   getCreateCourseData: async (): Promise<ApiResponse<CreateCourseFormData>> => {
     try {
       console.log('📋 Fetching course creation form data');
       
-      // FIXED: Use the new endpoint that doesn't conflict with routing
-      const response = await api.get('/courses/form-data');
-      
-      console.log('✅ Course creation data fetched:', response.data);
-      
-      // FIXED: Add response validation
-      if (!response.data) {
-        throw new Error('Invalid response structure from course form data endpoint');
-      }
-      
-      // Handle both wrapped and direct response formats
-      if (response.data.data) {
-        return response.data;
-      } else {
-        // If data is returned directly, wrap it in the expected format
-        return {
-          success: true,
-          data: response.data,
-          message: 'Data retrieved successfully'
-        };
-      }
-    } catch (error) {
-      console.error('❌ Error fetching course creation data:', error);
-      
-      // FALLBACK: Try alternative endpoint
+      // FIXED: Try the new /create endpoint first (most direct)
       try {
-        console.log('🔄 Trying alternative endpoint...');
-        const fallbackResponse = await api.get('/courses/create-data');
-        console.log('✅ Fallback successful');
+        console.log('🔄 Trying /courses/create endpoint...');
+        const response = await api.get('/courses/create');
+        console.log('✅ Course creation data fetched via /create:', response.data);
         
-        if (fallbackResponse.data.data) {
-          return fallbackResponse.data;
+        // Handle response format
+        if (response.data.data) {
+          return response.data;
         } else {
           return {
             success: true,
-            data: fallbackResponse.data,
-            message: 'Data retrieved successfully via fallback'
+            data: response.data,
+            message: 'Data retrieved successfully via /create'
           };
         }
-      } catch (fallbackError) {
-        console.error('❌ Both endpoints failed:', fallbackError);
-        throw new Error('Unable to fetch course creation form data from any endpoint');
+      } catch (createError) {
+        console.log('⚠️ /create endpoint failed, trying form-data...');
+        
+        // FALLBACK: Try /form-data endpoint
+        try {
+          console.log('🔄 Trying /courses/form-data endpoint...');
+          const response = await api.get('/courses/form-data');
+          console.log('✅ Course creation data fetched via /form-data:', response.data);
+          
+          if (response.data.data) {
+            return response.data;
+          } else {
+            return {
+              success: true,
+              data: response.data,
+              message: 'Data retrieved successfully via /form-data'
+            };
+          }
+        } catch (formDataError) {
+          console.log('⚠️ /form-data endpoint failed, trying create-data...');
+          
+          // FINAL FALLBACK: Try /create-data endpoint
+          try {
+            console.log('🔄 Trying /courses/create-data endpoint...');
+            const fallbackResponse = await api.get('/courses/create-data');
+            console.log('✅ Fallback successful via /create-data');
+            
+            if (fallbackResponse.data.data) {
+              return fallbackResponse.data;
+            } else {
+              return {
+                success: true,
+                data: fallbackResponse.data,
+                message: 'Data retrieved successfully via /create-data'
+              };
+            }
+          } catch (finalError) {
+            console.error('❌ All endpoints failed:', finalError);
+            throw new Error('Unable to fetch course creation form data from any endpoint');
+          }
+        }
       }
+    } catch (error) {
+      console.error('❌ Error fetching course creation data:', error);
+      throw new Error('Unable to fetch course creation form data');
     }
   },
 
