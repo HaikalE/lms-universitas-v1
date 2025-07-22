@@ -31,6 +31,20 @@ interface QueryCourseStudentsParams {
   sortOrder?: 'ASC' | 'DESC';
 }
 
+interface CreateCourseFormData {
+  lecturers: User[];
+  statistics: {
+    totalCourses: number;
+    activeCourses: number;
+    totalLecturers: number;
+  };
+  formFields: {
+    semesters: string[];
+    creditOptions: number[];
+    maxStudentsOptions: number[];
+  };
+}
+
 export const courseService = {
   getCourses: async (params?: any): Promise<ApiResponse<Course[]>> => {
     try {
@@ -52,6 +66,32 @@ export const courseService = {
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching course:', error);
+      throw error;
+    }
+  },
+
+  // NEW: Get course creation form data
+  getCreateCourseData: async (): Promise<ApiResponse<CreateCourseFormData>> => {
+    try {
+      console.log('📋 Fetching course creation form data');
+      const response = await api.get('/courses/create-data');
+      console.log('✅ Course creation data fetched:', response.data.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching course creation data:', error);
+      throw error;
+    }
+  },
+
+  // NEW: Get all lecturers
+  getAllLecturers: async (): Promise<ApiResponse<User[]>> => {
+    try {
+      console.log('👨‍🏫 Fetching all lecturers');
+      const response = await api.get('/courses/lecturers');
+      console.log(`✅ Found ${response.data.data?.length || 0} lecturers`);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching lecturers:', error);
       throw error;
     }
   },
@@ -289,4 +329,4 @@ export const courseService = {
   },
 };
 
-export type { CourseStudent, QueryCourseStudentsParams };
+export type { CourseStudent, QueryCourseStudentsParams, CreateCourseFormData };
