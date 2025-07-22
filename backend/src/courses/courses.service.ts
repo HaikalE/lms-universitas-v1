@@ -260,10 +260,10 @@ export class CoursesService {
         lecturerId: lecturer.lecturerId
       });
 
+      // FIXED: Remove duplicate lecturerId assignment to avoid TypeORM conflict
       const course = this.courseRepository.create({
         ...createCourseDto,
-        lecturer,
-        lecturerId,
+        lecturer, // Let TypeORM handle lecturerId from this relation
       });
 
       const savedCourse = await this.courseRepository.save(course);
