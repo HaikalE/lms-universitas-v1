@@ -49,13 +49,22 @@ const AdminCoursesPage: React.FC = () => {
     }
   };
 
-  // Fetch lecturers for dropdown - FIXED to use correct endpoint
+  // FIXED: Updated to use the new endpoint structure
   const fetchLecturers = async () => {
     try {
       console.log('🔄 Fetching lecturers for course creation...');
       const response = await courseService.getAllLecturers();
       console.log('✅ Lecturers response:', response);
-      setLecturers(response.data || []);
+      
+      // Handle different response formats
+      if (response.data) {
+        setLecturers(response.data);
+      } else if (Array.isArray(response)) {
+        setLecturers(response);
+      } else {
+        console.warn('⚠️ Unexpected lecturers response format:', response);
+        setLecturers([]);
+      }
     } catch (error) {
       console.error('❌ Error fetching lecturers:', error);
       // Fallback to userService if course service fails
@@ -71,16 +80,26 @@ const AdminCoursesPage: React.FC = () => {
     }
   };
 
-  // NEW: Fetch course creation form data
+  // FIXED: Updated to use the corrected course service method
   const fetchCreateFormData = async () => {
     try {
       console.log('📋 Fetching course creation form data...');
       const response = await courseService.getCreateCourseData();
       console.log('✅ Form data response:', response);
-      setCreateFormData(response.data);
-      // Also set lecturers from the form data
-      if (response.data?.lecturers) {
-        setLecturers(response.data.lecturers);
+      
+      // Handle response structure properly
+      if (response.data) {
+        setCreateFormData(response.data);
+        // Also set lecturers from the form data if available
+        if (response.data.lecturers) {
+          setLecturers(response.data.lecturers);
+        }
+      } else {
+        // Handle case where data is at root level
+        setCreateFormData(response);
+        if (response.lecturers) {
+          setLecturers(response.lecturers);
+        }
       }
     } catch (error) {
       console.error('❌ Error fetching course creation form data:', error);
@@ -132,16 +151,18 @@ const AdminCoursesPage: React.FC = () => {
     }
   };
 
+  // FIXED: Improved semester options handling
   const getSemesterOptions = () => {
     // Use form data if available, otherwise fallback to generated options
     if (createFormData?.formFields?.semesters) {
       return createFormData.formFields.semesters;
     }
     
+    // FIXED: Better default semester generation
     const currentYear = new Date().getFullYear();
     const options = [];
-    for (let year = currentYear - 2; year <= currentYear + 1; year++) {
-      options.push(`${year}/1`, `${year}/2`);
+    for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+      options.push(`Ganjil ${year}/${year + 1}`, `Genap ${year}/${year + 1}`);
     }
     return options;
   };
@@ -401,7 +422,7 @@ const AdminCoursesPage: React.FC = () => {
   );
 };
 
-// Create Course Modal Component
+// Create Course Modal Component - ENHANCED WITH BETTER ERROR HANDLING
 const CreateCourseModal: React.FC<{
   lecturers: User[];
   formData: any;
@@ -467,13 +488,13 @@ const CreateCourseModal: React.FC<{
     } catch (error: any) {
       console.error('Error creating course:', error);
       
-      // Handle specific validation errors from backend
+      // ENHANCED: Better error handling
       if (error.response && error.response.data) {
         const errorMessage = error.response.data.message;
         if (typeof errorMessage === 'string') {
-          if (errorMessage.includes('uuid')) {
-            setErrors({ lecturerId: 'Pilih dosen pengampu yang valid' });
-          } else if (errorMessage.includes('code')) {
+          if (errorMessage.includes('uuid') || errorMessage.includes('lecturer')) {
+            setErrors({ lecturerId: 'Pilih dosen pengampu yang valid dari dropdown' });
+          } else if (errorMessage.includes('code') || errorMessage.includes('duplicate')) {
             setErrors({ code: 'Kode mata kuliah sudah digunakan' });
           } else {
             setErrors({ general: errorMessage });
@@ -481,8 +502,8 @@ const CreateCourseModal: React.FC<{
         } else if (Array.isArray(errorMessage)) {
           const fieldErrors: {[key: string]: string} = {};
           errorMessage.forEach((msg: string) => {
-            if (msg.includes('lecturerId')) {
-              fieldErrors.lecturerId = 'ID dosen harus berupa UUID yang valid';
+            if (msg.includes('lecturerId') || msg.includes('lecturer')) {
+              fieldErrors.lecturerId = 'Dosen pengampu wajib dipilih dari dropdown yang tersedia';
             } else if (msg.includes('code')) {
               fieldErrors.code = msg;
             } else if (msg.includes('name')) {
@@ -495,6 +516,12 @@ const CreateCourseModal: React.FC<{
           });
           setErrors(fieldErrors);
         }
+      } else if (error.message) {
+        if (error.message.includes('Lecturer ID is required')) {
+          setErrors({ lecturerId: 'Dosen pengampu wajib dipilih dari dropdown yang tersedia' });
+        } else {
+          setErrors({ general: error.message });
+        }
       } else {
         setErrors({ general: 'Terjadi kesalahan saat membuat mata kuliah. Silakan coba lagi.' });
       }
@@ -503,8 +530,8 @@ const CreateCourseModal: React.FC<{
     }
   };
 
+  // FIXED: Better semester and credit options handling
   const getSemesterOptions = () => {
-    // Use form data if available
     if (formData?.formFields?.semesters) {
       return formData.formFields.semesters;
     }
@@ -512,17 +539,15 @@ const CreateCourseModal: React.FC<{
     const currentYear = new Date().getFullYear();
     const options = [];
     for (let year = currentYear; year <= currentYear + 1; year++) {
-      options.push(`${year}/1`, `${year}/2`);
+      options.push(`Ganjil ${year}/${year + 1}`, `Genap ${year}/${year + 1}`);
     }
     return options;
   };
 
   const getCreditOptions = () => {
-    // Use form data if available
     if (formData?.formFields?.creditOptions) {
       return formData.formFields.creditOptions;
     }
-    
     return [1, 2, 3, 4, 5, 6];
   };
 
@@ -645,7 +670,7 @@ const CreateCourseModal: React.FC<{
   );
 };
 
-// Edit Course Modal
+// Edit Course Modal - ENHANCED
 const EditCourseModal: React.FC<{
   course: Course;
   lecturers: User[];
@@ -711,13 +736,13 @@ const EditCourseModal: React.FC<{
     } catch (error: any) {
       console.error('Error updating course:', error);
       
-      // Handle specific validation errors from backend
+      // ENHANCED: Better error handling for updates
       if (error.response && error.response.data) {
         const errorMessage = error.response.data.message;
         if (typeof errorMessage === 'string') {
-          if (errorMessage.includes('uuid')) {
-            setErrors({ lecturerId: 'Pilih dosen pengampu yang valid' });
-          } else if (errorMessage.includes('code')) {
+          if (errorMessage.includes('uuid') || errorMessage.includes('lecturer')) {
+            setErrors({ lecturerId: 'Pilih dosen pengampu yang valid dari dropdown' });
+          } else if (errorMessage.includes('code') || errorMessage.includes('duplicate')) {
             setErrors({ code: 'Kode mata kuliah sudah digunakan' });
           } else {
             setErrors({ general: errorMessage });
@@ -725,8 +750,8 @@ const EditCourseModal: React.FC<{
         } else if (Array.isArray(errorMessage)) {
           const fieldErrors: {[key: string]: string} = {};
           errorMessage.forEach((msg: string) => {
-            if (msg.includes('lecturerId')) {
-              fieldErrors.lecturerId = 'ID dosen harus berupa UUID yang valid';
+            if (msg.includes('lecturerId') || msg.includes('lecturer')) {
+              fieldErrors.lecturerId = 'Dosen pengampu wajib dipilih dari dropdown yang tersedia';
             } else if (msg.includes('code')) {
               fieldErrors.code = msg;
             } else if (msg.includes('name')) {
