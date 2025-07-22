@@ -17,6 +17,7 @@ import {
 const AdminCoursesPage: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [lecturers, setLecturers] = useState<User[]>([]);
+  const [createFormData, setCreateFormData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -48,13 +49,43 @@ const AdminCoursesPage: React.FC = () => {
     }
   };
 
-  // Fetch lecturers for dropdown
+  // Fetch lecturers for dropdown - FIXED to use correct endpoint
   const fetchLecturers = async () => {
     try {
-      const response = await userService.getLecturers();
-      setLecturers(response.data);
+      console.log('🔄 Fetching lecturers for course creation...');
+      const response = await courseService.getAllLecturers();
+      console.log('✅ Lecturers response:', response);
+      setLecturers(response.data || []);
     } catch (error) {
-      console.error('Error fetching lecturers:', error);
+      console.error('❌ Error fetching lecturers:', error);
+      // Fallback to userService if course service fails
+      try {
+        console.log('🔄 Falling back to userService...');
+        const fallbackResponse = await userService.getLecturers();
+        console.log('✅ Fallback response:', fallbackResponse);
+        setLecturers(fallbackResponse.data || []);
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        setLecturers([]);
+      }
+    }
+  };
+
+  // NEW: Fetch course creation form data
+  const fetchCreateFormData = async () => {
+    try {
+      console.log('📋 Fetching course creation form data...');
+      const response = await courseService.getCreateCourseData();
+      console.log('✅ Form data response:', response);
+      setCreateFormData(response.data);
+      // Also set lecturers from the form data
+      if (response.data?.lecturers) {
+        setLecturers(response.data.lecturers);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching course creation form data:', error);
+      // Fallback to individual lecturer fetch
+      await fetchLecturers();
     }
   };
 
@@ -63,7 +94,7 @@ const AdminCoursesPage: React.FC = () => {
   }, [page, search, semesterFilter]);
 
   useEffect(() => {
-    fetchLecturers();
+    fetchCreateFormData();
   }, []);
 
   // Handle search with debounce
@@ -102,6 +133,11 @@ const AdminCoursesPage: React.FC = () => {
   };
 
   const getSemesterOptions = () => {
+    // Use form data if available, otherwise fallback to generated options
+    if (createFormData?.formFields?.semesters) {
+      return createFormData.formFields.semesters;
+    }
+    
     const currentYear = new Date().getFullYear();
     const options = [];
     for (let year = currentYear - 2; year <= currentYear + 1; year++) {
@@ -128,9 +164,9 @@ const AdminCoursesPage: React.FC = () => {
       title: 'Dosen Pengampu',
       render: (course: Course) => (
         <div>
-          <div className="font-medium">{course.lecturer.fullName}</div>
+          <div className="font-medium">{course.lecturer?.fullName || 'N/A'}</div>
           <div className="text-sm text-gray-500 font-mono">
-            {course.lecturer.lecturerId}
+            {course.lecturer?.lecturerId || 'N/A'}
           </div>
         </div>
       ),
@@ -328,6 +364,7 @@ const AdminCoursesPage: React.FC = () => {
       {showCreateModal && (
         <CreateCourseModal
           lecturers={lecturers}
+          formData={createFormData}
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
@@ -367,10 +404,11 @@ const AdminCoursesPage: React.FC = () => {
 // Create Course Modal Component
 const CreateCourseModal: React.FC<{
   lecturers: User[];
+  formData: any;
   onClose: () => void;
   onSuccess: () => void;
-}> = ({ lecturers, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState({
+}> = ({ lecturers, formData, onClose, onSuccess }) => {
+  const [formState, setFormState] = useState({
     code: '',
     name: '',
     description: '',
@@ -385,23 +423,23 @@ const CreateCourseModal: React.FC<{
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
 
-    if (!formData.code.trim()) {
+    if (!formState.code.trim()) {
       newErrors.code = 'Kode mata kuliah wajib diisi';
     }
 
-    if (!formData.name.trim()) {
+    if (!formState.name.trim()) {
       newErrors.name = 'Nama mata kuliah wajib diisi';
     }
 
-    if (!formData.semester) {
+    if (!formState.semester) {
       newErrors.semester = 'Semester wajib dipilih';
     }
 
-    if (!formData.lecturerId) {
+    if (!formState.lecturerId) {
       newErrors.lecturerId = 'Dosen pengampu wajib dipilih';
     }
 
-    if (formData.credits < 1 || formData.credits > 6) {
+    if (formState.credits < 1 || formState.credits > 6) {
       newErrors.credits = 'SKS harus antara 1-6';
     }
 
@@ -423,8 +461,8 @@ const CreateCourseModal: React.FC<{
     setLoading(true);
 
     try {
-      console.log('Creating course with data:', formData);
-      await courseService.createCourse(formData);
+      console.log('Creating course with data:', formState);
+      await courseService.createCourse(formState);
       onSuccess();
     } catch (error: any) {
       console.error('Error creating course:', error);
@@ -466,12 +504,26 @@ const CreateCourseModal: React.FC<{
   };
 
   const getSemesterOptions = () => {
+    // Use form data if available
+    if (formData?.formFields?.semesters) {
+      return formData.formFields.semesters;
+    }
+    
     const currentYear = new Date().getFullYear();
     const options = [];
     for (let year = currentYear; year <= currentYear + 1; year++) {
       options.push(`${year}/1`, `${year}/2`);
     }
     return options;
+  };
+
+  const getCreditOptions = () => {
+    // Use form data if available
+    if (formData?.formFields?.creditOptions) {
+      return formData.formFields.creditOptions;
+    }
+    
+    return [1, 2, 3, 4, 5, 6];
   };
 
   return (
@@ -494,8 +546,8 @@ const CreateCourseModal: React.FC<{
           <div>
             <Input
               label="Kode Mata Kuliah"
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              value={formState.code}
+              onChange={(e) => setFormState({ ...formState, code: e.target.value })}
               placeholder="contoh: CS101"
               required
               className={errors.code ? 'border-red-500' : ''}
@@ -506,15 +558,13 @@ const CreateCourseModal: React.FC<{
           <div>
             <Select
               label="SKS"
-              value={formData.credits.toString()}
-              onChange={(e) => setFormData({ ...formData, credits: parseInt(e.target.value) })}
+              value={formState.credits.toString()}
+              onChange={(e) => setFormState({ ...formState, credits: parseInt(e.target.value) })}
               className={errors.credits ? 'border-red-500' : ''}
             >
-              <option value="1">1 SKS</option>
-              <option value="2">2 SKS</option>
-              <option value="3">3 SKS</option>
-              <option value="4">4 SKS</option>
-              <option value="6">6 SKS</option>
+              {getCreditOptions().map(credit => (
+                <option key={credit} value={credit}>{credit} SKS</option>
+              ))}
             </Select>
             {errors.credits && <p className="text-red-500 text-sm mt-1">{errors.credits}</p>}
           </div>
@@ -522,8 +572,8 @@ const CreateCourseModal: React.FC<{
           <div className="md:col-span-2">
             <Input
               label="Nama Mata Kuliah"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              value={formState.name}
+              onChange={(e) => setFormState({ ...formState, name: e.target.value })}
               placeholder="contoh: Algoritma dan Struktur Data"
               required
               className={errors.name ? 'border-red-500' : ''}
@@ -534,8 +584,8 @@ const CreateCourseModal: React.FC<{
           <div>
             <Select
               label="Semester"
-              value={formData.semester}
-              onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
+              value={formState.semester}
+              onChange={(e) => setFormState({ ...formState, semester: e.target.value })}
               required
               className={errors.semester ? 'border-red-500' : ''}
             >
@@ -550,8 +600,8 @@ const CreateCourseModal: React.FC<{
           <div>
             <Select
               label="Dosen Pengampu"
-              value={formData.lecturerId}
-              onChange={(e) => setFormData({ ...formData, lecturerId: e.target.value })}
+              value={formState.lecturerId}
+              onChange={(e) => setFormState({ ...formState, lecturerId: e.target.value })}
               required
               className={errors.lecturerId ? 'border-red-500' : ''}
             >
@@ -575,8 +625,8 @@ const CreateCourseModal: React.FC<{
             <textarea
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              value={formState.description}
+              onChange={(e) => setFormState({ ...formState, description: e.target.value })}
               placeholder="Deskripsi mata kuliah..."
             />
           </div>
@@ -608,7 +658,7 @@ const EditCourseModal: React.FC<{
     description: course.description || '',
     credits: course.credits,
     semester: course.semester,
-    lecturerId: course.lecturer.id,
+    lecturerId: course.lecturer?.id || '',
     isActive: course.isActive,
   });
   const [loading, setLoading] = useState(false);
