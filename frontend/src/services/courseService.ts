@@ -60,9 +60,26 @@ export const courseService = {
 
   getCourse: async (id: string): Promise<Course> => {
     try {
+      // FIXED: Add validation to prevent reserved keywords being used as IDs
+      const reservedKeywords = ['create', 'form-data', 'create-data', 'lecturers', 'new', 'edit', 'delete'];
+      if (reservedKeywords.includes(id.toLowerCase())) {
+        throw new Error(`"${id}" is a reserved keyword and cannot be used as a course ID`);
+      }
+
+      // FIXED: Add basic UUID validation
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidPattern.test(id)) {
+        throw new Error(`Invalid course ID format: "${id}" is not a valid UUID`);
+      }
+
       console.log('📚 Fetching course:', id);
       const response = await api.get(`/courses/${id}`);
-      console.log('✅ Course fetched:', response.data.name);
+      
+      if (!response.data || !response.data.id) {
+        throw new Error('Course not found or invalid response structure');
+      }
+      
+      console.log('✅ Course fetched:', response.data.name || response.data.id);
       return response.data;
     } catch (error) {
       console.error('❌ Error fetching course:', error);
@@ -70,26 +87,77 @@ export const courseService = {
     }
   },
 
-  // NEW: Get course creation form data
+  // FIXED: Updated endpoint to use new routing structure
   getCreateCourseData: async (): Promise<ApiResponse<CreateCourseFormData>> => {
     try {
       console.log('📋 Fetching course creation form data');
-      const response = await api.get('/courses/create-data');
-      console.log('✅ Course creation data fetched:', response.data.data);
-      return response.data;
+      
+      // FIXED: Use the new endpoint that doesn't conflict with routing
+      const response = await api.get('/courses/form-data');
+      
+      console.log('✅ Course creation data fetched:', response.data);
+      
+      // FIXED: Add response validation
+      if (!response.data) {
+        throw new Error('Invalid response structure from course form data endpoint');
+      }
+      
+      // Handle both wrapped and direct response formats
+      if (response.data.data) {
+        return response.data;
+      } else {
+        // If data is returned directly, wrap it in the expected format
+        return {
+          success: true,
+          data: response.data,
+          message: 'Data retrieved successfully'
+        };
+      }
     } catch (error) {
       console.error('❌ Error fetching course creation data:', error);
-      throw error;
+      
+      // FALLBACK: Try alternative endpoint
+      try {
+        console.log('🔄 Trying alternative endpoint...');
+        const fallbackResponse = await api.get('/courses/create-data');
+        console.log('✅ Fallback successful');
+        
+        if (fallbackResponse.data.data) {
+          return fallbackResponse.data;
+        } else {
+          return {
+            success: true,
+            data: fallbackResponse.data,
+            message: 'Data retrieved successfully via fallback'
+          };
+        }
+      } catch (fallbackError) {
+        console.error('❌ Both endpoints failed:', fallbackError);
+        throw new Error('Unable to fetch course creation form data from any endpoint');
+      }
     }
   },
 
-  // NEW: Get all lecturers
+  // FIXED: Updated to use new endpoint structure
   getAllLecturers: async (): Promise<ApiResponse<User[]>> => {
     try {
       console.log('👨‍🏫 Fetching all lecturers');
       const response = await api.get('/courses/lecturers');
+      
       console.log(`✅ Found ${response.data.data?.length || 0} lecturers`);
-      return response.data;
+      
+      // Handle response structure
+      if (response.data.data) {
+        return response.data;
+      } else if (Array.isArray(response.data)) {
+        return {
+          success: true,
+          data: response.data,
+          message: 'Lecturers retrieved successfully'
+        };
+      } else {
+        throw new Error('Invalid response structure from lecturers endpoint');
+      }
     } catch (error) {
       console.error('❌ Error fetching lecturers:', error);
       throw error;
@@ -106,6 +174,20 @@ export const courseService = {
   }): Promise<Course> => {
     try {
       console.log('➕ Creating course:', courseData.name);
+      
+      // FIXED: Add client-side validation
+      if (!courseData.lecturerId || courseData.lecturerId.trim() === '') {
+        throw new Error('Lecturer ID is required');
+      }
+      
+      if (!courseData.code || courseData.code.trim() === '') {
+        throw new Error('Course code is required');
+      }
+      
+      if (!courseData.name || courseData.name.trim() === '') {
+        throw new Error('Course name is required');
+      }
+      
       const response = await api.post('/courses', courseData);
       console.log('✅ Course created:', response.data.id);
       return response.data;
@@ -156,177 +238,3 @@ export const courseService = {
       }
       
       console.log(`✅ Found ${courses.length} my courses:`);
-      courses.forEach(course => {
-        console.log(`   - ${course.code}: ${course.name} (ID: ${course.id})`);
-      });
-      
-      return courses;
-    } catch (error) {
-      console.error('❌ Error fetching my courses:', error);
-      throw error;
-    }
-  },
-
-  getCourseMaterials: async (courseId: string): Promise<CourseMaterial[]> => {
-    try {
-      console.log('📖 Fetching course materials for:', courseId);
-      const response = await api.get(`/courses/${courseId}/materials`);
-      console.log(`✅ Found ${response.data.length || 0} materials`);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error fetching course materials:', error);
-      throw error;
-    }
-  },
-
-  createCourseMaterial: async (
-    courseId: string,
-    materialData: any
-  ): Promise<CourseMaterial> => {
-    try {
-      console.log('➕ Creating course material for:', courseId);
-      const response = await api.post(`/courses/${courseId}/materials`, materialData);
-      console.log('✅ Course material created:', response.data.id);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error creating course material:', error);
-      throw error;
-    }
-  },
-
-  updateCourseMaterial: async (
-    courseId: string,
-    materialId: string,
-    materialData: any
-  ): Promise<CourseMaterial> => {
-    try {
-      console.log('✏️ Updating course material:', materialId);
-      const response = await api.patch(
-        `/courses/${courseId}/materials/${materialId}`,
-        materialData
-      );
-      console.log('✅ Course material updated successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error updating course material:', error);
-      throw error;
-    }
-  },
-
-  deleteCourseMaterial: async (courseId: string, materialId: string): Promise<void> => {
-    try {
-      console.log('🗑️ Deleting course material:', materialId);
-      await api.delete(`/courses/${courseId}/materials/${materialId}`);
-      console.log('✅ Course material deleted successfully');
-    } catch (error) {
-      console.error('❌ Error deleting course material:', error);
-      throw error;
-    }
-  },
-
-  getCourseStats: async (courseId: string): Promise<any> => {
-    try {
-      console.log('📊 Fetching course stats for:', courseId);
-      const response = await api.get(`/courses/${courseId}/stats`);
-      console.log('✅ Course stats fetched successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error fetching course stats:', error);
-      throw error;
-    }
-  },
-
-  // Student Management Methods
-  getCourseStudents: async (
-    courseId: string,
-    params?: QueryCourseStudentsParams
-  ): Promise<ApiResponse<CourseStudent[]>> => {
-    try {
-      console.log('👥 Fetching course students for:', courseId);
-      const response = await api.get(`/courses/${courseId}/students`, { params });
-      console.log(`✅ Found ${response.data.data?.length || 0} students`);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error fetching course students:', error);
-      throw error;
-    }
-  },
-
-  enrollStudent: async (
-    courseId: string,
-    studentData: EnrollStudentRequest
-  ): Promise<{ message: string; student: CourseStudent }> => {
-    try {
-      console.log('✅ Enrolling student to course:', courseId);
-      const response = await api.post(`/courses/${courseId}/students/enroll`, studentData);
-      console.log('✅ Student enrolled successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error enrolling student:', error);
-      throw error;
-    }
-  },
-
-  enrollMultipleStudents: async (
-    courseId: string,
-    studentsData: EnrollMultipleStudentsRequest
-  ): Promise<{
-    message: string;
-    enrolledStudents: CourseStudent[];
-    errors?: string[];
-  }> => {
-    try {
-      console.log('✅ Enrolling multiple students to course:', courseId);
-      const response = await api.post(`/courses/${courseId}/students/enroll-multiple`, studentsData);
-      console.log('✅ Multiple students enrolled successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error enrolling multiple students:', error);
-      throw error;
-    }
-  },
-
-  addStudentByEmail: async (
-    courseId: string,
-    studentData: AddStudentByEmailRequest
-  ): Promise<{ message: string; student: CourseStudent }> => {
-    try {
-      console.log('📧 Adding student by email to course:', courseId);
-      const response = await api.post(`/courses/${courseId}/students/add-by-email`, studentData);
-      console.log('✅ Student added by email successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error adding student by email:', error);
-      throw error;
-    }
-  },
-
-  removeStudentFromCourse: async (
-    courseId: string,
-    studentId: string
-  ): Promise<{ message: string; student: CourseStudent }> => {
-    try {
-      console.log('➖ Removing student from course:', courseId);
-      const response = await api.delete(`/courses/${courseId}/students/${studentId}`);
-      console.log('✅ Student removed from course successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error removing student from course:', error);
-      throw error;
-    }
-  },
-
-  getAvailableStudents: async (courseId: string): Promise<CourseStudent[]> => {
-    try {
-      console.log('🔍 Fetching available students for course:', courseId);
-      const response = await api.get(`/courses/${courseId}/students/available`);
-      console.log(`✅ Found ${response.data.length || 0} available students`);
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error fetching available students:', error);
-      throw error;
-    }
-  },
-};
-
-export type { CourseStudent, QueryCourseStudentsParams, CreateCourseFormData };
