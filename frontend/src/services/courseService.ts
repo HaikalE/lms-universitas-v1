@@ -60,18 +60,7 @@ export const courseService = {
 
   getCourse: async (id: string): Promise<Course> => {
     try {
-      // FIXED: Add validation to prevent reserved keywords being used as IDs
-      const reservedKeywords = ['create', 'form-data', 'create-data', 'lecturers', 'new', 'edit', 'delete'];
-      if (reservedKeywords.includes(id.toLowerCase())) {
-        throw new Error(`"${id}" is a reserved keyword and cannot be used as a course ID`);
-      }
-
-      // FIXED: Add basic UUID validation
-      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidPattern.test(id)) {
-        throw new Error(`Invalid course ID format: "${id}" is not a valid UUID`);
-      }
-
+      // REMOVED: Client-side validation - let backend handle routing properly
       console.log('📚 Fetching course:', id);
       const response = await api.get(`/courses/${id}`);
       
