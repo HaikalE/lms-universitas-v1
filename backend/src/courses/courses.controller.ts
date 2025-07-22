@@ -68,6 +68,15 @@ export class CoursesController {
     return this.coursesService.getCreateCourseData(user);
   }
 
+  // NEW: Alternative endpoint for frontend compatibility
+  @Get('create-data')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getCreateCourseFormData(@GetUser() user: User) {
+    console.log('📋 Getting course creation form data (alternative endpoint) for admin:', user.id);
+    return this.coursesService.getCreateCourseData(user);
+  }
+
   @Get('lecturers')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.LECTURER)
