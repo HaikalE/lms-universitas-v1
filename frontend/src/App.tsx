@@ -13,12 +13,13 @@ import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import CoursesPage from './pages/courses/CoursesPage';
 import CourseDetailPage from './pages/courses/CourseDetailPage';
+import CreateCoursePage from './pages/courses/CreateCoursePage';
 import AssignmentsPage from './pages/assignments/AssignmentsPage';
 import AssignmentDetailPage from './pages/assignments/AssignmentDetailPage';
 import CreateAssignmentPage from './pages/assignments/CreateAssignmentPage';
 import ForumsPage from './pages/forums/ForumsPage';
 import ForumDetailPage from './pages/forums/ForumDetailPage';
-import CreateForumPostPage from './pages/forums/CreateForumPostPage'; // FIXED: Tambah import yang hilang
+import CreateForumPostPage from './pages/forums/CreateForumPostPage';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import AdminUsersPage from './pages/admin/UsersPage';
@@ -60,13 +61,17 @@ function App() {
                       <Routes>
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route path="/dashboard" element={<DashboardPage />} />
+                        
+                        {/* COURSES ROUTES - SPECIFIC ROUTES BEFORE DYNAMIC ROUTES */}
                         <Route path="/courses" element={<CoursesPage />} />
+                        <Route path="/courses/create" element={<CreateCoursePage />} />
                         <Route path="/courses/:id" element={<CourseDetailPage />} />
                         <Route path="/courses/:courseId/assignments/create" element={<CreateAssignmentPage />} />
+                        
                         <Route path="/assignments" element={<AssignmentsPage />} />
                         <Route path="/assignments/:id" element={<AssignmentDetailPage />} />
                         
-                        {/* FIXED: Forum Routes - Urutan penting! /forums/create harus sebelum /forums/:id */}
+                        {/* FORUM ROUTES - SPECIFIC ROUTES BEFORE DYNAMIC ROUTES */}
                         <Route path="/forums" element={<ForumsPage />} />
                         <Route path="/forums/create" element={<CreateForumPostPage />} />
                         <Route path="/forums/:id" element={<ForumDetailPage />} />
