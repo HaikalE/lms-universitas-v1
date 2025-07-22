@@ -140,7 +140,7 @@ export class CoursesService {
       }
 
       // Get all active lecturers with more details for admin
-      const selectFields = currentUser.role === UserRole.ADMIN ? [
+      const selectFields: (keyof User)[] = currentUser.role === UserRole.ADMIN ? [
         'id',
         'fullName', 
         'lecturerId',
