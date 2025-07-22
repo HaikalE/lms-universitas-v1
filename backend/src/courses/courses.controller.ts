@@ -57,18 +57,26 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   // ===============================
-  // COURSE CREATION FORM SUPPORT
+  // COURSE CREATION FORM SUPPORT - FIXED ROUTING
   // ===============================
 
-  @Get('create')
+  // FIXED: Changed from 'create' to 'form-data' to avoid routing conflict
+  @Get('form-data')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   async getCreateCourseData(@GetUser() user: User) {
     console.log('📋 Getting course creation form data for admin:', user.id);
-    return this.coursesService.getCreateCourseData(user);
+    try {
+      const result = await this.coursesService.getCreateCourseData(user);
+      console.log('✅ Form data retrieved successfully');
+      return result;
+    } catch (error) {
+      console.error('❌ Error getting form data:', error);
+      throw error;
+    }
   }
 
-  // NEW: Alternative endpoint for frontend compatibility
+  // Keep alternative endpoint for backwards compatibility
   @Get('create-data')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -162,9 +170,25 @@ export class CoursesController {
     return this.coursesService.findAll(queryDto, user);
   }
 
+  // FIXED: Add validation to prevent reserved keywords being used as IDs
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
-    return this.coursesService.findOne(id, user);
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
+    // PROTECTION: Validate against reserved keywords that might cause routing conflicts
+    const reservedKeywords = ['create', 'form-data', 'create-data', 'lecturers', 'new', 'edit', 'delete'];
+    if (reservedKeywords.includes(id.toLowerCase())) {
+      console.error(`❌ Attempted to use reserved keyword as course ID: ${id}`);
+      throw new BadRequestException(`"${id}" is a reserved keyword and cannot be used as a course ID`);
+    }
+
+    try {
+      console.log('🔍 Finding course with ID:', id);
+      const result = await this.coursesService.findOne(id, user);
+      console.log('✅ Course found successfully:', result.id);
+      return result;
+    } catch (error) {
+      console.error('❌ Error finding course:', error);
+      throw error;
+    }
   }
 
   @Patch(':id')
