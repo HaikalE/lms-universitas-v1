@@ -166,6 +166,7 @@ export class CoursesController {
       
       return result;
     } catch (error) {
+      console.error('🔥🔥🔥 EROR ASLI DARI SERVICE:', error);
       console.error('❌ Error in course creation controller:', {
         error: error.message,
         dto: createCourseDto,
@@ -184,7 +185,6 @@ export class CoursesController {
       if (error.message && error.message.includes('lecturer not found')) {
         throw new BadRequestException('Dosen yang dipilih tidak ditemukan. Silakan pilih dosen lain dari dropdown.');
       }
-      
       // Generic error
       throw new BadRequestException('Terjadi kesalahan saat membuat mata kuliah. Silakan periksa data dan coba lagi.');
     }
