@@ -109,8 +109,7 @@ export class CoursesService {
               'Ganjil 2025/2026',
               'Genap 2025/2026'
             ],
-            creditOptions: [1, 2, 3, 4, 5, 6],
-            maxStudentsOptions: [10, 15, 20, 25, 30, 35, 40, 50],
+            creditOptions: [1, 2, 3, 4, 5, 6]
           }
         }
       };
