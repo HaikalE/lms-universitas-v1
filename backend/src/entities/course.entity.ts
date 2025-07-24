@@ -45,6 +45,11 @@ export class Course {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  // Add getter for backward compatibility with existing code that expects 'title'
+  get title(): string {
+    return this.name;
+  }
+
   // Relations
   @ManyToOne(() => User, (user) => user.coursesAsLecturer)
   lecturer: User;
