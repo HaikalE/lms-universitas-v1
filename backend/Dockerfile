@@ -14,16 +14,22 @@ COPY . .
 # Debug: Show what files we have
 RUN echo "=== Source files ===" && \
     ls -la src/ && \
-    echo "=== Package.json scripts ===" && \
-    cat package.json | grep -A 10 '"scripts"'
+    echo "=== TypeScript config ===" && \
+    cat tsconfig.json && \
+    echo "=== NestJS CLI config ===" && \
+    cat nest-cli.json
 
 # Build application with debugging
 RUN echo "=== Building application ===" && \
     npm run build && \
     echo "=== Build completed. Checking dist folder ===" && \
     ls -la dist/ && \
-    echo "=== Main file exists? ===" && \
-    ls -la dist/main.js
+    echo "=== Checking for main.js ===" && \
+    find dist/ -name "*.js" -type f && \
+    echo "=== Main file location ===" && \
+    ls -la dist/main.js || (echo "ERROR: main.js not found, showing all JS files:" && find . -name "*.js" -type f | head -20) && \
+    echo "=== Verifying main.js exists ===" && \
+    test -f dist/main.js && echo "✅ main.js found!" || (echo "❌ main.js missing!" && exit 1)
 
 # Production stage
 FROM node:18-alpine AS production
@@ -50,18 +56,24 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/database ./src/database
 COPY --from=builder /app/scripts ./scripts
 
-# Debug: Verify files are copied correctly
-RUN echo "=== Verifying copied files ===" && \
+# Debug: Verify files are copied correctly  
+RUN echo "=== Verifying copied files in production stage ===" && \
     ls -la dist/ && \
-    echo "=== Main file in production ===" && \
+    echo "=== Checking main.js in production ===" && \
     ls -la dist/main.js && \
-    echo "=== Database files ===" && \
-    ls -la src/database/
+    echo "=== File permissions ===" && \
+    ls -la dist/main.js && \
+    echo "=== Database migration files ===" && \
+    ls -la src/database/ && \
+    echo "=== Scripts ===" && \
+    ls -la scripts/
 
 # Create uploads directory with proper permissions
 RUN mkdir -p uploads && \
     chown -R nestjs:nodejs uploads && \
-    chown -R nestjs:nodejs dist/
+    chown -R nestjs:nodejs dist/ && \
+    chown -R nestjs:nodejs src/ && \
+    chown -R nestjs:nodejs scripts/
 
 # Change to non-root user
 USER nestjs
@@ -73,6 +85,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Start application with better error handling
+# Start application with better error handling and verification
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "echo 'Starting LMS Backend...' && echo 'Checking main file...' && ls -la dist/main.js && node dist/main.js"]
+CMD ["sh", "-c", "echo 'Starting LMS Backend...' && echo 'Verifying main.js exists...' && ls -la dist/main.js && echo 'Starting Node.js application...' && node dist/main.js"]
