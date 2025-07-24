@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { AnnouncementPriority } from '../../entities/announcement.entity';
+import { UserRole } from '../../entities/user.entity';
 
 export class QueryAnnouncementsDto {
   @IsOptional()
@@ -55,4 +56,16 @@ export class QueryAnnouncementsDto {
   @IsOptional()
   @IsString({ message: 'sortOrder harus ASC atau DESC' })
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
+
+  // ✅ FIX: Add role parameter that frontend sends
+  @IsOptional()
+  @IsEnum(UserRole, {
+    message: 'Role harus salah satu dari: admin, lecturer, student',
+  })
+  role?: UserRole;
+
+  // ✅ FIX: Add status filter for announcement status  
+  @IsOptional()
+  @IsString({ message: 'Status harus berupa string' })
+  status?: string;
 }
