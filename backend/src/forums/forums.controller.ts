@@ -21,9 +21,9 @@ import { ForumsService } from './forums.service';
 import { CreateForumPostDto } from './dto/create-forum-post.dto';
 import { UpdateForumPostDto } from './dto/update-forum-post.dto';
 import { QueryForumPostsDto } from './dto/query-forum-posts.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User, UserRole } from '../entities/user.entity';
 
@@ -31,6 +31,36 @@ import { User, UserRole } from '../entities/user.entity';
 @UseGuards(JwtAuthGuard)
 export class ForumsController {
   constructor(private readonly forumsService: ForumsService) {}
+
+  // ✅ NEW: GET MY DISCUSSIONS (missing endpoint)
+  @Get('my-discussions')
+  async getMyDiscussions(@GetUser() user: User, @Query() queryDto: QueryForumPostsDto) {
+    try {
+      console.log('📋 Fetching my discussions for user:', user.id);
+      
+      const result = await this.forumsService.getMyDiscussions(user, queryDto);
+      
+      console.log(`✅ Found ${result.data.length} discussions for user`);
+      
+      return {
+        success: true,
+        message: 'Diskusi berhasil diambil',
+        ...result,
+      };
+    } catch (error) {
+      console.error('❌ Error fetching my discussions:', error.message);
+      
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Gagal mengambil diskusi',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
 
   // CREATE FORUM POST
   @Post()
