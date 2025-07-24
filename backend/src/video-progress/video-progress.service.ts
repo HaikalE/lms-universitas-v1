@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { VideoProgress } from '../entities/video-progress.entity';
 import { CourseMaterial, MaterialType } from '../entities/course-material.entity';
 import { User } from '../entities/user.entity';
+import { AttendanceService } from '../attendance/attendance.service';
 import { UpdateVideoProgressDto, VideoProgressResponseDto } from './dto/video-progress.dto.ts';
 
 @Injectable()
@@ -27,6 +28,7 @@ export class VideoProgressService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     
+    private readonly attendanceService: AttendanceService,
     private readonly configService: ConfigService,
   ) {
     // Get completion threshold from environment (default 80%)
@@ -232,8 +234,7 @@ export class VideoProgressService {
   }
 
   /**
-   * Trigger automatic attendance (will be handled by AttendanceService)
-   * For now, we'll just log it - this will be implemented when we create AttendanceService
+   * Trigger automatic attendance via AttendanceService
    */
   private async triggerAttendance(
     studentId: string,
@@ -241,13 +242,27 @@ export class VideoProgressService {
     materialId: string,
     completionPercentage: number,
   ): Promise<void> {
-    this.logger.log(`🎯 ATTENDANCE TRIGGER: Student ${studentId} completed video ${materialId} in course ${courseId} (${completionPercentage.toFixed(1)}%)`);
+    this.logger.log(`🎯 TRIGGERING AUTO-ATTENDANCE: Student ${studentId} completed video ${materialId} in course ${courseId} (${completionPercentage.toFixed(1)}%)`);
     
-    // TODO: Call AttendanceService.autoSubmitAttendance() when implemented
-    // await this.attendanceService.autoSubmitAttendance(studentId, courseId, materialId, {
-    //   completionPercentage,
-    //   completedAt: new Date(),
-    // });
+    try {
+      // ✅ Call AttendanceService to auto-submit attendance
+      await this.attendanceService.autoSubmitAttendance({
+        studentId,
+        courseId,
+        triggerMaterialId: materialId,
+        completionPercentage,
+        metadata: {
+          videoProgress: completionPercentage,
+          completionTime: new Date(),
+        },
+      });
+
+      this.logger.log(`✅ AUTO-ATTENDANCE SUCCESS: Student ${studentId} attendance submitted for course ${courseId}`);
+      
+    } catch (error) {
+      this.logger.error(`❌ AUTO-ATTENDANCE FAILED: ${error.message}`, error.stack);
+      throw error; // Re-throw for proper error handling in calling method
+    }
   }
 
   /**
