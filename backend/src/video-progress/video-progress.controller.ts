@@ -20,7 +20,7 @@ import {
   UpdateVideoProgressDto,
   VideoProgressQueryDto,
   VideoProgressResponseDto,
-} from './dto/video-progress.dto.ts';
+} from './dto/video-progress.dto';
 
 @Controller('video-progress')
 @UseGuards(JwtAuthGuard)
