@@ -7,3 +7,11 @@ export { Grade } from './grade.entity';
 export { ForumPost } from './forum-post.entity';
 export { Announcement, AnnouncementPriority } from './announcement.entity';
 export { Notification, NotificationType } from './notification.entity';
+
+// ✨ NEW: Video progress tracking and attendance entities
+export { VideoProgress } from './video-progress.entity';
+export { 
+  Attendance, 
+  AttendanceStatus, 
+  AttendanceType 
+} from './attendance.entity';
