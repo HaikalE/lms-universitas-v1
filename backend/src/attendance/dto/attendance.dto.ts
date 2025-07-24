@@ -9,7 +9,7 @@ import {
   Max 
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AttendanceStatus, AttendanceType } from '../entities/attendance.entity';
+import { AttendanceStatus, AttendanceType } from '../../entities/attendance.entity';
 
 export class CreateAttendanceDto {
   @IsUUID()
