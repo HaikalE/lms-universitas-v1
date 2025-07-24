@@ -26,7 +26,7 @@ import {
   AutoSubmitAttendanceDto,
   AttendanceResponseDto,
   AttendanceStatsDto,
-} from './dto/attendance.dto.ts';
+} from './dto/attendance.dto';
 
 @Controller('attendance')
 @UseGuards(JwtAuthGuard)
