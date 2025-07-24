@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { AssignmentType } from '../../entities/assignment.entity';
+import { UserRole } from '../../entities/user.entity';
 
 export class QueryAssignmentsDto {
   @IsOptional()
@@ -51,4 +52,21 @@ export class QueryAssignmentsDto {
   @IsOptional()
   @IsString({ message: 'sortOrder harus ASC atau DESC' })
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
+
+  // ✅ FIX: Add role parameter that frontend sends
+  @IsOptional()
+  @IsEnum(UserRole, {
+    message: 'Role harus salah satu dari: admin, lecturer, student',
+  })
+  role?: UserRole;
+
+  // ✅ FIX: Add search parameter for filtering
+  @IsOptional()
+  @IsString({ message: 'Search harus berupa string' })
+  search?: string;
+
+  // ✅ FIX: Add status filter for assignment status
+  @IsOptional()
+  @IsString({ message: 'Status harus berupa string' })
+  status?: string;
 }
