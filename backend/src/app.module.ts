@@ -16,6 +16,10 @@ import { UploadsModule } from './uploads/uploads.module';
 import { HealthModule } from './health/health.module';
 import { AdminModule } from './admin/admin.module';
 
+// ✨ NEW: Video-based attendance modules
+import { VideoProgressModule } from './video-progress/video-progress.module';
+import { AttendanceModule } from './attendance/attendance.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -37,6 +41,10 @@ import { AdminModule } from './admin/admin.module';
     UploadsModule,
     HealthModule,
     AdminModule,
+    
+    // ✨ NEW: Video progress tracking and attendance modules
+    AttendanceModule,      // Register first (no dependencies)
+    VideoProgressModule,   // Register second (depends on AttendanceModule)
   ],
 })
 export class AppModule {}
