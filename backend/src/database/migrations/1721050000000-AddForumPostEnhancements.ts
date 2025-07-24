@@ -4,77 +4,167 @@ export class AddForumPostEnhancements1721050000000 implements MigrationInterface
   name = 'AddForumPostEnhancements1721050000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add the new columns to forum_posts table
-    await queryRunner.addColumns('forum_posts', [
-      new TableColumn({
+    // Helper function to check if column exists
+    const columnExists = async (tableName: string, columnName: string): Promise<boolean> => {
+      const result = await queryRunner.query(`
+        SELECT COUNT(*) 
+        FROM information_schema.columns 
+        WHERE table_name = $1 AND column_name = $2
+      `, [tableName, columnName]);
+      return parseInt(result[0].count) > 0;
+    };
+
+    // Helper function to check if index exists
+    const indexExists = async (indexName: string): Promise<boolean> => {
+      const result = await queryRunner.query(`
+        SELECT COUNT(*) 
+        FROM pg_indexes 
+        WHERE indexname = $1
+      `, [indexName]);
+      return parseInt(result[0].count) > 0;
+    };
+
+    console.log('🔍 Checking existing forum_posts schema...');
+
+    // Create enum type if it doesn't exist
+    await queryRunner.query(`
+      DO $$ 
+      BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'forum_post_type_enum') THEN
+              CREATE TYPE forum_post_type_enum AS ENUM ('discussion', 'question', 'announcement');
+          END IF;
+      END $$;
+    `);
+
+    // Add columns conditionally
+    const columnsToAdd = [
+      {
         name: 'type',
-        type: 'enum',
-        enum: ['discussion', 'question', 'announcement'],
-        default: "'discussion'",
-        isNullable: false,
-      }),
-      new TableColumn({
+        column: new TableColumn({
+          name: 'type',
+          type: 'enum',
+          enum: ['discussion', 'question', 'announcement'],
+          default: "'discussion'",
+          isNullable: false,
+        })
+      },
+      {
         name: 'viewsCount',
-        type: 'integer',
-        default: 0,
-        isNullable: false,
-      }),
-      new TableColumn({
+        column: new TableColumn({
+          name: 'viewsCount',
+          type: 'integer',
+          default: 0,
+          isNullable: false,
+        })
+      },
+      {
         name: 'isAnswer',
-        type: 'boolean',
-        default: false,
-        isNullable: false,
-      }),
-      new TableColumn({
+        column: new TableColumn({
+          name: 'isAnswer',
+          type: 'boolean',
+          default: false,
+          isNullable: false,
+        })
+      },
+      {
         name: 'isAnswered',
-        type: 'boolean',
-        default: false,
-        isNullable: false,
-      }),
-    ]);
+        column: new TableColumn({
+          name: 'isAnswered',
+          type: 'boolean',
+          default: false,
+          isNullable: false,
+        })
+      }
+    ];
 
-    // Add indexes for better performance
-    await queryRunner.createIndex(
-      'forum_posts',
-      new TableIndex({
+    for (const { name, column } of columnsToAdd) {
+      const exists = await columnExists('forum_posts', name);
+      if (!exists) {
+        console.log(`➕ Adding column: ${name}`);
+        await queryRunner.addColumn('forum_posts', column);
+      } else {
+        console.log(`✅ Column ${name} already exists, skipping...`);
+      }
+    }
+
+    // Add indexes conditionally
+    const indexesToAdd = [
+      {
         name: 'IDX_forum_posts_courseId_createdAt',
-        columnNames: ['courseId', 'createdAt']
-      })
-    );
-
-    await queryRunner.createIndex(
-      'forum_posts',
-      new TableIndex({
+        index: new TableIndex({
+          name: 'IDX_forum_posts_courseId_createdAt',
+          columnNames: ['courseId', 'createdAt']
+        })
+      },
+      {
         name: 'IDX_forum_posts_courseId_isPinned',
-        columnNames: ['courseId', 'isPinned']
-      })
-    );
-
-    await queryRunner.createIndex(
-      'forum_posts',
-      new TableIndex({
+        index: new TableIndex({
+          name: 'IDX_forum_posts_courseId_isPinned',
+          columnNames: ['courseId', 'isPinned']
+        })
+      },
+      {
         name: 'IDX_forum_posts_courseId',
-        columnNames: ['courseId']
-      })
-    );
-
-    await queryRunner.createIndex(
-      'forum_posts',
-      new TableIndex({
+        index: new TableIndex({
+          name: 'IDX_forum_posts_courseId',
+          columnNames: ['courseId']
+        })
+      },
+      {
         name: 'IDX_forum_posts_authorId',
-        columnNames: ['authorId']
-      })
-    );
+        index: new TableIndex({
+          name: 'IDX_forum_posts_authorId',
+          columnNames: ['authorId']
+        })
+      }
+    ];
+
+    for (const { name, index } of indexesToAdd) {
+      const exists = await indexExists(name);
+      if (!exists) {
+        console.log(`📊 Adding index: ${name}`);
+        await queryRunner.createIndex('forum_posts', index);
+      } else {
+        console.log(`✅ Index ${name} already exists, skipping...`);
+      }
+    }
+
+    // Update existing posts to have default type if null
+    await queryRunner.query(`
+      UPDATE forum_posts 
+      SET "type" = 'discussion' 
+      WHERE "type" IS NULL
+    `);
 
     console.log('✅ Forum post enhancements migration completed successfully');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop indexes
-    await queryRunner.dropIndex('forum_posts', 'IDX_forum_posts_courseId_createdAt');
-    await queryRunner.dropIndex('forum_posts', 'IDX_forum_posts_courseId_isPinned');
-    await queryRunner.dropIndex('forum_posts', 'IDX_forum_posts_courseId');
-    await queryRunner.dropIndex('forum_posts', 'IDX_forum_posts_authorId');
+    // Helper function to check if index exists
+    const indexExists = async (indexName: string): Promise<boolean> => {
+      const result = await queryRunner.query(`
+        SELECT COUNT(*) 
+        FROM pg_indexes 
+        WHERE indexname = $1
+      `, [indexName]);
+      return parseInt(result[0].count) > 0;
+    };
+
+    // Drop indexes if they exist
+    const indexesToDrop = [
+      'IDX_forum_posts_courseId_createdAt',
+      'IDX_forum_posts_courseId_isPinned',
+      'IDX_forum_posts_courseId',
+      'IDX_forum_posts_authorId'
+    ];
+
+    for (const indexName of indexesToDrop) {
+      const exists = await indexExists(indexName);
+      if (exists) {
+        console.log(`🗑️ Dropping index: ${indexName}`);
+        await queryRunner.dropIndex('forum_posts', indexName);
+      }
+    }
 
     // Remove the new columns
     await queryRunner.dropColumns('forum_posts', [
