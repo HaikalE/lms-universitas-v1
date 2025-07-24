@@ -45,6 +45,11 @@ export class QueryForumPostsDto {
   @IsBoolean({ message: 'isPinned harus berupa boolean' })
   isPinned?: boolean;
 
+  // ✅ FIX: Add sort parameter to accept frontend format (sort=latest)
+  @IsOptional()
+  @IsString({ message: 'Sort harus berupa string' })
+  sort?: string;
+
   @IsOptional()
   @IsString({ message: 'sortBy harus berupa string' })
   sortBy?: string = 'createdAt';
@@ -52,4 +57,40 @@ export class QueryForumPostsDto {
   @IsOptional()
   @IsString({ message: 'sortOrder harus ASC atau DESC' })
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
+
+  // ✅ Helper method to get sortBy from sort parameter
+  getSortBy(): string {
+    if (this.sortBy) return this.sortBy;
+    
+    switch (this.sort) {
+      case 'latest':
+        return 'createdAt';
+      case 'oldest':
+        return 'createdAt';
+      case 'popular':
+        return 'likesCount';
+      case 'replies':
+        return 'repliesCount';
+      default:
+        return 'createdAt';
+    }
+  }
+
+  // ✅ Helper method to get sortOrder from sort parameter
+  getSortOrder(): 'ASC' | 'DESC' {
+    if (this.sortOrder) return this.sortOrder;
+    
+    switch (this.sort) {
+      case 'latest':
+        return 'DESC';
+      case 'oldest':
+        return 'ASC';
+      case 'popular':
+        return 'DESC';
+      case 'replies':
+        return 'DESC';
+      default:
+        return 'DESC';
+    }
+  }
 }
