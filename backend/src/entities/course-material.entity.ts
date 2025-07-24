@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
 } from 'typeorm';
 import { Course } from './course.entity';
 import { User } from './user.entity';
@@ -55,6 +56,14 @@ export class CourseMaterial {
   @Column({ default: true })
   isVisible: boolean;
 
+  // ✨ NEW: Flag untuk auto-attendance trigger
+  @Column({ default: false })
+  isAttendanceTrigger: boolean; // apakah video ini trigger absensi otomatis
+
+  // ✨ NEW: Minimum completion percentage for attendance (optional override)
+  @Column({ type: 'float', nullable: true })
+  attendanceThreshold: number; // custom threshold per video (override global setting)
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -75,4 +84,12 @@ export class CourseMaterial {
 
   @Column()
   uploadedById: string;
+
+  // ✨ NEW: Relation to video progress (for analytics)
+  @OneToMany('VideoProgress', 'material')
+  videoProgress: any[];
+
+  // ✨ NEW: Relation to attendances triggered by this material
+  @OneToMany('Attendance', 'triggerMaterial')
+  triggeredAttendances: any[];
 }
