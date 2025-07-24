@@ -37,9 +37,11 @@ export class ForumsService {
         limit = 20,
         search,
         type,
-        sortBy = 'createdAt',
-        sortOrder = 'DESC',
       } = queryDto;
+
+      // ✅ FIX: Use DTO helper methods for sorting
+      const sortBy = queryDto.getSortBy();
+      const sortOrder = queryDto.getSortOrder();
 
       const queryBuilder = this.forumPostRepository
         .createQueryBuilder('post')
@@ -201,10 +203,12 @@ export class ForumsService {
         limit = 20,
         search,
         type,
-        sortBy = 'createdAt',
-        sortOrder = 'DESC',
         parentId = null, // Only root posts by default
       } = queryDto;
+
+      // ✅ FIX: Use DTO helper methods for sorting
+      const sortBy = queryDto.getSortBy();
+      const sortOrder = queryDto.getSortOrder();
 
       // Build query with proper error handling
       try {
@@ -362,9 +366,12 @@ export class ForumsService {
       const {
         page = 1,
         limit = 20,
-        sortBy = 'createdAt',
-        sortOrder = 'ASC',
       } = queryDto;
+
+      // ✅ FIX: Use default sorting for replies or add DTO helper methods
+      // For replies, we typically want chronological order (oldest first)
+      const sortBy = 'createdAt';
+      const sortOrder = 'ASC';
 
       const queryBuilder = this.forumPostRepository
         .createQueryBuilder('post')
