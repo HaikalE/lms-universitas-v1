@@ -23,7 +23,7 @@ import {
   AutoSubmitAttendanceDto,
   AttendanceResponseDto,
   AttendanceStatsDto,
-} from './dto/attendance.dto.ts';
+} from './dto/attendance.dto';
 
 @Injectable()
 export class AttendanceService {
