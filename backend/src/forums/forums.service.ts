@@ -27,6 +27,86 @@ export class ForumsService {
     private courseRepository: Repository<Course>,
   ) {}
 
+  // ✅ NEW: Get user's own discussions
+  async getMyDiscussions(currentUser: User, queryDto: QueryForumPostsDto) {
+    try {
+      console.log('📋 Getting my discussions for user:', currentUser.id);
+
+      const {
+        page = 1,
+        limit = 20,
+        search,
+        type,
+        sortBy = 'createdAt',
+        sortOrder = 'DESC',
+      } = queryDto;
+
+      const queryBuilder = this.forumPostRepository
+        .createQueryBuilder('post')
+        .leftJoinAndSelect('post.author', 'author')
+        .leftJoinAndSelect('post.course', 'course')
+        .where('post.authorId = :authorId', { authorId: currentUser.id })
+        .select([
+          'post.id',
+          'post.title',
+          'post.content',
+          'post.type',
+          'post.likesCount',
+          'post.viewsCount',
+          'post.repliesCount',
+          'post.isPinned',
+          'post.isLocked',
+          'post.isAnswer',
+          'post.isAnswered',
+          'post.createdAt',
+          'post.updatedAt',
+          'author.id',
+          'author.fullName',
+          'author.role',
+          'course.id',
+          'course.name',
+          'course.code',
+        ]);
+
+      // Apply search filter
+      if (search) {
+        queryBuilder.andWhere(
+          '(post.title ILIKE :search OR post.content ILIKE :search)',
+          { search: `%${search}%` }
+        );
+      }
+
+      // Apply type filter
+      if (type && type !== 'all') {
+        queryBuilder.andWhere('post.type = :type', { type });
+      }
+
+      // Apply sorting
+      queryBuilder.orderBy(`post.${sortBy}`, sortOrder);
+
+      // Apply pagination
+      const offset = (page - 1) * limit;
+      queryBuilder.skip(offset).take(limit);
+
+      const [posts, total] = await queryBuilder.getManyAndCount();
+
+      console.log(`✅ Found ${posts.length} discussions for user ${currentUser.id}`);
+
+      return {
+        data: posts,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error('❌ Error getting my discussions:', error.message);
+      throw error;
+    }
+  }
+
   // Create forum post or reply
   async create(createForumPostDto: CreateForumPostDto, currentUser: User) {
     try {
