@@ -5,6 +5,7 @@ import { CourseMaterial } from '../entities/course-material.entity';
 import { User } from '../entities/user.entity';
 import { VideoProgressService } from './video-progress.service';
 import { VideoProgressController } from './video-progress.controller';
+import { AttendanceModule } from '../attendance/attendance.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { VideoProgressController } from './video-progress.controller';
       CourseMaterial,
       User,
     ]),
+    AttendanceModule, // Import to access AttendanceService
   ],
   providers: [VideoProgressService],
   controllers: [VideoProgressController],
