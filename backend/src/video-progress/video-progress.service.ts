@@ -11,7 +11,7 @@ import { VideoProgress } from '../entities/video-progress.entity';
 import { CourseMaterial, MaterialType } from '../entities/course-material.entity';
 import { User } from '../entities/user.entity';
 import { AttendanceService } from '../attendance/attendance.service';
-import { UpdateVideoProgressDto, VideoProgressResponseDto } from './dto/video-progress.dto.ts';
+import { UpdateVideoProgressDto, VideoProgressResponseDto } from './dto/video-progress.dto';
 
 @Injectable()
 export class VideoProgressService {
