@@ -852,21 +852,15 @@ const CourseDetailPage: React.FC = () => {
 
                                       {/* Action Buttons */}
                                       <div className="flex gap-3">
-                                        {/* Video Materials */}
+                                        {/* Video Materials - UPDATED TO USE VIDEOPREVIEWPAGE */}
                                         {material.type === MaterialType.VIDEO && (
                                           <Button
                                             size="sm"
                                             className="bg-red-600 hover:bg-red-700 text-white"
                                             onClick={() => {
-                                              // Use VideoMaterialCard as modal/popup for videos
-                                              console.log('🎥 Opening video:', material.title);
-                                              // For now, just redirect to file
-                                              const videoUrl = getFileDownloadUrl(material);
-                                              if (videoUrl !== '#') {
-                                                window.open(videoUrl, '_blank');
-                                              } else {
-                                                toast.error('Video tidak tersedia');
-                                              }
+                                              // Navigate to VideoPreviewPage with proper LMS layout
+                                              console.log('🎥 Opening video preview page:', material.title);
+                                              navigate(`/courses/${course.id}/materials/${material.id}/video`);
                                             }}
                                           >
                                             <Play className="w-4 h-4 mr-2" />
@@ -915,11 +909,17 @@ const CourseDetailPage: React.FC = () => {
                                           size="sm"
                                           variant="outline"
                                           onClick={() => {
-                                            const url = getFileDownloadUrl(material);
-                                            if (url !== '#') {
-                                              window.open(url, '_blank');
+                                            if (material.type === MaterialType.VIDEO) {
+                                              // For videos, use VideoPreviewPage
+                                              navigate(`/courses/${course.id}/materials/${material.id}/video`);
                                             } else {
-                                              toast.error('File tidak tersedia');
+                                              // For other files, open directly
+                                              const url = getFileDownloadUrl(material);
+                                              if (url !== '#') {
+                                                window.open(url, '_blank');
+                                              } else {
+                                                toast.error('File tidak tersedia');
+                                              }
                                             }
                                           }}
                                         >
