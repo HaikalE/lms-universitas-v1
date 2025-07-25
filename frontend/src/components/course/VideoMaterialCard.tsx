@@ -98,20 +98,57 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
   const getVideoUrl = () => {
     if (material.url) return material.url;
     if (material.filePath) {
-      // FIXED: Use /api/uploads to match backend static file serving
-      // Backend serves files at both /uploads and /api/uploads
-      // Using /api/uploads ensures consistency with API base URL
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-      return `${baseUrl}/uploads/${material.filePath}`;
+      // FIXED: Robust URL construction to prevent duplication
+      // Handle both development and production environments properly
+      
+      // Get base URL without trailing slash and /api suffix
+      let baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+      
+      // Remove trailing slash if exists
+      baseUrl = baseUrl.replace(/\/$/, '');
+      
+      // Ensure /api prefix exists (but don't duplicate it)
+      if (!baseUrl.endsWith('/api')) {
+        baseUrl += '/api';
+      }
+      
+      // Clean filePath - remove leading uploads/ if exists
+      let cleanFilePath = material.filePath;
+      if (cleanFilePath.startsWith('uploads/')) {
+        cleanFilePath = cleanFilePath.substring(8); // Remove 'uploads/' prefix
+      }
+      
+      // Construct final URL: baseUrl/uploads/cleanFilePath
+      const finalUrl = `${baseUrl}/uploads/${cleanFilePath}`;
+      
+      // DEBUG: Log URL construction for troubleshooting
+      console.log('🎥 Video URL construction:', {
+        originalFilePath: material.filePath,
+        baseUrl,
+        cleanFilePath,
+        finalUrl
+      });
+      
+      return finalUrl;
     }
     return '';
   };
 
   const getDownloadUrl = () => {
     if (material.filePath) {
-      // For downloads, try both /uploads and /api/uploads for compatibility
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-      return `${baseUrl}/uploads/${material.filePath}`;
+      // Use same logic as getVideoUrl for consistency
+      let baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+      baseUrl = baseUrl.replace(/\/$/, '');
+      if (!baseUrl.endsWith('/api')) {
+        baseUrl += '/api';
+      }
+      
+      let cleanFilePath = material.filePath;
+      if (cleanFilePath.startsWith('uploads/')) {
+        cleanFilePath = cleanFilePath.substring(8);
+      }
+      
+      return `${baseUrl}/uploads/${cleanFilePath}`;
     }
     return '';
   };
@@ -261,7 +298,7 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
             onProgressUpdate={handleProgressUpdate}
             showAttendanceStatus={showAttendanceStatus}
             showProgressStats={true}
-            poster={material.filePath ? `${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/uploads/thumbnails/${material.id}.jpg` : undefined}
+            poster={undefined} // Simplified for now to avoid poster URL issues
             className="rounded-lg overflow-hidden"
           />
           
