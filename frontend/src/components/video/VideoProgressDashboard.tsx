@@ -1,22 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import videoProgressService, { VideoStats } from '../../services/videoProgressService';
-import attendanceService, { AttendanceStats } from '../../services/attendanceService';
+import { videoProgressService } from '../../services/videoProgressService';
+import { attendanceService } from '../../services/attendanceService';
 import {
-  PlayIcon,
-  CheckCircleIcon,
-  UserGroupIcon,
-  ChartBarIcon,
-  AcademicCapIcon,
-  EyeIcon,
-  ClockIcon,
-  TrophyIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline';
+  Play,
+  CheckCircle,
+  Users,
+  BarChart3,
+  GraduationCap,
+  Eye,
+  Clock,
+  Trophy,
+  AlertTriangle,
+  Video,
+} from 'lucide-react';
 
 interface VideoProgressDashboardProps {
   courseId: string;
   className?: string;
+}
+
+interface VideoStats {
+  materialId: string;
+  title: string;
+  totalViewers: number;
+  completedViewers: number;
+  completionRate: string;
+  avgCompletion: string;
+  attendanceTriggered: number;
+}
+
+interface AttendanceStats {
+  totalStudents: number;
+  presentCount: number;
+  absentCount: number;
+  attendanceRate: number;
+  autoAttendanceCount: number;
 }
 
 interface CombinedVideoStats extends VideoStats {
@@ -72,7 +91,7 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
 
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
-        setError('Failed to load dashboard data');
+        setError('Gagal memuat data dashboard');
       } finally {
         setIsLoading(false);
       }
@@ -85,8 +104,8 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
     return (
       <div className={`bg-red-50 border border-red-200 rounded-lg p-4 ${className}`}>
         <div className="flex items-center">
-          <ExclamationTriangleIcon className="w-5 h-5 text-red-600 mr-2" />
-          <span className="text-red-800">Access denied. This dashboard is only available for lecturers and administrators.</span>
+          <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
+          <span className="text-red-800">Akses ditolak. Dashboard ini hanya tersedia untuk dosen dan administrator.</span>
         </div>
       </div>
     );
@@ -111,7 +130,7 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
     return (
       <div className={`bg-red-50 border border-red-200 rounded-lg p-4 ${className}`}>
         <div className="flex items-center">
-          <ExclamationTriangleIcon className="w-5 h-5 text-red-600 mr-2" />
+          <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
           <span className="text-red-800 text-sm">{error}</span>
         </div>
       </div>
@@ -122,12 +141,6 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
     if (rate >= 80) return 'text-green-600';
     if (rate >= 60) return 'text-yellow-600';
     return 'text-red-600';
-  };
-
-  const getCompletionRateBg = (rate: number): string => {
-    if (rate >= 80) return 'bg-green-100';
-    if (rate >= 60) return 'bg-yellow-100';
-    return 'bg-red-100';
   };
 
   const sortedVideoStats = [...videoStats].sort((a, b) => 
@@ -150,17 +163,17 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-            <ChartBarIcon className="w-6 h-6 mr-2 text-blue-600" />
-            Video Progress & Attendance Analytics
+            <BarChart3 className="w-6 h-6 mr-2 text-blue-600" />
+            Analytics Video & Absensi
           </h2>
           <select
             value={selectedTimeRange}
             onChange={(e) => setSelectedTimeRange(e.target.value as 'week' | 'month' | 'all')}
             className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="all">All Time</option>
+            <option value="week">Minggu Ini</option>
+            <option value="month">Bulan Ini</option>
+            <option value="all">Semua Waktu</option>
           </select>
         </div>
 
@@ -168,42 +181,42 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-blue-50 rounded-lg p-4">
             <div className="flex items-center">
-              <PlayIcon className="w-8 h-8 text-blue-600" />
+              <Video className="w-8 h-8 text-blue-600" />
               <div className="ml-3">
                 <div className="text-2xl font-bold text-blue-900">{overallStats.totalVideos}</div>
-                <div className="text-sm text-blue-700">Total Videos</div>
+                <div className="text-sm text-blue-700">Total Video</div>
               </div>
             </div>
           </div>
           
           <div className="bg-green-50 rounded-lg p-4">
             <div className="flex items-center">
-              <UserGroupIcon className="w-8 h-8 text-green-600" />
+              <CheckCircle className="w-8 h-8 text-green-600" />
               <div className="ml-3">
                 <div className="text-2xl font-bold text-green-900">{overallStats.totalCompletions}</div>
-                <div className="text-sm text-green-700">Completions</div>
+                <div className="text-sm text-green-700">Video Selesai</div>
               </div>
             </div>
           </div>
           
           <div className="bg-purple-50 rounded-lg p-4">
             <div className="flex items-center">
-              <AcademicCapIcon className="w-8 h-8 text-purple-600" />
+              <GraduationCap className="w-8 h-8 text-purple-600" />
               <div className="ml-3">
                 <div className="text-2xl font-bold text-purple-900">{overallStats.totalAttendanceTriggered}</div>
-                <div className="text-sm text-purple-700">Auto Attendance</div>
+                <div className="text-sm text-purple-700">Absensi Otomatis</div>
               </div>
             </div>
           </div>
           
           <div className="bg-yellow-50 rounded-lg p-4">
             <div className="flex items-center">
-              <TrophyIcon className="w-8 h-8 text-yellow-600" />
+              <Trophy className="w-8 h-8 text-yellow-600" />
               <div className="ml-3">
                 <div className="text-2xl font-bold text-yellow-900">
                   {overallStats.avgCompletionRate.toFixed(1)}%
                 </div>
-                <div className="text-sm text-yellow-700">Avg Completion</div>
+                <div className="text-sm text-yellow-700">Rata-rata Selesai</div>
               </div>
             </div>
           </div>
@@ -214,32 +227,32 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
       {attendanceStats && (
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <AcademicCapIcon className="w-5 h-5 mr-2" />
-            Course Attendance Overview
+            <GraduationCap className="w-5 h-5 mr-2" />
+            Ringkasan Absensi Mata Kuliah
           </h3>
           
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">{attendanceStats.totalStudents}</div>
-              <div className="text-sm text-gray-600">Total Students</div>
+              <div className="text-sm text-gray-600">Total Mahasiswa</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{attendanceStats.presentCount}</div>
-              <div className="text-sm text-gray-600">Manual Present</div>
+              <div className="text-sm text-gray-600">Hadir Manual</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{attendanceStats.autoAttendanceCount}</div>
-              <div className="text-sm text-gray-600">Auto Present</div>
+              <div className="text-sm text-gray-600">Hadir Otomatis</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">{attendanceStats.absentCount}</div>
-              <div className="text-sm text-gray-600">Absent</div>
+              <div className="text-sm text-gray-600">Tidak Hadir</div>
             </div>
             <div className="text-center">
               <div className={`text-2xl font-bold ${getCompletionRateColor(attendanceStats.attendanceRate)}`}>
                 {attendanceStats.attendanceRate.toFixed(1)}%
               </div>
-              <div className="text-sm text-gray-600">Attendance Rate</div>
+              <div className="text-sm text-gray-600">Tingkat Kehadiran</div>
             </div>
           </div>
           
@@ -255,7 +268,7 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
               />
             </div>
             <p className="text-xs text-gray-500 mt-1 text-center">
-              Overall course attendance rate
+              Tingkat kehadiran keseluruhan mata kuliah
             </p>
           </div>
         </div>
@@ -265,8 +278,8 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <EyeIcon className="w-5 h-5 mr-2" />
-            Video Performance Details
+            <Eye className="w-5 h-5 mr-2" />
+            Detail Performa Video
           </h3>
         </div>
         
@@ -275,22 +288,22 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Video Title
+                  Judul Video
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Viewers
+                  Penonton
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Completed
+                  Selesai
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Completion Rate
+                  Tingkat Selesai
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Auto Attendance
+                  Absensi Otomatis
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Avg Progress
+                  Rata-rata Progress
                 </th>
               </tr>
             </thead>
@@ -299,7 +312,7 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
                 <tr key={video.materialId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <PlayIcon className="w-4 h-4 text-gray-400 mr-2" />
+                      <Play className="w-4 h-4 text-gray-400 mr-2" />
                       <div>
                         <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
                           {video.title}
@@ -315,7 +328,7 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <CheckCircleIcon className="w-4 h-4 text-green-500 mr-1" />
+                      <CheckCircle className="w-4 h-4 text-green-500 mr-1" />
                       <span className="text-sm text-gray-900">{video.completedViewers}</span>
                     </div>
                   </td>
@@ -337,7 +350,7 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <AcademicCapIcon className="w-4 h-4 text-blue-500 mr-1" />
+                      <GraduationCap className="w-4 h-4 text-blue-500 mr-1" />
                       <span className="text-sm text-gray-900">{video.attendanceTriggered}</span>
                       {video.attendanceStats && (
                         <span className="text-xs text-gray-500 ml-1">
@@ -358,9 +371,9 @@ const VideoProgressDashboard: React.FC<VideoProgressDashboardProps> = ({
           
           {videoStats.length === 0 && (
             <div className="text-center py-8">
-              <PlayIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No video data available yet.</p>
-              <p className="text-gray-400 text-sm">Upload videos and students will start generating analytics.</p>
+              <Video className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Belum ada data video tersedia.</p>
+              <p className="text-gray-400 text-sm">Upload video dan mahasiswa akan mulai menghasilkan analytics.</p>
             </div>
           )}
         </div>
