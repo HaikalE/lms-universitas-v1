@@ -2,9 +2,9 @@ import axios, { AxiosResponse, AxiosError } from 'axios';
 import { toast } from 'react-toastify';
 import { ApiError } from '../types';
 
-// FIXED: Remove /api from base URL since setGlobalPrefix('api') in backend handles it
-// This prevents duplicate /api/api/ in URLs
-const API_BASE_URL = 'http://localhost:3000';
+// CORRECTED: Restore /api in base URL since backend uses setGlobalPrefix('api')
+// All endpoints need /api/ prefix: auth/login → /api/auth/login
+const API_BASE_URL = 'http://localhost:3000/api';
 
 // Create axios instance
 const api = axios.create({
