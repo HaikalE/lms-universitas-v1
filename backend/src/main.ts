@@ -72,10 +72,13 @@ async function bootstrap() {
         res.setHeader('Content-Type', 'text/plain');
       } else if (path.endsWith('.mp4')) {
         res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Accept-Ranges', 'bytes'); // Enable video seeking
       } else if (path.endsWith('.webm')) {
         res.setHeader('Content-Type', 'video/webm');
+        res.setHeader('Accept-Ranges', 'bytes');
       } else if (path.endsWith('.mov')) {
         res.setHeader('Content-Type', 'video/quicktime');
+        res.setHeader('Accept-Ranges', 'bytes');
       }
       
       // Security headers
@@ -90,6 +93,44 @@ async function bootstrap() {
     dotfiles: 'deny', // Deny access to dotfiles for security
   }));
 
+  // FIXED: Add static file serving for /api/uploads to handle API route requests
+  app.use('/api/uploads', express.static(uploadsPath, {
+    setHeaders: (res, path) => {
+      // Set proper MIME types for video files with enhanced headers
+      if (path.endsWith('.mp4')) {
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Accept-Ranges', 'bytes'); // Enable video seeking for attendance
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache 24 hours
+      } else if (path.endsWith('.webm')) {
+        res.setHeader('Content-Type', 'video/webm');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      } else if (path.endsWith('.mov')) {
+        res.setHeader('Content-Type', 'video/quicktime');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      } else if (path.endsWith('.pdf')) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'inline');
+      } else if (path.endsWith('.docx') || path.endsWith('.doc')) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', 'attachment');
+      } else if (path.endsWith('.pptx') || path.endsWith('.ppt')) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+        res.setHeader('Content-Disposition', 'attachment');
+      }
+      
+      // Security headers for API uploads
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN'); // Allow embedding for video players
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+    },
+    maxAge: '1d',
+    etag: true,
+    lastModified: true,
+    dotfiles: 'deny',
+  }));
+
   // Global prefix for API
   app.setGlobalPrefix('api');
 
@@ -98,9 +139,11 @@ async function bootstrap() {
   
   console.log(`🚀 LMS Backend running on: http://localhost:${port}`);
   console.log(`📁 File uploads available at: http://localhost:${port}/uploads/`);
+  console.log(`📁 API file uploads available at: http://localhost:${port}/api/uploads/`);
   console.log(`🌐 API endpoints: http://localhost:${port}/api/`);
   console.log(`🔒 CORS enabled for origins:`, corsOrigins);
   console.log(`📄 Static file serving with proper MIME types enabled`);
+  console.log(`🎥 Video streaming with Accept-Ranges headers enabled for attendance tracking`);
 }
 
 bootstrap();
