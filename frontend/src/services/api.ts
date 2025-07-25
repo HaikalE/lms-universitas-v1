@@ -21,6 +21,20 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      // DEBUG: Log authorization header for video-progress requests
+      if (config.url?.includes('video-progress')) {
+        console.log('🔐 Adding auth header for video-progress:', {
+          url: config.url,
+          hasToken: !!token,
+          tokenLength: token.length,
+          authHeader: `Bearer ${token.substring(0, 20)}...`
+        });
+      }
+    } else {
+      // DEBUG: Log when no token found
+      if (config.url?.includes('video-progress')) {
+        console.log('⚠️ No token found for video-progress request');
+      }
     }
     
     // Check if the request data is FormData
@@ -54,10 +68,28 @@ api.interceptors.response.use(
     const { response } = error;
     console.error('🚨 API Response Error:', error.message, response?.status);
     
+    // DEBUG: Enhanced 401 error logging
     if (response?.status === 401) {
+      console.log('🔐 401 Unauthorized Error Details:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        hasAuthHeader: !!error.config?.headers?.Authorization,
+        responseData: response.data
+      });
+      
+      // Check if user data exists
+      const userData = localStorage.getItem('user');
+      const userObj = userData ? JSON.parse(userData) : null;
+      console.log('👤 Current user data:', {
+        hasUser: !!userObj,
+        userRole: userObj?.role,
+        userId: userObj?.id
+      });
+      
       // Unauthorized - clear token and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      toast.error('Sesi Anda telah berakhir. Silakan login ulang.');
       window.location.href = '/login';
       return Promise.reject(error);
     }
