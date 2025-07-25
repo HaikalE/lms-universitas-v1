@@ -201,7 +201,8 @@ const AssignmentDetailPage: React.FC = () => {
 
   const handleDownloadFile = () => {
     if (existingFilePath) {
-      window.open(`/api/uploads/${existingFilePath}`, '_blank');
+      // FIXED: Use direct /uploads/ path (no /api prefix)
+      window.open(`/uploads/${existingFilePath}`, '_blank');
     }
   };
 
@@ -536,7 +537,7 @@ const AssignmentDetailPage: React.FC = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => window.open(`/api/uploads/${submission.filePath}`, '_blank')}
+                              onClick={() => window.open(`/uploads/${submission.filePath}`, '_blank')}
                             >
                               <DownloadIcon className="w-4 h-4 mr-2" />
                               {submission.fileName}

@@ -172,11 +172,12 @@ const VideoPreviewPage: React.FC = () => {
     
     const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
     
-    // Check if filePath already contains full path or just filename
+    // FIXED: Use direct /uploads/ path (no /api prefix)
+    // Backend serves static files directly at /uploads without global prefix
     if (material.filePath.includes('course-materials')) {
-      return `${baseUrl}/api/uploads/${material.filePath}`;
+      return `${baseUrl}/uploads/${material.filePath}`;
     } else {
-      return `${baseUrl}/api/uploads/course-materials/${material.filePath}`;
+      return `${baseUrl}/uploads/course-materials/${material.filePath}`;
     }
   };
 
