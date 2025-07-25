@@ -50,6 +50,8 @@ export interface CourseMaterial {
   week: number;
   orderIndex: number;
   isVisible: boolean;
+  isAttendanceTrigger?: boolean;
+  attendanceThreshold?: number;
   createdAt: string;
   uploadedBy: {
     id: string;
