@@ -98,8 +98,19 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
   const getVideoUrl = () => {
     if (material.url) return material.url;
     if (material.filePath) {
-      // Assuming videos are served from uploads directory
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+      // FIXED: Use /api/uploads to match backend static file serving
+      // Backend serves files at both /uploads and /api/uploads
+      // Using /api/uploads ensures consistency with API base URL
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+      return `${baseUrl}/uploads/${material.filePath}`;
+    }
+    return '';
+  };
+
+  const getDownloadUrl = () => {
+    if (material.filePath) {
+      // For downloads, try both /uploads and /api/uploads for compatibility
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
       return `${baseUrl}/uploads/${material.filePath}`;
     }
     return '';
@@ -120,9 +131,8 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
   };
 
   const handleDownload = () => {
-    if (material.filePath) {
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-      const downloadUrl = `${baseUrl}/uploads/${material.filePath}`;
+    const downloadUrl = getDownloadUrl();
+    if (downloadUrl) {
       window.open(downloadUrl, '_blank');
     }
   };
@@ -251,7 +261,7 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
             onProgressUpdate={handleProgressUpdate}
             showAttendanceStatus={showAttendanceStatus}
             showProgressStats={true}
-            poster={material.filePath ? `${process.env.REACT_APP_API_URL}/uploads/thumbnails/${material.id}.jpg` : undefined}
+            poster={material.filePath ? `${process.env.REACT_APP_API_URL || 'http://localhost:3000/api'}/uploads/thumbnails/${material.id}.jpg` : undefined}
             className="rounded-lg overflow-hidden"
           />
           
