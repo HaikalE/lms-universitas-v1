@@ -97,60 +97,65 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
 
   const getVideoUrl = () => {
     if (material.url) return material.url;
-    if (material.filePath) {
-      // FIXED: Robust URL construction to prevent duplication
-      // Handle both development and production environments properly
-      
-      // Get base URL without trailing slash and /api suffix
-      let baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-      
-      // Remove trailing slash if exists
-      baseUrl = baseUrl.replace(/\/$/, '');
-      
-      // Ensure /api prefix exists (but don't duplicate it)
-      if (!baseUrl.endsWith('/api')) {
-        baseUrl += '/api';
-      }
-      
-      // Clean filePath - remove leading uploads/ if exists
-      let cleanFilePath = material.filePath;
-      if (cleanFilePath.startsWith('uploads/')) {
-        cleanFilePath = cleanFilePath.substring(8); // Remove 'uploads/' prefix
-      }
-      
-      // Construct final URL: baseUrl/uploads/cleanFilePath
-      const finalUrl = `${baseUrl}/uploads/${cleanFilePath}`;
-      
-      // DEBUG: Log URL construction for troubleshooting
-      console.log('🎥 Video URL construction:', {
-        originalFilePath: material.filePath,
-        baseUrl,
-        cleanFilePath,
-        finalUrl
-      });
-      
-      return finalUrl;
-    }
-    return '';
+    if (!material.filePath) return '';
+
+    // EMERGENCY FIX: Ultra-robust URL construction to handle ALL duplication cases
+    // Start from scratch to avoid any confusion
+    
+    const protocol = 'http://';
+    const host = 'localhost:3000';
+    const apiPath = 'api';
+    const uploadsPath = 'uploads';
+    
+    // Clean the filePath completely
+    let cleanPath = material.filePath;
+    
+    // Remove any leading slashes
+    cleanPath = cleanPath.replace(/^\/+/, '');
+    
+    // Remove uploads/ prefix if it exists (any variation)
+    cleanPath = cleanPath.replace(/^uploads\//, '');
+    cleanPath = cleanPath.replace(/^upload\//, '');
+    
+    // Construct the final URL step by step
+    const finalUrl = `${protocol}${host}/${apiPath}/${uploadsPath}/${cleanPath}`;
+    
+    // EXTRA SAFETY: Fix any double slashes except after protocol
+    const safeUrl = finalUrl.replace(/([^:]\/)\/+/g, '$1');
+    
+    // DEBUG: Enhanced logging
+    console.log('🎥 Emergency Video URL construction:', {
+      originalFilePath: material.filePath,
+      cleanPath,
+      finalUrl,
+      safeUrl,
+      protocol,
+      host,
+      apiPath,
+      uploadsPath
+    });
+    
+    return safeUrl;
   };
 
   const getDownloadUrl = () => {
-    if (material.filePath) {
-      // Use same logic as getVideoUrl for consistency
-      let baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-      baseUrl = baseUrl.replace(/\/$/, '');
-      if (!baseUrl.endsWith('/api')) {
-        baseUrl += '/api';
-      }
-      
-      let cleanFilePath = material.filePath;
-      if (cleanFilePath.startsWith('uploads/')) {
-        cleanFilePath = cleanFilePath.substring(8);
-      }
-      
-      return `${baseUrl}/uploads/${cleanFilePath}`;
-    }
-    return '';
+    if (!material.filePath) return '';
+    
+    // Use same ultra-robust logic as getVideoUrl
+    const protocol = 'http://';
+    const host = 'localhost:3000';
+    const apiPath = 'api';
+    const uploadsPath = 'uploads';
+    
+    let cleanPath = material.filePath;
+    cleanPath = cleanPath.replace(/^\/+/, '');
+    cleanPath = cleanPath.replace(/^uploads\//, '');
+    cleanPath = cleanPath.replace(/^upload\//, '');
+    
+    const finalUrl = `${protocol}${host}/${apiPath}/${uploadsPath}/${cleanPath}`;
+    const safeUrl = finalUrl.replace(/([^:]\/)\/+/g, '$1');
+    
+    return safeUrl;
   };
 
   const handleAttendanceTriggered = (progress: VideoProgressResponse) => {
