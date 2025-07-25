@@ -32,7 +32,10 @@ import {
   UserMinus,
   Mail,
   Filter,
-  X
+  X,
+  AcademicCapIcon,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -59,6 +62,8 @@ interface MaterialFormData {
   orderIndex: number;
   file?: File;
   url?: string;
+  isAttendanceTrigger: boolean;
+  attendanceThreshold: number;
 }
 
 interface StudentFormData {
@@ -111,6 +116,8 @@ const CourseDetailPage: React.FC = () => {
     type: MaterialType.PDF,
     week: 1,
     orderIndex: 1,
+    isAttendanceTrigger: false,
+    attendanceThreshold: 80,
   });
 
   const [studentForm, setStudentForm] = useState<StudentFormData>({
@@ -317,6 +324,13 @@ const CourseDetailPage: React.FC = () => {
       errors.orderIndex = 'Urutan harus minimal 1';
     }
 
+    // Validate attendance threshold for video materials
+    if (materialForm.type === MaterialType.VIDEO && materialForm.isAttendanceTrigger) {
+      if (!materialForm.attendanceThreshold || materialForm.attendanceThreshold < 1 || materialForm.attendanceThreshold > 100) {
+        errors.attendanceThreshold = 'Threshold absensi harus antara 1-100%';
+      }
+    }
+
     // Validate file or URL based on type
     if (materialForm.type === MaterialType.LINK) {
       if (!materialForm.url?.trim()) {
@@ -360,6 +374,12 @@ const CourseDetailPage: React.FC = () => {
       formData.append('orderIndex', materialForm.orderIndex.toString());
       formData.append('isVisible', 'true');
       
+      // Add attendance trigger fields for video materials
+      if (materialForm.type === MaterialType.VIDEO) {
+        formData.append('isAttendanceTrigger', materialForm.isAttendanceTrigger.toString());
+        formData.append('attendanceThreshold', materialForm.attendanceThreshold.toString());
+      }
+      
       if (materialForm.type === MaterialType.LINK && materialForm.url) {
         formData.append('url', materialForm.url.trim());
       } else if (materialForm.file) {
@@ -373,6 +393,8 @@ const CourseDetailPage: React.FC = () => {
         orderIndex: materialForm.orderIndex,
         hasFile: !!materialForm.file,
         url: materialForm.url,
+        isAttendanceTrigger: materialForm.isAttendanceTrigger,
+        attendanceThreshold: materialForm.attendanceThreshold,
         isEditing: !!editingMaterial
       });
 
@@ -417,6 +439,8 @@ const CourseDetailPage: React.FC = () => {
       type: MaterialType.PDF,
       week: 1,
       orderIndex: 1,
+      isAttendanceTrigger: false,
+      attendanceThreshold: 80,
     });
     setEditingMaterial(null);
     setFormErrors({});
@@ -747,6 +771,12 @@ const CourseDetailPage: React.FC = () => {
                                       {material.fileSize && (
                                         <span>{(material.fileSize / 1024 / 1024).toFixed(2)} MB</span>
                                       )}
+                                      {material.isAttendanceTrigger && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                          <AcademicCapIcon className="w-3 h-3 mr-1" />
+                                          Attendance Trigger ({material.attendanceThreshold || 80}%)
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -796,6 +826,8 @@ const CourseDetailPage: React.FC = () => {
                                                 week: material.week,
                                                 orderIndex: material.orderIndex || 1,
                                                 url: material.url || '',
+                                                isAttendanceTrigger: material.isAttendanceTrigger || false,
+                                                attendanceThreshold: material.attendanceThreshold || 80,
                                               });
                                               setMaterialModalOpen(true);
                                               setShowActionMenu(null);
@@ -1308,7 +1340,7 @@ const CourseDetailPage: React.FC = () => {
         </Modal>
       )}
 
-      {/* Material Form Modal - Keep existing implementation */}
+      {/* Material Form Modal - UPDATED WITH ATTENDANCE TRIGGER FIELDS */}
       {materialModalOpen && (
         <Modal
           onClose={() => {
@@ -1316,6 +1348,7 @@ const CourseDetailPage: React.FC = () => {
             resetMaterialForm();
           }}
           title={editingMaterial ? 'Edit Materi' : 'Tambah Materi'}
+          size="lg"
         >
           <form onSubmit={handleMaterialSubmit} className="space-y-4">
             <div>
@@ -1426,6 +1459,79 @@ const CourseDetailPage: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* ATTENDANCE TRIGGER SETTINGS - Only show for VIDEO type */}
+            {materialForm.type === MaterialType.VIDEO && (
+              <div className="border-2 border-blue-100 rounded-lg p-4 bg-blue-50">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <AcademicCapIcon className="w-5 h-5 text-blue-600" />
+                    <h3 className="font-medium text-gray-900">Pengaturan Absensi Otomatis</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMaterialForm({
+                      ...materialForm, 
+                      isAttendanceTrigger: !materialForm.isAttendanceTrigger
+                    })}
+                    className={`p-1 rounded-full transition-colors ${
+                      materialForm.isAttendanceTrigger 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-300 text-gray-600'
+                    }`}
+                  >
+                    {materialForm.isAttendanceTrigger ? (
+                      <ToggleRight className="w-6 h-6" />
+                    ) : (
+                      <ToggleLeft className="w-6 h-6" />
+                    )}
+                  </button>
+                </div>
+                
+                <p className="text-sm text-gray-600 mb-4">
+                  Aktifkan untuk mencatat absensi mahasiswa secara otomatis ketika mereka menyelesaikan video ini.
+                </p>
+
+                {materialForm.isAttendanceTrigger && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Threshold Penyelesaian (%) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={materialForm.attendanceThreshold}
+                        onChange={(e) => {
+                          setMaterialForm({
+                            ...materialForm, 
+                            attendanceThreshold: parseInt(e.target.value) || 80
+                          });
+                          if (formErrors.attendanceThreshold) {
+                            setFormErrors({...formErrors, attendanceThreshold: ''});
+                          }
+                        }}
+                        className={`w-24 ${formErrors.attendanceThreshold ? 'border-red-500' : ''}`}
+                        required
+                      />
+                      <span className="text-sm text-gray-600">
+                        % video harus ditonton untuk mencatat absensi
+                      </span>
+                    </div>
+                    {formErrors.attendanceThreshold && (
+                      <p className="text-red-500 text-xs mt-1 flex items-center">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        {formErrors.attendanceThreshold}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">
+                      💡 Recommended: 80% - Mahasiswa perlu menonton setidaknya 80% video untuk absensi otomatis
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {materialForm.type === MaterialType.LINK ? (
               <div>
