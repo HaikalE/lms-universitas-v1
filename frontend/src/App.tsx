@@ -13,6 +13,7 @@ import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import CoursesPage from './pages/courses/CoursesPage';
 import CourseDetailPage from './pages/courses/CourseDetailPage';
+import VideoPreviewPage from './pages/courses/VideoPreviewPage';
 import CreateCoursePage from './pages/courses/CreateCoursePage';
 import AssignmentsPage from './pages/assignments/AssignmentsPage';
 import AssignmentDetailPage from './pages/assignments/AssignmentDetailPage';
@@ -65,6 +66,7 @@ function App() {
                         {/* COURSES ROUTES - SPECIFIC ROUTES BEFORE DYNAMIC ROUTES */}
                         <Route path="/courses" element={<CoursesPage />} />
                         <Route path="/courses/create" element={<CreateCoursePage />} />
+                        <Route path="/courses/:courseId/materials/:materialId/video" element={<VideoPreviewPage />} />
                         <Route path="/courses/:id" element={<CourseDetailPage />} />
                         <Route path="/courses/:courseId/assignments/create" element={<CreateAssignmentPage />} />
                         
