@@ -99,63 +99,21 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
     if (material.url) return material.url;
     if (!material.filePath) return '';
 
-    // EMERGENCY FIX: Ultra-robust URL construction to handle ALL duplication cases
-    // Start from scratch to avoid any confusion
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
     
-    const protocol = 'http://';
-    const host = 'localhost:3000';
-    const apiPath = 'api';
-    const uploadsPath = 'uploads';
-    
-    // Clean the filePath completely
-    let cleanPath = material.filePath;
-    
-    // Remove any leading slashes
-    cleanPath = cleanPath.replace(/^\/+/, '');
-    
-    // Remove uploads/ prefix if it exists (any variation)
-    cleanPath = cleanPath.replace(/^uploads\//, '');
-    cleanPath = cleanPath.replace(/^upload\//, '');
-    
-    // Construct the final URL step by step
-    const finalUrl = `${protocol}${host}/${apiPath}/${uploadsPath}/${cleanPath}`;
-    
-    // EXTRA SAFETY: Fix any double slashes except after protocol
-    const safeUrl = finalUrl.replace(/([^:]\/)\/+/g, '$1');
-    
-    // DEBUG: Enhanced logging
-    console.log('🎥 Emergency Video URL construction:', {
-      originalFilePath: material.filePath,
-      cleanPath,
-      finalUrl,
-      safeUrl,
-      protocol,
-      host,
-      apiPath,
-      uploadsPath
-    });
-    
-    return safeUrl;
+    // FIXED: filePath already contains the full path (e.g., "uploads/course-materials/filename.mp4")
+    // Backend serves static files directly without global prefix
+    return `${baseUrl}/${material.filePath}`;
   };
 
   const getDownloadUrl = () => {
     if (!material.filePath) return '';
     
-    // Use same ultra-robust logic as getVideoUrl
-    const protocol = 'http://';
-    const host = 'localhost:3000';
-    const apiPath = 'api';
-    const uploadsPath = 'uploads';
+    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
     
-    let cleanPath = material.filePath;
-    cleanPath = cleanPath.replace(/^\/+/, '');
-    cleanPath = cleanPath.replace(/^uploads\//, '');
-    cleanPath = cleanPath.replace(/^upload\//, '');
-    
-    const finalUrl = `${protocol}${host}/${apiPath}/${uploadsPath}/${cleanPath}`;
-    const safeUrl = finalUrl.replace(/([^:]\/)\/+/g, '$1');
-    
-    return safeUrl;
+    // FIXED: filePath already contains the full path (e.g., "uploads/course-materials/filename.mp4")
+    // Backend serves static files directly without global prefix
+    return `${baseUrl}/${material.filePath}`;
   };
 
   const handleAttendanceTriggered = (progress: VideoProgressResponse) => {
