@@ -51,6 +51,7 @@ import { Course, CourseMaterial, MaterialType, Assignment, ForumPost, UserRole }
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/date';
+import AttendanceTriggerDebug from '../../components/debug/AttendanceTriggerDebug';
 
 type TabType = 'overview' | 'materials' | 'assignments' | 'forums' | 'students' | 'settings';
 
@@ -1340,7 +1341,7 @@ const CourseDetailPage: React.FC = () => {
         </Modal>
       )}
 
-      {/* Material Form Modal - UPDATED WITH ATTENDANCE TRIGGER FIELDS */}
+      {/* Material Form Modal - UPDATED WITH ATTENDANCE TRIGGER FIELDS + DEBUG */}
       {materialModalOpen && (
         <Modal
           onClose={() => {
@@ -1351,6 +1352,17 @@ const CourseDetailPage: React.FC = () => {
           size="lg"
         >
           <form onSubmit={handleMaterialSubmit} className="space-y-6">
+            {/* DEBUG COMPONENT - TEMPORARY */}
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h4 className="font-bold text-yellow-800 mb-2">🐛 DEBUG INFO</h4>
+              <AttendanceTriggerDebug />
+              <div className="mt-4 text-sm">
+                <p><strong>Current Form Type:</strong> {materialForm.type}</p>
+                <p><strong>Is Video?:</strong> {materialForm.type === MaterialType.VIDEO ? '✅ YES' : '❌ NO'}</p>
+                <p><strong>Should Show Section?:</strong> {materialForm.type === MaterialType.VIDEO ? '✅ YES' : '❌ NO'}</p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Judul Materi <span className="text-red-500">*</span>
@@ -1392,6 +1404,7 @@ const CourseDetailPage: React.FC = () => {
               <Select
                 value={materialForm.type}
                 onChange={(e) => {
+                  console.log('🔄 Type changed to:', e.target.value);
                   setMaterialForm({...materialForm, type: e.target.value as MaterialType});
                   if (formErrors.type) setFormErrors({...formErrors, type: ''});
                 }}
@@ -1466,7 +1479,7 @@ const CourseDetailPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <GraduationCap className="w-5 h-5 text-blue-600" />
-                    <h3 className="font-medium text-gray-900">Pengaturan Absensi Otomatis</h3>
+                    <h3 className="font-medium text-gray-900">🎯 Pengaturan Absensi Otomatis</h3>
                   </div>
                   <button
                     type="button"
@@ -1487,7 +1500,7 @@ const CourseDetailPage: React.FC = () => {
                 </div>
                 
                 <p className="text-sm text-gray-600">
-                  Aktifkan untuk mencatat absensi mahasiswa secara otomatis ketika mereka menyelesaikan video ini.
+                  ✅ SUCCESS! Section ini muncul karena type = VIDEO
                 </p>
 
                 {materialForm.isAttendanceTrigger && (
