@@ -33,7 +33,7 @@ import {
   Mail,
   Filter,
   X,
-  AcademicCapIcon,
+  GraduationCap,
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
@@ -773,7 +773,7 @@ const CourseDetailPage: React.FC = () => {
                                       )}
                                       {material.isAttendanceTrigger && (
                                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                          <AcademicCapIcon className="w-3 h-3 mr-1" />
+                                          <GraduationCap className="w-3 h-3 mr-1" />
                                           Attendance Trigger ({material.attendanceThreshold || 80}%)
                                         </span>
                                       )}
@@ -1350,7 +1350,7 @@ const CourseDetailPage: React.FC = () => {
           title={editingMaterial ? 'Edit Materi' : 'Tambah Materi'}
           size="lg"
         >
-          <form onSubmit={handleMaterialSubmit} className="space-y-4">
+          <form onSubmit={handleMaterialSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Judul Materi <span className="text-red-500">*</span>
@@ -1462,10 +1462,10 @@ const CourseDetailPage: React.FC = () => {
 
             {/* ATTENDANCE TRIGGER SETTINGS - Only show for VIDEO type */}
             {materialForm.type === MaterialType.VIDEO && (
-              <div className="border-2 border-blue-100 rounded-lg p-4 bg-blue-50">
-                <div className="flex items-center justify-between mb-4">
+              <div className="border-2 border-blue-100 rounded-lg p-4 bg-blue-50 space-y-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <AcademicCapIcon className="w-5 h-5 text-blue-600" />
+                    <GraduationCap className="w-5 h-5 text-blue-600" />
                     <h3 className="font-medium text-gray-900">Pengaturan Absensi Otomatis</h3>
                   </div>
                   <button
@@ -1474,21 +1474,19 @@ const CourseDetailPage: React.FC = () => {
                       ...materialForm, 
                       isAttendanceTrigger: !materialForm.isAttendanceTrigger
                     })}
-                    className={`p-1 rounded-full transition-colors ${
-                      materialForm.isAttendanceTrigger 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-300 text-gray-600'
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      materialForm.isAttendanceTrigger ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
-                    {materialForm.isAttendanceTrigger ? (
-                      <ToggleRight className="w-6 h-6" />
-                    ) : (
-                      <ToggleLeft className="w-6 h-6" />
-                    )}
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        materialForm.isAttendanceTrigger ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
                   </button>
                 </div>
                 
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-gray-600">
                   Aktifkan untuk mencatat absensi mahasiswa secara otomatis ketika mereka menyelesaikan video ini.
                 </p>
 
