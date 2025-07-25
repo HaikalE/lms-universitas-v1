@@ -2,8 +2,9 @@ import axios, { AxiosResponse, AxiosError } from 'axios';
 import { toast } from 'react-toastify';
 import { ApiError } from '../types';
 
-// Force localhost API URL for Docker environment
-const API_BASE_URL = 'http://localhost:3000/api';
+// FIXED: Remove /api from base URL since setGlobalPrefix('api') in backend handles it
+// This prevents duplicate /api/api/ in URLs
+const API_BASE_URL = 'http://localhost:3000';
 
 // Create axios instance
 const api = axios.create({
