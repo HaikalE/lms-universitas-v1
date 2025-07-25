@@ -23,6 +23,7 @@ const VideoPreviewPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [videoProgress, setVideoProgress] = useState<number>(0);
   const [attendanceRecorded, setAttendanceRecorded] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
 
   useEffect(() => {
     if (courseId && materialId) {
@@ -57,11 +58,19 @@ const VideoPreviewPage: React.FC = () => {
       // Fetch existing video progress if any
       try {
         const progressData = await videoProgressService.getProgress(materialId!);
-        setVideoProgress(progressData.watchedPercentage || 0);
-        setAttendanceRecorded(progressData.attendanceRecorded || false);
+        if (progressData) {
+          setVideoProgress(progressData.watchedPercentage || 0);
+          setAttendanceRecorded(progressData.hasTriggeredAttendance || false);
+          
+          console.log('📊 Loaded existing progress:', {
+            percentage: progressData.watchedPercentage,
+            attendance: progressData.hasTriggeredAttendance,
+            currentTime: progressData.currentTime
+          });
+        }
       } catch (error) {
         // Progress doesn't exist yet - this is normal for first time viewing
-        console.log('No existing progress found');
+        console.log('No existing progress found, starting fresh');
       }
       
     } catch (error: any) {
@@ -75,14 +84,30 @@ const VideoPreviewPage: React.FC = () => {
 
   const handleVideoProgress = async (percentage: number, currentTime: number) => {
     try {
-      // Update local state
+      // Update local state immediately for better UX
       setVideoProgress(percentage);
       
-      // Send progress to backend
-      await videoProgressService.updateProgress(materialId!, {
+      // Throttle backend updates to every 5 seconds to reduce server load
+      const now = Date.now();
+      if (now - lastUpdateTime < 5000) {
+        return;
+      }
+      
+      setLastUpdateTime(now);
+      
+      // Send progress to backend with proper data structure
+      await videoProgressService.updateProgress({
+        materialId: materialId!,
         currentTime,
         watchedPercentage: percentage,
-        lastWatchedAt: new Date()
+        watchedSeconds: currentTime,
+      });
+      
+      console.log('📊 Progress updated:', {
+        materialId,
+        currentTime,
+        percentage: Math.round(percentage),
+        timestamp: new Date().toLocaleTimeString()
       });
       
       // Check if attendance should be recorded
@@ -90,28 +115,53 @@ const VideoPreviewPage: React.FC = () => {
         const threshold = material.attendanceThreshold || 80;
         if (percentage >= threshold) {
           setAttendanceRecorded(true);
-          toast.success(`🎉 Attendance recorded! You watched ${Math.round(percentage)}% of the video.`);
+          toast.success(`🎉 Absensi tercatat! Anda telah menonton ${Math.round(percentage)}% dari video.`, {
+            duration: 5000,
+            icon: '✅'
+          });
+          
+          console.log('🎯 Attendance triggered!', {
+            threshold,
+            actualPercentage: percentage,
+            material: material.title
+          });
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating video progress:', error);
+      // Don't show error to user unless it's critical
+      if (error.response?.status === 401) {
+        toast.error('Sesi telah berakhir, silakan login kembali');
+        navigate('/login');
+      }
     }
   };
 
   const handleVideoComplete = async () => {
     try {
-      await videoProgressService.updateProgress(materialId!, {
+      await videoProgressService.updateProgress({
+        materialId: materialId!,
+        currentTime: 0, // Video completed
         watchedPercentage: 100,
-        isCompleted: true,
-        completedAt: new Date()
+        watchedSeconds: 0,
       });
       
-      toast.success('🎉 Video completed successfully!');
+      toast.success('🎉 Video selesai ditonton!', {
+        duration: 5000,
+        icon: '🏆'
+      });
       
       if (material?.isAttendanceTrigger && !attendanceRecorded) {
         setAttendanceRecorded(true);
-        toast.success('✅ Attendance has been recorded!');
+        toast.success('✅ Absensi telah tercatat!', {
+          duration: 5000,
+        });
       }
+      
+      console.log('🏁 Video completed:', {
+        materialId,
+        material: material?.title
+      });
     } catch (error) {
       console.error('Error marking video as complete:', error);
     }
@@ -121,7 +171,13 @@ const VideoPreviewPage: React.FC = () => {
     if (!material || !material.filePath) return '';
     
     const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-    return `${baseUrl}/api/uploads/course-materials/${material.filePath.split('/').pop()}`;
+    
+    // Check if filePath already contains full path or just filename
+    if (material.filePath.includes('course-materials')) {
+      return `${baseUrl}/api/uploads/${material.filePath}`;
+    } else {
+      return `${baseUrl}/api/uploads/course-materials/${material.filePath}`;
+    }
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -171,7 +227,7 @@ const VideoPreviewPage: React.FC = () => {
                 className="flex items-center"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Course
+                Kembali ke Course
               </Button>
               
               <div className="hidden sm:flex items-center space-x-2">
@@ -179,7 +235,7 @@ const VideoPreviewPage: React.FC = () => {
                 <span className="text-sm text-gray-600">{course.name}</span>
                 <span className="text-gray-400">•</span>
                 <Badge variant="outline" className="text-xs">
-                  Week {material.week}
+                  Minggu {material.week}
                 </Badge>
               </div>
             </div>
@@ -189,12 +245,12 @@ const VideoPreviewPage: React.FC = () => {
                 <Badge 
                   className={`text-xs ${attendanceRecorded ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}
                 >
-                  {attendanceRecorded ? '✅ Attendance Recorded' : '🎯 Attendance Required'}
+                  {attendanceRecorded ? '✅ Absensi Tercatat' : '🎯 Perlu Absensi'}
                 </Badge>
               )}
               
               <Badge variant="outline" className="text-xs">
-                {Math.round(videoProgress)}% Watched
+                {Math.round(videoProgress)}% Ditonton
               </Badge>
             </div>
           </div>
@@ -209,18 +265,27 @@ const VideoPreviewPage: React.FC = () => {
               <CardContent className="p-0">
                 {/* Video Player */}
                 <div className="aspect-video bg-black">
-                  <VideoPlayer
-                    src={videoUrl}
-                    title={material.title}
-                    description={material.description}
-                    onProgress={handleVideoProgress}
-                    onComplete={handleVideoComplete}
-                    className="w-full h-full"
-                    autoPlay={false}
-                    showControls={true}
-                    allowFullscreen={true}
-                    watermark={course.name}
-                  />
+                  {videoUrl ? (
+                    <VideoPlayer
+                      src={videoUrl}
+                      title={material.title}
+                      description={material.description}
+                      onProgress={handleVideoProgress}
+                      onComplete={handleVideoComplete}
+                      className="w-full h-full"
+                      autoPlay={false}
+                      showControls={true}
+                      allowFullscreen={true}
+                      watermark={course.name}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-white">
+                      <div className="text-center">
+                        <AlertCircle className="w-12 h-12 mx-auto mb-4" />
+                        <p>Video tidak dapat dimuat</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Video Info */}
@@ -244,7 +309,7 @@ const VideoPreviewPage: React.FC = () => {
                         </div>
                         <div className="flex items-center">
                           <Clock className="w-4 h-4 mr-1" />
-                          <span>Uploaded {formatDate(material.createdAt)}</span>
+                          <span>Diunggah {formatDate(material.createdAt)}</span>
                         </div>
                         {material.fileSize && (
                           <div className="flex items-center">
@@ -275,13 +340,13 @@ const VideoPreviewPage: React.FC = () => {
             {/* Progress Card */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Your Progress</CardTitle>
+                <CardTitle className="text-lg">Progress Anda</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span>Watched</span>
+                      <span>Ditonton</span>
                       <span className="font-medium">{Math.round(videoProgress)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
@@ -295,15 +360,15 @@ const VideoPreviewPage: React.FC = () => {
                   {material.isAttendanceTrigger && (
                     <div className="p-3 bg-blue-50 rounded-lg">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-blue-800 font-medium">Attendance Required</span>
+                        <span className="text-blue-800 font-medium">Perlu Absensi</span>
                         <span className="text-blue-600">
                           {material.attendanceThreshold || 80}%
                         </span>
                       </div>
                       <div className="mt-2 text-xs text-blue-600">
                         {attendanceRecorded 
-                          ? '✅ Attendance recorded successfully!'
-                          : `Watch ${material.attendanceThreshold || 80}% to record attendance`
+                          ? '✅ Absensi telah tercatat!'
+                          : `Tonton ${material.attendanceThreshold || 80}% untuk mencatat absensi`
                         }
                       </div>
                     </div>
@@ -315,7 +380,7 @@ const VideoPreviewPage: React.FC = () => {
             {/* Course Info */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Course Info</CardTitle>
+                <CardTitle className="text-lg">Info Mata Kuliah</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -331,7 +396,7 @@ const VideoPreviewPage: React.FC = () => {
                   
                   <div className="flex items-center text-sm text-gray-600">
                     <BookOpen className="w-4 h-4 mr-2" />
-                    <span>{course.credits} Credits</span>
+                    <span>{course.credits} SKS</span>
                   </div>
                   
                   <Button
@@ -340,7 +405,7 @@ const VideoPreviewPage: React.FC = () => {
                     onClick={() => navigate(`/courses/${courseId}`)}
                     className="w-full mt-4"
                   >
-                    View All Materials
+                    Lihat Semua Materi
                   </Button>
                 </div>
               </CardContent>
@@ -349,28 +414,41 @@ const VideoPreviewPage: React.FC = () => {
             {/* Material Details */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Material Details</CardTitle>
+                <CardTitle className="text-lg">Detail Materi</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Week</span>
+                    <span className="text-gray-600">Minggu</span>
                     <span className="font-medium">{material.week}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Order</span>
+                    <span className="text-gray-600">Urutan</span>
                     <span className="font-medium">#{material.orderIndex}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Type</span>
+                    <span className="text-gray-600">Tipe</span>
                     <Badge variant="outline" className="text-xs">
                       {material.type.toUpperCase()}
                     </Badge>
                   </div>
                   {material.fileSize && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Size</span>
+                      <span className="text-gray-600">Ukuran</span>
                       <span className="font-medium">{formatFileSize(material.fileSize)}</span>
+                    </div>
+                  )}
+                  {material.isAttendanceTrigger && (
+                    <div className="pt-3 border-t">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Threshold</span>
+                        <span className="font-medium text-blue-600">
+                          {material.attendanceThreshold || 80}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Video ini akan mencatat absensi otomatis
+                      </p>
                     </div>
                   )}
                 </div>
