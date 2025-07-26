@@ -3,14 +3,14 @@ FROM node:16-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies yang diperlukan
+# Install dependencies yang diperlukan untuk native modules
 RUN apk add --no-cache python3 make g++
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies dengan optimasi
-RUN npm ci --only=production --silent
+# Install ALL dependencies (termasuk devDependencies untuk build)
+RUN npm ci --legacy-peer-deps
 
 # Copy semua source files
 COPY . .
