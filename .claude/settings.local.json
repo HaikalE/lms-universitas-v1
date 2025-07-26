@@ -16,7 +16,10 @@
       "Bash(node:*)",
       "Bash(PORT=3004 npm start)",
       "Bash(pkill:*)",
-      "Bash(sudo pkill:*)"
+      "Bash(sudo pkill:*)",
+      "Bash(sudo service:*)",
+      "Bash(createdb:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": []
   }

@@ -414,7 +414,7 @@ export class AttendanceService {
     startDate?: string,
     endDate?: string,
   ): Promise<{
-    attendancesByWeek: any[];
+    attendancesByWeek: any;
     students: any[];
     weeklyStats: any[];
   }> {

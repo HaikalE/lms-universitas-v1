@@ -9,12 +9,12 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Clean npm cache dan install dependencies dengan force flag untuk mengatasi konflik
+# Clean install dengan mengatasi konflik ajv
 RUN npm cache clean --force && \
-    npm install --legacy-peer-deps --force --no-audit --no-fund
-
-# Fix ajv dependency issue secara eksplisit
-RUN npm install ajv@^6.12.6 ajv-keywords@^3.5.2 --legacy-peer-deps --force
+    rm -rf node_modules package-lock.json && \
+    npm install --legacy-peer-deps --force --no-audit --no-fund && \
+    npm uninstall ajv ajv-formats ajv-keywords && \
+    npm install ajv@^6.12.6 ajv-formats@^1.6.1 ajv-keywords@^3.5.2 --legacy-peer-deps --force
 
 # Copy semua source files
 COPY . .
