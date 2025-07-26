@@ -1,60 +1,48 @@
-# ULTIMATE WORKING DOCKERFILE - TESTED & GUARANTEED
+# Multi-stage build untuk React App
 FROM node:16-alpine AS builder
 
 WORKDIR /app
 
-# Install absolutely minimal dependencies
+# Install dependencies yang diperlukan
 RUN apk add --no-cache python3 make g++
 
-# Copy package files first
+# Copy package files
 COPY package*.json ./
 
-# Force clean install
-RUN rm -rf node_modules package-lock.json && \
-    npm cache clean --force && \
-    npm install --legacy-peer-deps --no-audit --no-fund
+# Install dependencies dengan optimasi
+RUN npm ci --only=production --silent
 
-# Copy all source code
+# Copy semua source files
 COPY . .
 
-# Environment variables
+# Set environment variables untuk production build
 ENV NODE_ENV=production
 ENV GENERATE_SOURCEMAP=false
 ENV CI=false
 ENV SKIP_PREFLIGHT_CHECK=true
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Build with absolute fallback
-RUN echo "=== ATTEMPTING REACT BUILD ===" && \
-    npm run build:simple || \
-    (echo "Simple build failed, trying basic build..." && npx react-scripts build) || \
-    (echo "Creating fallback build..." && \
-     mkdir -p build && \
-     echo '<!DOCTYPE html><html><head><title>LMS Universitas</title><style>body{font-family:Arial;margin:40px;text-align:center}h1{color:#1f2937}button{background:#3b82f6;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer}</style></head><body><h1>🎓 LMS Universitas</h1><p>Learning Management System</p><p>Status: <strong>Loading...</strong></p><button onclick="window.location.reload()">Refresh</button><script>setTimeout(()=>{window.location.reload()},10000)</script></body></html>' > build/index.html)
+# Build aplikasi React
+RUN npm run build
 
-# Ensure build directory exists with content
-RUN ls -la build/ && \
-    if [ ! -f build/index.html ]; then \
-      mkdir -p build && \
-      echo '<!DOCTYPE html><html><head><title>LMS</title></head><body><h1>LMS Universitas</h1><p>Application is starting...</p></body></html>' > build/index.html; \
-    fi
-
-# Production stage
+# Production stage dengan nginx
 FROM nginx:alpine
 
-# Copy nginx config
+# Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy build files
-COPY --from=builder /app/build /usr/share/nginx/html/
+# Copy built React app dari builder stage
+COPY --from=builder /app/build /usr/share/nginx/html
 
-# Verify files are copied
-RUN ls -la /usr/share/nginx/html/ && \
-    if [ ! -f /usr/share/nginx/html/index.html ]; then \
-      echo '<!DOCTYPE html><html><head><title>LMS Error</title></head><body><h1>Build Error</h1><p>React build failed</p></body></html>' > /usr/share/nginx/html/index.html; \
-    fi
+# Ensure proper permissions
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html
 
-# Remove default nginx files if they exist
-RUN rm -f /usr/share/nginx/html/50x.html
+# Health check untuk memastikan nginx berjalan
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
 EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]
