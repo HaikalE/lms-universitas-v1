@@ -79,6 +79,28 @@ export class CreateCourseMaterialDto {
   @IsBoolean({ message: 'Visibilitas harus berupa boolean' })
   isVisible?: boolean = true;
 
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return value;
+  })
+  @IsBoolean({ message: 'Attendance trigger harus berupa boolean' })
+  isAttendanceTrigger?: boolean = false;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? value : parsed;
+    }
+    return value;
+  })
+  @IsNumber({}, { message: 'Attendance threshold harus berupa angka' })
+  @Min(0, { message: 'Attendance threshold minimal 0' })
+  attendanceThreshold?: number;
+
   // Allow file field from multer - this will be ignored by validation
   @Allow()
   file?: any;

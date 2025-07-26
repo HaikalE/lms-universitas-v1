@@ -1,5 +1,5 @@
 # Multi-stage build untuk React App
-FROM node:16-alpine AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
@@ -9,12 +9,10 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Clean install dengan mengatasi konflik ajv
+# Clean install dependencies
 RUN npm cache clean --force && \
     rm -rf node_modules package-lock.json && \
-    npm install --legacy-peer-deps --force --no-audit --no-fund && \
-    npm uninstall ajv ajv-formats ajv-keywords && \
-    npm install ajv@^6.12.6 ajv-formats@^1.6.1 ajv-keywords@^3.5.2 --legacy-peer-deps --force
+    npm install --no-audit --no-fund
 
 # Copy semua source files
 COPY . .
@@ -26,11 +24,13 @@ ENV CI=false
 ENV SKIP_PREFLIGHT_CHECK=true
 ENV TSC_COMPILE_ON_ERROR=true
 ENV DISABLE_ESLINT_PLUGIN=true
+ENV ESLINT_NO_DEV_ERRORS=true
+ENV DISABLE_NEW_JSX_TRANSFORM=true
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
 # Build aplikasi React dengan fallback
-RUN npm run build || npm run build:simple || npm run build:force
+RUN npm run build:minimal || npm run build || npm run build:simple || npm run build:force
 
 # Pastikan build folder ada dan berisi file
 RUN ls -la build/ && \

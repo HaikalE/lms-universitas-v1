@@ -44,6 +44,8 @@ interface RawMaterialBody {
   week?: string | number;
   orderIndex?: string | number;
   isVisible?: string | boolean;
+  isAttendanceTrigger?: string | boolean;
+  attendanceThreshold?: string | number;
 }
 
 // DTO untuk lecturer management
@@ -422,6 +424,8 @@ export class CoursesController {
         week: validateAndConvertNumber(body.week, 'Minggu', 1),
         orderIndex: validateAndConvertNumber(body.orderIndex, 'Urutan', 1),
         isVisible: validateAndConvertBoolean(body.isVisible),
+        isAttendanceTrigger: validateAndConvertBoolean(body.isAttendanceTrigger),
+        attendanceThreshold: validateAndConvertNumber(body.attendanceThreshold, 'Attendance Threshold'),
       };
 
       console.log('✅ Processed DTO:', JSON.stringify(createMaterialDto, null, 2));
@@ -637,6 +641,8 @@ export class CoursesController {
         week: validateAndConvertNumber(body.week, 'Minggu', 1),
         orderIndex: validateAndConvertNumber(body.orderIndex, 'Urutan', 1),
         isVisible: validateAndConvertBoolean(body.isVisible),
+        isAttendanceTrigger: validateAndConvertBoolean(body.isAttendanceTrigger),
+        attendanceThreshold: validateAndConvertNumber(body.attendanceThreshold, 'Attendance Threshold'),
       };
 
       // Validate material type enum if provided

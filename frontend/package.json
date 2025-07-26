@@ -46,6 +46,7 @@
     "build": "react-scripts build",
     "build:simple": "TSC_COMPILE_ON_ERROR=true DISABLE_ESLINT_PLUGIN=true react-scripts build",
     "build:force": "TSC_COMPILE_ON_ERROR=true DISABLE_ESLINT_PLUGIN=true SKIP_PREFLIGHT_CHECK=true react-scripts build --max-old-space-size=4096",
+    "build:minimal": "BUILD_PATH=./build react-scripts build --max-old-space-size=4096",
     "build:production": "NODE_ENV=production npm run build:simple",
     "build:sw": "node scripts/build-sw.js || echo 'Service worker build skipped'",
     "build:docker": "npm run build:production",
@@ -65,14 +66,8 @@
     "postinstall": "npm run type-check:force || echo 'Type check completed with warnings'"
   },
   "resolutions": {
-    "ajv": "^6.12.6",
-    "ajv-keywords": "^3.5.2",
     "@types/react": "^18.2.14",
     "@types/react-dom": "^18.2.6"
-  },
-  "overrides": {
-    "ajv": "^6.12.6",
-    "ajv-keywords": "^3.5.2"
   },
   "eslintConfig": {
     "extends": [

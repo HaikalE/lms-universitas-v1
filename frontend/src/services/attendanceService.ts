@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from './api';
 
 // Types for Attendance API
 export interface AttendanceRecord {
@@ -97,16 +97,10 @@ export interface AttendanceListResponse {
 }
 
 class AttendanceService {
-  private baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-
   // Get my attendance for a course (Student)
   async getMyAttendance(courseId: string): Promise<AttendanceRecord[]> {
     try {
-      const response = await axios.get(`${this.baseURL}/api/attendance/my-attendance/course/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance/my-attendance/course/${courseId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get my attendance:', error);
@@ -117,11 +111,7 @@ class AttendanceService {
   // Get student attendance (Lecturer/Admin)
   async getStudentAttendance(studentId: string, courseId: string): Promise<AttendanceRecord[]> {
     try {
-      const response = await axios.get(`${this.baseURL}/api/attendance/student/${studentId}/course/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance/student/${studentId}/course/${courseId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get student attendance:', error);
@@ -139,11 +129,7 @@ class AttendanceService {
         }
       });
 
-      const response = await axios.get(`${this.baseURL}/api/attendance?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get attendances:', error);
@@ -158,11 +144,7 @@ class AttendanceService {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
-      const response = await axios.get(`${this.baseURL}/api/attendance/course/${courseId}/stats?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance/course/${courseId}/stats?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get course attendance stats:', error);
@@ -173,11 +155,7 @@ class AttendanceService {
   // Check if can auto-submit today (Student)
   async canAutoSubmitToday(courseId: string): Promise<{ canAutoSubmit: boolean }> {
     try {
-      const response = await axios.get(`${this.baseURL}/api/attendance/can-auto-submit/course/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance/can-auto-submit/course/${courseId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to check auto-submit eligibility:', error);
@@ -189,11 +167,7 @@ class AttendanceService {
   async getMyAttendanceSummary(courseId?: string): Promise<AttendanceSummary> {
     try {
       const params = courseId ? `?courseId=${courseId}` : '';
-      const response = await axios.get(`${this.baseURL}/api/attendance/my-summary${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance/my-summary${params}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get attendance summary:', error);
@@ -204,11 +178,7 @@ class AttendanceService {
   // Get today's attendance status (Student)
   async getTodayAttendanceStatus(courseId: string): Promise<TodayAttendanceStatus> {
     try {
-      const response = await axios.get(`${this.baseURL}/api/attendance/today-status/course/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance/today-status/course/${courseId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get today attendance status:', error);
@@ -219,12 +189,7 @@ class AttendanceService {
   // Create manual attendance (Lecturer/Admin)
   async createAttendance(attendanceData: CreateAttendanceDto): Promise<AttendanceRecord> {
     try {
-      const response = await axios.post(`${this.baseURL}/api/attendance`, attendanceData, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await api.post(`/attendance`, attendanceData);
       return response.data;
     } catch (error) {
       console.error('Failed to create attendance:', error);
@@ -235,12 +200,7 @@ class AttendanceService {
   // Update attendance (Lecturer/Admin)
   async updateAttendance(attendanceId: string, updateData: UpdateAttendanceDto): Promise<AttendanceRecord> {
     try {
-      const response = await axios.put(`${this.baseURL}/api/attendance/${attendanceId}`, updateData, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await api.put(`/attendance/${attendanceId}`, updateData);
       return response.data;
     } catch (error) {
       console.error('Failed to update attendance:', error);
@@ -311,11 +271,7 @@ class AttendanceService {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
 
-      const response = await axios.get(`${this.baseURL}/api/attendance/course/${courseId}/by-week?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
+      const response = await api.get(`/attendance/course/${courseId}/by-week?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('Failed to get course attendance by week:', error);

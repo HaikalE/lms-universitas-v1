@@ -99,20 +99,20 @@ const VideoMaterialCard: React.FC<VideoMaterialCardProps> = ({
     if (material.url) return material.url;
     if (!material.filePath) return '';
 
-    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+    // Static files are served directly from backend root, not through /api prefix
+    const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:3000/api').replace('/api', '');
     
-    // FIXED: filePath already contains the full path (e.g., "uploads/course-materials/filename.mp4")
-    // Backend serves static files directly without global prefix
+    // filePath already contains the full path (e.g., "uploads/course-materials/filename.mp4")
     return `${baseUrl}/${material.filePath}`;
   };
 
   const getDownloadUrl = () => {
     if (!material.filePath) return '';
     
-    const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+    // Static files are served directly from backend root, not through /api prefix
+    const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:3000/api').replace('/api', '');
     
-    // FIXED: filePath already contains the full path (e.g., "uploads/course-materials/filename.mp4")
-    // Backend serves static files directly without global prefix
+    // filePath already contains the full path (e.g., "uploads/course-materials/filename.mp4")
     return `${baseUrl}/${material.filePath}`;
   };
 

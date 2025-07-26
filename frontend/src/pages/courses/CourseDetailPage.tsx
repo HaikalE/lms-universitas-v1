@@ -38,7 +38,7 @@ import {
   ToggleRight,
   Play,
   ExternalLink,
-  ChartBarIcon
+  BarChart3
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -546,8 +546,8 @@ const CourseDetailPage: React.FC = () => {
     }
     
     if (material.filePath) {
-      // Use the full backend URL for file downloads
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+      // Static files are served directly from backend root, not through /api prefix
+      const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:3000/api').replace('/api', '');
       return `${baseUrl}/${material.filePath}`;
     }
     
@@ -1323,7 +1323,7 @@ const CourseDetailPage: React.FC = () => {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <ChartBarIcon className="w-5 h-5" />
+                        <BarChart3 className="w-5 h-5" />
                         Statistik Kehadiran {selectedWeek ? `Minggu ${selectedWeek}` : 'Semua Minggu'}
                       </CardTitle>
                     </CardHeader>

@@ -19,7 +19,8 @@
       "Bash(sudo pkill:*)",
       "Bash(sudo service:*)",
       "Bash(createdb:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(docker-compose build:*)"
     ],
     "deny": []
   }
