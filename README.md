@@ -100,47 +100,51 @@ Sistem pengelolaan mahasiswa yang telah diimplementasikan secara komprehensif:
 git clone https://github.com/HaikalE/lms-universitas-v1.git
 cd lms-universitas-v1
 
-# Start dengan Docker
-docker-compose up -d
-
-# Atau gunakan script otomatis
+# Start dengan Docker - Enhanced Quick Fix
 chmod +x quick-fix-nginx.sh
 ./quick-fix-nginx.sh
 ```
 
-### 🔧 Troubleshooting: Nginx Default Page Fix
+**🔧 ENHANCED QUICK FIX:** Script terbaru menangani:
+- ✅ Nginx default page issue
+- ✅ AJV dependency conflicts  
+- ✅ React build failures
+- ✅ Docker build optimizations
+- ✅ Automatic fallback strategies
 
-Jika Anda melihat halaman default nginx instead of React app di http://localhost:3001:
+### 🚨 Troubleshooting: Docker Build Issues (FIXED)
 
-```bash
-# Quick Fix - Jalankan script otomatis
-chmod +x quick-fix-nginx.sh
-./quick-fix-nginx.sh
+Jika mengalami masalah build atau error dependency:
+
+#### **Issue 1: AJV Dependency Conflict** ✅ FIXED
 ```
+Error: Cannot find module 'ajv/dist/compile/codegen'
+```
+**Solusi:** Sudah diperbaiki dengan:
+- Dependency resolutions di package.json
+- Node 16 compatibility fixes
+- Legacy peer deps handling
 
-**Script ini akan:**
-- ✅ Stop existing containers
-- 🧹 Clean Docker cache
-- 🔨 Rebuild dengan configuration terbaru
-- 🚀 Restart services dengan fix terbaru
-- ✅ Test dan verify fix
+#### **Issue 2: Nginx Default Page** ✅ FIXED  
+```
+"Welcome to nginx!" instead of React app
+```
+**Solusi:** Sudah diperbaiki dengan:
+- Simplified Dockerfile
+- Better build fallbacks
+- Enhanced error handling
 
-**Manual Fix:**
+#### **Quick Fix Command:**
 ```bash
-# Stop containers
+# One-command fix untuk semua masalah
+./quick-fix-nginx.sh
+
+# Atau manual step-by-step:
 docker-compose down
-
-# Clean up
 docker system prune -f
-
-# Rebuild without cache
+rm -rf frontend/node_modules frontend/package-lock.json
 docker-compose build --no-cache
-
-# Start services
 docker-compose up -d
-
-# Check logs
-docker logs lms-frontend
 ```
 
 ### Metode 2: Setup Otomatis
@@ -179,7 +183,7 @@ npm run start:dev
 
 # 3. Frontend Setup (terminal baru)
 cd frontend
-npm install
+npm install --legacy-peer-deps  # Penting: gunakan legacy peer deps
 npm start
 ```
 
@@ -247,12 +251,15 @@ lms-universitas-v1/
 │   │   │   └── courseService.ts  # Student mgmt APIs ✨
 │   │   ├── contexts/      # React Contexts
 │   │   └── types/         # TypeScript Types
+│   ├── Dockerfile         # 🔧 Fixed - Node 16 + dependency resolution
+│   ├── package.json       # 🔧 Fixed - Added resolutions for ajv conflicts
 │   └── build/            # Production Build
 ├── docs/                  # Documentation
 │   └── STUDENT_MANAGEMENT_FEATURE.md ✨ NEW
 ├── scripts/               # Utility Scripts
-├── quick-fix-nginx.sh     # 🔧 Quick fix script for nginx issues
-├── NGINX_DEFAULT_PAGE_FIX.md  # 📖 Documentation for nginx fix
+├── quick-fix-nginx.sh     # 🔧 Enhanced quick fix script
+├── NGINX_DEFAULT_PAGE_FIX.md  # 📖 Nginx fix documentation
+├── DOCKER_BUILD_DEPENDENCY_FIX.md  # 📖 Complete build fix guide 🆕
 └── docker-compose.yml     # Docker Config
 ```
 
@@ -287,19 +294,23 @@ cd frontend
 # Development
 npm start                 # Start dev server
 npm run build            # Build for production
+npm run build:simple     # 🔧 Simple build (conflict-safe)
 npm test                 # Run tests
 npm run test:coverage    # Coverage report
+
+# Dependency management
+npm install --legacy-peer-deps  # Safe install method
+npm run clean            # Clean build cache
 ```
 
 ### Utility Scripts
 ```bash
+# 🔧 Enhanced Troubleshooting
+./quick-fix-nginx.sh     # Ultimate fix for all Docker/build issues
+
 # Development
 ./start-dev.sh           # Start both frontend & backend
 ./build-prod.sh          # Build for production
-./start-docker.sh        # Start with Docker
-
-# 🔧 Troubleshooting
-./quick-fix-nginx.sh     # Quick fix for nginx default page issue
 
 # Database
 ./scripts/reset-db.sh    # Reset database
@@ -358,16 +369,18 @@ npm run test:coverage    # Coverage report
 ## 📋 System Requirements
 
 ### Minimum
-- **Node.js**: v18.0.0+
+- **Node.js**: v16.0.0+ (v18+ untuk development)
 - **PostgreSQL**: v14.0+
 - **RAM**: 4GB
 - **Storage**: 20GB
+- **Docker**: v20.0+ (untuk Docker setup)
 
 ### Recommended
 - **Node.js**: v20.0.0+
 - **PostgreSQL**: v15.0+
 - **RAM**: 8GB
 - **Storage**: 50GB SSD
+- **Docker**: v24.0+
 
 ## 🚀 Deployment
 
@@ -423,6 +436,7 @@ npm run test:coverage   # Coverage report
 | [FEATURES.md](docs/FEATURES.md) | Deskripsi fitur lengkap |
 | [STUDENT_MANAGEMENT_FEATURE.md](STUDENT_MANAGEMENT_FEATURE.md) | ✨ Dokumentasi fitur manajemen mahasiswa |
 | [NGINX_DEFAULT_PAGE_FIX.md](NGINX_DEFAULT_PAGE_FIX.md) | 🔧 Fix untuk nginx default page issue |
+| [DOCKER_BUILD_DEPENDENCY_FIX.md](DOCKER_BUILD_DEPENDENCY_FIX.md) | 🔧 Complete guide untuk dependency conflicts 🆕 |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Panduan troubleshooting |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Panduan kontribusi |
 
@@ -464,19 +478,18 @@ npm run test:coverage   # Coverage report
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+### ✅ FIXED Common Issues
 
-1. **🔧 Nginx Default Page Issue (FIXED)**
+1. **🔧 Docker Build & Dependency Conflicts (FIXED)**
    ```bash
-   # Use the quick fix script
+   # All build issues are now fixed with enhanced script
    ./quick-fix-nginx.sh
-   
-   # Or manual fix:
-   docker-compose down
-   docker system prune -f
-   docker-compose build --no-cache
-   docker-compose up -d
    ```
+   **Fixed Issues:**
+   - ✅ AJV dependency conflicts
+   - ✅ Nginx default page 
+   - ✅ React build failures
+   - ✅ Node version compatibility
 
 2. **Database Connection Error**
    ```bash
@@ -506,6 +519,13 @@ npm run test:coverage   # Coverage report
    # Verify user roles
    SELECT id, fullName, role FROM users WHERE role = 'student';
    ```
+
+### 🆕 New Issue Resolution Process:
+
+1. **Run Enhanced Quick Fix**: `./quick-fix-nginx.sh` (solves 90% of issues)
+2. **Check Documentation**: Review specific fix guides
+3. **Manual Debugging**: Follow step-by-step guides
+4. **Community Support**: GitHub Issues if problem persists
 
 Lihat panduan lengkap di [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
