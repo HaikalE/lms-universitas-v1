@@ -9,8 +9,8 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies (termasuk devDependencies untuk build)
-RUN npm ci --legacy-peer-deps
+# Install dependencies dengan npm install (lebih flexible daripada npm ci)
+RUN npm install --legacy-peer-deps --no-audit --no-fund
 
 # Copy semua source files
 COPY . .
