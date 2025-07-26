@@ -1,7 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # NGINX DEFAULT PAGE FIX SCRIPT
 # Script untuk memperbaiki masalah nginx default page di LMS Universitas v1
+
+set -e
 
 echo "🚀 Starting LMS Frontend Fix..."
 echo "==============================================="
@@ -93,7 +95,7 @@ if docker ps | grep -q "lms-frontend"; then
     print_success "Frontend container is running"
 else
     print_error "Frontend container is not running"
-    docker logs lms-frontend
+    docker logs lms-frontend 2>/dev/null || true
     exit 1
 fi
 
@@ -103,13 +105,13 @@ if docker ps | grep -q "lms-backend"; then
     print_success "Backend container is running"
 else
     print_warning "Backend container is not running"
-    docker logs lms-backend
+    docker logs lms-backend 2>/dev/null || true
 fi
 
 # Test frontend endpoint
 print_status "Testing frontend endpoint..."
 sleep 5
-response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/)
+response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ 2>/dev/null || echo "000")
 if [ "$response" = "200" ]; then
     print_success "Frontend is responding correctly"
 else
