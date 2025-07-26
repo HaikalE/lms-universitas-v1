@@ -405,6 +405,152 @@ export class AttendanceService {
   }
 
   /**
+   * Get course attendance grouped by week with student details
+   * For lecturer dashboard to see attendance by week/pertemuan
+   */
+  async getCourseAttendanceByWeek(
+    courseId: string,
+    week?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    attendancesByWeek: any[];
+    students: any[];
+    weeklyStats: any[];
+  }> {
+    // Get course enrollment count
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['students'],
+    });
+
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    const students = course.students.map(student => ({
+      id: student.id,
+      fullName: student.fullName,
+      studentId: student.studentId,
+      email: student.email,
+    }));
+
+    // Build query for attendances
+    const queryBuilder = this.attendanceRepository
+      .createQueryBuilder('attendance')
+      .leftJoinAndSelect('attendance.student', 'student')
+      .leftJoinAndSelect('attendance.triggerMaterial', 'material')
+      .where('attendance.courseId = :courseId', { courseId })
+      .orderBy('attendance.attendanceDate', 'DESC')
+      .addOrderBy('student.fullName', 'ASC');
+
+    // Apply date filters
+    if (startDate && endDate) {
+      queryBuilder.andWhere('attendance.attendanceDate BETWEEN :startDate AND :endDate', {
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+      });
+    }
+
+    const attendances = await queryBuilder.getMany();
+
+    // Group attendances by week if materials have week info
+    const attendancesByWeek: any = {};
+    const weeklyStats: any = {};
+
+    // Initialize weeks 1-16
+    for (let weekNum = 1; weekNum <= 16; weekNum++) {
+      attendancesByWeek[weekNum] = [];
+      weeklyStats[weekNum] = {
+        week: weekNum,
+        totalStudents: students.length,
+        presentCount: 0,
+        absentCount: 0,
+        autoAttendanceCount: 0,
+        attendanceRate: 0,
+      };
+    }
+
+    // Group attendances by date and categorize
+    const attendancesByDate: any = {};
+    attendances.forEach(attendance => {
+      const dateKey = attendance.attendanceDate.toISOString().split('T')[0];
+      if (!attendancesByDate[dateKey]) {
+        attendancesByDate[dateKey] = [];
+      }
+      attendancesByDate[dateKey].push({
+        ...this.mapToResponseDto(attendance),
+        week: attendance.triggerMaterial?.week || this.getWeekFromDate(attendance.attendanceDate),
+      });
+    });
+
+    // Calculate attendance for each week based on date patterns
+    Object.entries(attendancesByDate).forEach(([date, dayAttendances]: [string, any[]]) => {
+      // Determine week number (you might want to adjust this logic)
+      const weekNumber = dayAttendances[0]?.week || this.getWeekFromDate(new Date(date));
+      
+      if (weekNumber >= 1 && weekNumber <= 16) {
+        attendancesByWeek[weekNumber].push({
+          date,
+          attendances: dayAttendances,
+          presentStudents: dayAttendances.filter(a => 
+            a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
+          ),
+          absentStudents: students.filter(student => 
+            !dayAttendances.some(a => a.studentId === student.id)
+          ),
+        });
+
+        // Update weekly stats
+        const presentCount = dayAttendances.filter(a => 
+          a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
+        ).length;
+        const autoCount = dayAttendances.filter(a => a.status === 'auto_present').length;
+        
+        weeklyStats[weekNumber].presentCount += presentCount;
+        weeklyStats[weekNumber].autoAttendanceCount += autoCount;
+        weeklyStats[weekNumber].attendanceRate = students.length > 0 
+          ? (weeklyStats[weekNumber].presentCount / students.length * 100) 
+          : 0;
+      }
+    });
+
+    // Filter by specific week if requested
+    if (week) {
+      const weekNum = parseInt(week);
+      if (weekNum >= 1 && weekNum <= 16) {
+        return {
+          attendancesByWeek: { [weekNum]: attendancesByWeek[weekNum] },
+          students,
+          weeklyStats: [weeklyStats[weekNum]],
+        };
+      }
+    }
+
+    return {
+      attendancesByWeek: Object.entries(attendancesByWeek)
+        .filter(([_, data]: [string, any]) => data.length > 0)
+        .reduce((acc, [week, data]) => {
+          acc[week] = data;
+          return acc;
+        }, {} as any),
+      students,
+      weeklyStats: Object.values(weeklyStats).filter((stat: any) => stat.presentCount > 0),
+    };
+  }
+
+  /**
+   * Helper method to determine week number from date
+   * You can customize this logic based on your academic calendar
+   */
+  private getWeekFromDate(date: Date): number {
+    // Simple calculation - you might want to adjust based on semester start date
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil((date.getTime() - startOfYear.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    return Math.min(Math.max(weekNumber % 16 || 16, 1), 16);
+  }
+
+  /**
    * Map entity to response DTO
    */
   private mapToResponseDto(attendance: Attendance): AttendanceResponseDto {

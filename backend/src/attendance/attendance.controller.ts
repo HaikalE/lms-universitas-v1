@@ -149,6 +149,23 @@ export class AttendanceController {
   }
 
   /**
+   * Get course attendance by week for lecturer dashboard
+   * 
+   * GET /api/attendance/course/:courseId/by-week
+   */
+  @Get('course/:courseId/by-week')
+  @Roles(UserRole.LECTURER, UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  async getCourseAttendanceByWeek(
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Query('week') week?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.attendanceService.getCourseAttendanceByWeek(courseId, week, startDate, endDate);
+  }
+
+  /**
    * Check if current user can auto-submit attendance today
    * 
    * GET /api/attendance/can-auto-submit/course/:courseId

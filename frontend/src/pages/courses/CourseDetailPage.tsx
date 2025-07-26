@@ -37,7 +37,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Play,
-  ExternalLink
+  ExternalLink,
+  ChartBarIcon
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -50,13 +51,14 @@ import VideoMaterialCard from '../../components/course/VideoMaterialCard';
 import { courseService, CourseStudent } from '../../services/courseService';
 import { assignmentService } from '../../services/assignmentService';
 import { forumService } from '../../services/forumService';
+import { attendanceService } from '../../services/attendanceService';
 import { Course, CourseMaterial, MaterialType, Assignment, ForumPost, UserRole } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/date';
 import AttendanceTriggerDebug from '../../components/debug/AttendanceTriggerDebug';
 
-type TabType = 'overview' | 'materials' | 'assignments' | 'forums' | 'students' | 'settings';
+type TabType = 'overview' | 'materials' | 'assignments' | 'forums' | 'students' | 'attendance' | 'settings';
 
 interface MaterialFormData {
   title: string;
@@ -93,6 +95,9 @@ const CourseDetailPage: React.FC = () => {
   const [forums, setForums] = useState<ForumPost[]>([]);
   const [students, setStudents] = useState<CourseStudent[]>([]);
   const [availableStudents, setAvailableStudents] = useState<CourseStudent[]>([]);
+  const [attendanceData, setAttendanceData] = useState<any>(null);
+  const [selectedWeek, setSelectedWeek] = useState<string>('');
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -146,6 +151,13 @@ const CourseDetailPage: React.FC = () => {
       fetchTabData();
     }
   }, [course, activeTab, studentsQuery]);
+
+  // Effect for attendance data when selectedWeek changes
+  useEffect(() => {
+    if (course && activeTab === 'attendance' && canManageCourse) {
+      fetchAttendanceData();
+    }
+  }, [selectedWeek]);
 
   // Close action menu when clicking outside
   useEffect(() => {
@@ -208,6 +220,11 @@ const CourseDetailPage: React.FC = () => {
         case 'students':
           await fetchStudents();
           break;
+        case 'attendance':
+          if (canManageCourse) {
+            await fetchAttendanceData();
+          }
+          break;
       }
     } catch (error) {
       console.error('Error fetching tab data:', error);
@@ -242,6 +259,24 @@ const CourseDetailPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching available students:', error);
       toast.error('Gagal memuat data mahasiswa tersedia');
+    }
+  };
+
+  const fetchAttendanceData = async () => {
+    if (!course || !canManageCourse) return;
+
+    try {
+      setAttendanceLoading(true);
+      const data = await attendanceService.getCourseAttendanceByWeek(
+        course.id,
+        selectedWeek || undefined
+      );
+      setAttendanceData(data);
+    } catch (error) {
+      console.error('Error fetching attendance data:', error);
+      toast.error('Gagal memuat data absensi');
+    } finally {
+      setAttendanceLoading(false);
     }
   };
 
@@ -552,6 +587,11 @@ const CourseDetailPage: React.FC = () => {
     { id: 'forums', label: 'Forum', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'students', label: 'Mahasiswa', icon: <Users className="w-4 h-4" /> },
   ];
+
+  // Add attendance tab for lecturers only
+  if (canManageCourse) {
+    tabs.splice(4, 0, { id: 'attendance', label: 'Absensi', icon: <GraduationCap className="w-4 h-4" /> });
+  }
 
   if (canManageCourse) {
     tabs.push({ id: 'settings', label: 'Pengaturan', icon: <Settings className="w-4 h-4" /> });
@@ -1215,6 +1255,230 @@ const CourseDetailPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Attendance Tab - NEW FOR LECTURERS */}
+        {activeTab === 'attendance' && canManageCourse && (
+          <div className="space-y-6">
+            {/* Header with Filters */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5" />
+                  Data Absensi Mahasiswa
+                </h2>
+                {attendanceData?.weeklyStats && (
+                  <Badge variant="default" className="bg-blue-100 text-blue-800">
+                    {attendanceData.students?.length || 0} mahasiswa
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Select
+                  value={selectedWeek}
+                  onChange={(e) => {
+                    setSelectedWeek(e.target.value);
+                  }}
+                  className="w-48"
+                >
+                  <option value="">Semua Minggu</option>
+                  {Array.from({length: 16}, (_, i) => i + 1).map(week => (
+                    <option key={week} value={week.toString()}>
+                      Minggu {week}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  onClick={fetchAttendanceData}
+                  disabled={attendanceLoading}
+                  size="sm"
+                  variant="outline"
+                >
+                  {attendanceLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  ) : (
+                    <Filter className="w-4 h-4 mr-2" />
+                  )}
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            {/* Loading State */}
+            {attendanceLoading && (
+              <div className="flex justify-center py-12">
+                <Loader size="large" />
+              </div>
+            )}
+
+            {/* Attendance Data */}
+            {!attendanceLoading && attendanceData && (
+              <div className="space-y-6">
+                {/* Weekly Statistics Summary */}
+                {attendanceData.weeklyStats && attendanceData.weeklyStats.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <ChartBarIcon className="w-5 h-5" />
+                        Statistik Kehadiran {selectedWeek ? `Minggu ${selectedWeek}` : 'Semua Minggu'}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {attendanceData.weeklyStats.map((stat: any) => (
+                          <div key={stat.week} className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-indigo-600">
+                              {Math.round(stat.attendanceRate)}%
+                            </div>
+                            <div className="text-sm text-gray-600">Minggu {stat.week}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {stat.presentCount}/{stat.totalStudents} hadir
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Attendance by Week */}
+                {attendanceData.attendancesByWeek && Object.keys(attendanceData.attendancesByWeek).length > 0 ? (
+                  Object.entries(attendanceData.attendancesByWeek).map(([week, weekData]: [string, any]) => (
+                    <Card key={week} className="overflow-hidden">
+                      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            📅 Minggu {week}
+                            <Badge className="bg-blue-100 text-blue-800">
+                              {weekData.length} pertemuan
+                            </Badge>
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            {attendanceData.students?.length || 0} mahasiswa terdaftar
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        {weekData.map((dayData: any, index: number) => (
+                          <div key={index} className="border-b last:border-b-0">
+                            {/* Date Header */}
+                            <div className="bg-gray-50 px-6 py-3 border-b">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-medium text-gray-900">
+                                  📍 {new Date(dayData.date).toLocaleDateString('id-ID', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </h4>
+                                <div className="flex items-center gap-4 text-sm">
+                                  <span className="text-green-600">
+                                    ✅ {dayData.presentStudents?.length || 0} hadir
+                                  </span>
+                                  <span className="text-red-600">
+                                    ❌ {dayData.absentStudents?.length || 0} tidak hadir
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Student Attendance List */}
+                            <div className="p-6">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Present Students */}
+                                <div>
+                                  <h5 className="font-medium text-green-700 mb-3 flex items-center gap-2">
+                                    ✅ Mahasiswa Hadir ({dayData.presentStudents?.length || 0})
+                                  </h5>
+                                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    {dayData.presentStudents?.map((attendance: any) => {
+                                      const statusInfo = attendanceService.formatAttendanceStatus(attendance.status);
+                                      const typeInfo = attendanceService.formatAttendanceType(attendance.attendanceType);
+                                      
+                                      return (
+                                        <div key={attendance.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                          <div className="flex items-center space-x-3">
+                                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-sm font-semibold text-green-700">
+                                              {attendance.student?.fullName?.charAt(0)?.toUpperCase()}
+                                            </div>
+                                            <div>
+                                              <div className="font-medium text-gray-900">
+                                                {attendance.student?.fullName}
+                                              </div>
+                                              <div className="text-sm text-gray-600">
+                                                {attendance.student?.studentId}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <div className={`text-sm font-medium ${statusInfo.color}`}>
+                                              {statusInfo.icon} {statusInfo.text}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              {typeInfo.icon} {typeInfo.text}
+                                            </div>
+                                            {attendance.submittedAt && (
+                                              <div className="text-xs text-gray-400">
+                                                {new Date(attendance.submittedAt).toLocaleTimeString('id-ID')}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Absent Students */}
+                                <div>
+                                  <h5 className="font-medium text-red-700 mb-3 flex items-center gap-2">
+                                    ❌ Mahasiswa Tidak Hadir ({dayData.absentStudents?.length || 0})
+                                  </h5>
+                                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    {dayData.absentStudents?.map((student: any) => (
+                                      <div key={student.id} className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
+                                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-sm font-semibold text-red-700">
+                                          {student.fullName?.charAt(0)?.toUpperCase()}
+                                        </div>
+                                        <div>
+                                          <div className="font-medium text-gray-900">
+                                            {student.fullName}
+                                          </div>
+                                          <div className="text-sm text-gray-600">
+                                            {student.studentId}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="text-center py-12">
+                      <GraduationCap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Belum Ada Data Absensi
+                      </h3>
+                      <p className="text-gray-500">
+                        {selectedWeek 
+                          ? `Belum ada data absensi untuk minggu ${selectedWeek}` 
+                          : 'Belum ada mahasiswa yang melakukan absensi'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
           </div>

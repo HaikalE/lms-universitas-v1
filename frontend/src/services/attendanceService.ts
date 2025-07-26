@@ -293,6 +293,35 @@ class AttendanceService {
     if (rate >= 60) return 'text-yellow-600';
     return 'text-red-600';
   }
+
+  // Get course attendance by week (Lecturer/Admin)
+  async getCourseAttendanceByWeek(
+    courseId: string, 
+    week?: string, 
+    startDate?: string, 
+    endDate?: string
+  ): Promise<{
+    attendancesByWeek: any;
+    students: any[];
+    weeklyStats: any[];
+  }> {
+    try {
+      const params = new URLSearchParams();
+      if (week) params.append('week', week);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+
+      const response = await axios.get(`${this.baseURL}/api/attendance/course/${courseId}/by-week?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get course attendance by week:', error);
+      throw error;
+    }
+  }
 }
 
 export const attendanceService = new AttendanceService();
