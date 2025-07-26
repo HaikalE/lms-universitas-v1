@@ -93,7 +93,57 @@ Sistem pengelolaan mahasiswa yang telah diimplementasikan secara komprehensif:
 
 ## 🚀 Quick Start
 
-### Metode 1: Setup Otomatis (Recommended)
+### Metode 1: Docker (Paling Mudah) ⭐ Recommended
+
+```bash
+# Clone repository
+git clone https://github.com/HaikalE/lms-universitas-v1.git
+cd lms-universitas-v1
+
+# Start dengan Docker
+docker-compose up -d
+
+# Atau gunakan script otomatis
+chmod +x quick-fix-nginx.sh
+./quick-fix-nginx.sh
+```
+
+### 🔧 Troubleshooting: Nginx Default Page Fix
+
+Jika Anda melihat halaman default nginx instead of React app di http://localhost:3001:
+
+```bash
+# Quick Fix - Jalankan script otomatis
+chmod +x quick-fix-nginx.sh
+./quick-fix-nginx.sh
+```
+
+**Script ini akan:**
+- ✅ Stop existing containers
+- 🧹 Clean Docker cache
+- 🔨 Rebuild dengan configuration terbaru
+- 🚀 Restart services dengan fix terbaru
+- ✅ Test dan verify fix
+
+**Manual Fix:**
+```bash
+# Stop containers
+docker-compose down
+
+# Clean up
+docker system prune -f
+
+# Rebuild without cache
+docker-compose build --no-cache
+
+# Start services
+docker-compose up -d
+
+# Check logs
+docker logs lms-frontend
+```
+
+### Metode 2: Setup Otomatis
 
 ```bash
 # Clone repository
@@ -106,18 +156,6 @@ chmod +x scripts/setup.sh
 
 # Start development server
 ./start-dev.sh
-```
-
-### Metode 2: Docker (Paling Mudah)
-
-```bash
-# Clone repository
-git clone https://github.com/HaikalE/lms-universitas-v1.git
-cd lms-universitas-v1
-
-# Start dengan Docker
-chmod +x start-docker.sh
-./start-docker.sh
 ```
 
 ### Metode 3: Manual Setup
@@ -213,6 +251,8 @@ lms-universitas-v1/
 ├── docs/                  # Documentation
 │   └── STUDENT_MANAGEMENT_FEATURE.md ✨ NEW
 ├── scripts/               # Utility Scripts
+├── quick-fix-nginx.sh     # 🔧 Quick fix script for nginx issues
+├── NGINX_DEFAULT_PAGE_FIX.md  # 📖 Documentation for nginx fix
 └── docker-compose.yml     # Docker Config
 ```
 
@@ -257,6 +297,9 @@ npm run test:coverage    # Coverage report
 ./start-dev.sh           # Start both frontend & backend
 ./build-prod.sh          # Build for production
 ./start-docker.sh        # Start with Docker
+
+# 🔧 Troubleshooting
+./quick-fix-nginx.sh     # Quick fix for nginx default page issue
 
 # Database
 ./scripts/reset-db.sh    # Reset database
@@ -379,6 +422,7 @@ npm run test:coverage   # Coverage report
 | [API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) | Dokumentasi REST API |
 | [FEATURES.md](docs/FEATURES.md) | Deskripsi fitur lengkap |
 | [STUDENT_MANAGEMENT_FEATURE.md](STUDENT_MANAGEMENT_FEATURE.md) | ✨ Dokumentasi fitur manajemen mahasiswa |
+| [NGINX_DEFAULT_PAGE_FIX.md](NGINX_DEFAULT_PAGE_FIX.md) | 🔧 Fix untuk nginx default page issue |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Panduan troubleshooting |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Panduan kontribusi |
 
@@ -422,26 +466,38 @@ npm run test:coverage   # Coverage report
 
 ### Common Issues
 
-1. **Database Connection Error**
+1. **🔧 Nginx Default Page Issue (FIXED)**
+   ```bash
+   # Use the quick fix script
+   ./quick-fix-nginx.sh
+   
+   # Or manual fix:
+   docker-compose down
+   docker system prune -f
+   docker-compose build --no-cache
+   docker-compose up -d
+   ```
+
+2. **Database Connection Error**
    ```bash
    # Check PostgreSQL service
    sudo systemctl status postgresql
    sudo systemctl start postgresql
    ```
 
-2. **Port Already in Use**
+3. **Port Already in Use**
    ```bash
    # Kill process on port 3000
    kill -9 $(lsof -ti:3000)
    ```
 
-3. **Migration Failed**
+4. **Migration Failed**
    ```bash
    # Reset database
    ./scripts/reset-db.sh
    ```
 
-4. **Student Management Issues** ✨
+5. **Student Management Issues** ✨
    ```bash
    # Check junction table
    sudo -u postgres psql lms_db
