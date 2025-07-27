@@ -106,7 +106,7 @@ export class VideoProgressService {
       if (isCompleted && !progress.isCompleted) {
         progress.isCompleted = true;
         progress.completedAt = new Date();
-        this.logger.log(`Student ${studentId} completed video ${materialId} (${calculatedPercentage.toFixed(1)}%)`);
+        this.logger.log(`🎯 Student ${studentId} completed video ${materialId} (${calculatedPercentage.toFixed(1)}%)`);
       }
 
       // 📊 Add watch session to history
@@ -140,7 +140,7 @@ export class VideoProgressService {
       });
 
       if (isCompleted) {
-        this.logger.log(`Student ${studentId} completed video ${materialId} on first watch (${calculatedPercentage.toFixed(1)}%)`);
+        this.logger.log(`🎯 Student ${studentId} completed video ${materialId} on first watch (${calculatedPercentage.toFixed(1)}%)`);
       }
     }
 
@@ -150,33 +150,40 @@ export class VideoProgressService {
     // 🎯 NEW LOGIC: Check weekly completion instead of single video
     if (isCompleted && !wasCompletedBefore && material.isAttendanceTrigger && !progress.hasTriggeredAttendance) {
       try {
-        // Check if ALL videos in this week are completed
-        const weeklyCompletionResult = await this.checkAndTriggerWeeklyAttendance(
-          studentId, 
-          material.courseId, 
-          material.week
-        );
+        this.logger.log(`🔥 WEEKLY ATTENDANCE CHECK: Material ${materialId} completed, checking week ${material.week} completion...`);
         
-        if (weeklyCompletionResult.canTriggerAttendance) {
-          this.logger.log(`🎉 WEEKLY COMPLETION: Student ${studentId} completed ALL videos for week ${material.week}`);
-          
-          // Trigger attendance for the week
-          await this.triggerAttendance(
+        // Check if material has week info
+        if (!material.week) {
+          this.logger.warn(`⚠️ Material ${materialId} has no week info - cannot check weekly completion`);
+        } else {
+          // Check if ALL videos in this week are completed
+          const weeklyCompletionResult = await this.checkAndTriggerWeeklyAttendance(
             studentId, 
             material.courseId, 
-            materialId, 
-            calculatedPercentage,
-            weeklyCompletionResult
+            material.week
           );
           
-          // Mark ALL completed videos in this week as triggered
-          await this.markWeekVideosAsTriggered(studentId, material.courseId, material.week);
-        } else {
-          this.logger.log(`⏳ PARTIAL COMPLETION: Student ${studentId} completed ${weeklyCompletionResult.completedCount}/${weeklyCompletionResult.totalRequired} videos for week ${material.week}`);
+          if (weeklyCompletionResult.canTriggerAttendance) {
+            this.logger.log(`🎉 WEEKLY COMPLETION: Student ${studentId} completed ALL videos for week ${material.week}`);
+            
+            // Trigger attendance for the week
+            await this.triggerAttendance(
+              studentId, 
+              material.courseId, 
+              materialId, 
+              calculatedPercentage,
+              weeklyCompletionResult
+            );
+            
+            // Mark ALL completed videos in this week as triggered
+            await this.markWeekVideosAsTriggered(studentId, material.courseId, material.week);
+          } else {
+            this.logger.log(`⏳ PARTIAL COMPLETION: Student ${studentId} completed ${weeklyCompletionResult.completedCount}/${weeklyCompletionResult.totalRequired} videos for week ${material.week}`);
+          }
         }
         
       } catch (error) {
-        this.logger.error(`Failed to check weekly completion for student ${studentId}, week ${material.week}:`, error);
+        this.logger.error(`❌ Failed to check weekly completion for student ${studentId}, week ${material.week}:`, error);
         // Don't throw error - video progress should still be saved
       }
     }
@@ -225,7 +232,10 @@ export class VideoProgressService {
       };
     }
 
-    this.logger.log(`📹 Found ${requiredVideos.length} attendance-trigger videos for week ${week}`);
+    this.logger.log(`📹 Found ${requiredVideos.length} attendance-trigger videos for week ${week}:`);
+    requiredVideos.forEach(video => {
+      this.logger.log(`  - ${video.title} (ID: ${video.id}, threshold: ${video.attendanceThreshold || this.defaultCompletionThreshold}%)`);
+    });
 
     // Check completion status for each video
     const completedVideos = [];
@@ -238,6 +248,8 @@ export class VideoProgressService {
 
       const threshold = video.attendanceThreshold || this.defaultCompletionThreshold;
       const isCompleted = progress && progress.isCompleted && progress.watchedPercentage >= threshold;
+
+      this.logger.log(`  📊 Video "${video.title}": ${progress?.watchedPercentage || 0}% (threshold: ${threshold}%) - ${isCompleted ? 'COMPLETED ✅' : 'PENDING ❌'}`);
 
       if (isCompleted) {
         completedVideos.push({
@@ -659,7 +671,7 @@ export class VideoProgressService {
   }
 
   /**
-   * Map entity to response DTO
+   * ✅ FIXED: Map entity to response DTO with week field included
    */
   private mapToResponseDto(progress: VideoProgress): VideoProgressResponseDto {
     return {
@@ -678,6 +690,7 @@ export class VideoProgressService {
         id: progress.material.id,
         title: progress.material.title,
         type: progress.material.type,
+        week: progress.material.week,  // ✅ FIXED: Include week field!
         isAttendanceTrigger: progress.material.isAttendanceTrigger,
         attendanceThreshold: progress.material.attendanceThreshold,
       } : undefined,
