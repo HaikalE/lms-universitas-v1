@@ -1,228 +1,273 @@
 import api from './api';
 import { ApiResponse, ForumPost, ForumReply } from '../types';
 
+// ✅ FIXED: Forum service with proper validation and clean implementation
 export const forumService = {
+  // ✅ GET: Forum posts for a course
   getForumPosts: async (courseId: string, params?: any): Promise<ApiResponse<ForumPost[]>> => {
     try {
-      console.log('🔍 Fetching forum posts for course:', courseId);
       const response = await api.get(`/forums/course/${courseId}`, { params });
-      console.log('✅ Forum posts fetched successfully');
       return response.data;
     } catch (error) {
-      console.error('❌ Error fetching forum posts:', error);
       throw error;
     }
   },
 
+  // ✅ GET: Single forum post
   getForumPost: async (id: string): Promise<ApiResponse<ForumPost>> => {
     try {
-      console.log('🔍 Fetching forum post:', id);
       const response = await api.get(`/forums/${id}`);
-      console.log('✅ Forum post fetched successfully');
       return response.data;
     } catch (error) {
-      console.error('❌ Error fetching forum post:', error);
       throw error;
     }
   },
 
+  // ✅ GET: Forum replies
   getForumReplies: async (postId: string, params?: any): Promise<ApiResponse<ForumReply[]>> => {
     try {
-      console.log('🔍 Fetching forum replies for post:', postId);
       const response = await api.get(`/forums/${postId}/replies`, { params });
-      console.log('✅ Forum replies fetched successfully');
       return response.data;
     } catch (error) {
-      console.error('❌ Error fetching forum replies:', error);
       throw error;
     }
   },
 
+  // ✅ GET: My discussions
   getMyDiscussions: async (): Promise<ForumPost[]> => {
     try {
-      console.log('🔍 Fetching my discussions');
       const response = await api.get('/forums/my-discussions');
-      console.log('✅ My discussions fetched successfully');
       return response.data.data || response.data;
     } catch (error) {
-      console.error('❌ Error fetching my discussions:', error);
       throw error;
     }
   },
 
-  createForumPost: async (postData: any): Promise<ForumPost> => {
+  // ✅ FIXED: Create forum post with proper validation
+  createPost: async (postData: {
+    title: string;
+    content: string;
+    courseId: string;
+    type?: string;
+    parentId?: string;
+  }): Promise<ForumPost> => {
     try {
-      console.log('📝 Creating forum post:', {
-        title: postData.title,
-        courseId: postData.courseId
-      });
-      
-      const response = await api.post('/forums', postData);
-      console.log('✅ Forum post created successfully:', response.data);
-      
-      // Handle both direct ForumPost response and ApiResponse<ForumPost> wrapper
+      // ✅ CLIENT-SIDE VALIDATION
+      if (!postData.title?.trim()) {
+        throw new Error('Judul post wajib diisi');
+      }
+      if (!postData.content?.trim()) {
+        throw new Error('Konten post wajib diisi');
+      }
+      if (!postData.courseId?.trim()) {
+        throw new Error('Course ID wajib diisi');
+      }
+
+      // ✅ VALIDATE UUID FORMAT
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(postData.courseId.trim())) {
+        throw new Error('Course ID harus berupa UUID yang valid');
+      }
+
+      // ✅ CLEAN DATA BEFORE SENDING
+      const cleanData = {
+        title: postData.title.trim(),
+        content: postData.content.trim(),
+        courseId: postData.courseId.trim(),
+        type: postData.type || 'discussion',
+        ...(postData.parentId && { parentId: postData.parentId.trim() })
+      };
+
+      const response = await api.post('/forums', cleanData);
       return response.data.data || response.data;
     } catch (error) {
-      console.error('❌ Error creating forum post:', error);
       throw error;
     }
   },
 
+  // ✅ LEGACY ALIAS: Keep backward compatibility
+  createForumPost: async (postData: any): Promise<ForumPost> => {
+    return forumService.createPost(postData);
+  },
+
+  // ✅ UPDATE: Forum post
   updateForumPost: async (id: string, postData: any): Promise<ForumPost> => {
     try {
-      console.log('✏️ Updating forum post:', id);
       const response = await api.patch(`/forums/${id}`, postData);
-      console.log('✅ Forum post updated successfully');
       return response.data.data || response.data;
     } catch (error) {
-      console.error('❌ Error updating forum post:', error);
       throw error;
     }
   },
 
+  // ✅ DELETE: Forum post
   deleteForumPost: async (id: string): Promise<void> => {
     try {
-      console.log('🗑️ Deleting forum post:', id);
       await api.delete(`/forums/${id}`);
-      console.log('✅ Forum post deleted successfully');
     } catch (error) {
-      console.error('❌ Error deleting forum post:', error);
       throw error;
     }
   },
 
-  // Reply methods
+  // ✅ CREATE: Reply
   createReply: async (postId: string, replyData: any): Promise<ApiResponse<ForumReply>> => {
     try {
-      console.log('💬 Creating reply for post:', postId);
-      const response = await api.post(`/forums/${postId}/replies`, replyData);
-      console.log('✅ Reply created successfully');
+      if (!replyData.content?.trim()) {
+        throw new Error('Konten balasan wajib diisi');
+      }
+
+      const cleanData = {
+        content: replyData.content.trim(),
+        ...(replyData.parentId && { parentId: replyData.parentId })
+      };
+
+      const response = await api.post(`/forums/${postId}/replies`, cleanData);
       return response.data;
     } catch (error) {
-      console.error('❌ Error creating reply:', error);
       throw error;
     }
   },
 
+  // ✅ UPDATE: Reply
   updateReply: async (replyId: string, replyData: any): Promise<ForumReply> => {
     try {
-      console.log('✏️ Updating reply:', replyId);
       const response = await api.patch(`/forums/replies/${replyId}`, replyData);
-      console.log('✅ Reply updated successfully');
       return response.data.data || response.data;
     } catch (error) {
-      console.error('❌ Error updating reply:', error);
       throw error;
     }
   },
 
+  // ✅ DELETE: Reply
   deleteReply: async (replyId: string): Promise<void> => {
     try {
-      console.log('🗑️ Deleting reply:', replyId);
       await api.delete(`/forums/replies/${replyId}`);
-      console.log('✅ Reply deleted successfully');
     } catch (error) {
-      console.error('❌ Error deleting reply:', error);
       throw error;
     }
   },
 
-  // Like methods
-  likePost: async (postId: string): Promise<any> => {
+  // ✅ FIXED: Like system with proper toggle
+  toggleLike: async (id: string): Promise<{
+    success: boolean;
+    message: string;
+    likesCount: number;
+    isLiked: boolean;
+  }> => {
     try {
-      console.log('❤️ Liking post:', postId);
-      const response = await api.post(`/forums/${postId}/like`);
-      console.log('✅ Post liked successfully');
+      const response = await api.post(`/forums/${id}/like`);
       return response.data;
     } catch (error) {
-      console.error('❌ Error liking post:', error);
       throw error;
     }
+  },
+
+  // ✅ LEGACY ALIASES: Keep backward compatibility
+  likePost: async (postId: string): Promise<any> => {
+    return forumService.toggleLike(postId);
   },
 
   likeReply: async (replyId: string): Promise<any> => {
     try {
-      console.log('❤️ Liking reply:', replyId);
       const response = await api.post(`/forums/replies/${replyId}/like`);
-      console.log('✅ Reply liked successfully');
       return response.data;
     } catch (error) {
-      console.error('❌ Error liking reply:', error);
       throw error;
     }
   },
 
-  // View tracking
+  // ✅ VIEW: Mark as viewed (silent failure)
   markPostAsViewed: async (postId: string): Promise<void> => {
     try {
-      console.log('👁️ Marking post as viewed:', postId);
       await api.post(`/forums/${postId}/view`);
-      console.log('✅ Post marked as viewed');
     } catch (error) {
-      console.error('❌ Error marking post as viewed:', error);
-      // Don't throw error for view tracking to avoid disrupting user experience
+      // Silent failure for view tracking
     }
   },
 
-  // Answer marking
+  // ✅ ANSWER: Mark as answer
   markAsAnswer: async (postId: string, replyId: string): Promise<any> => {
     try {
-      console.log('✅ Marking reply as answer:', { postId, replyId });
       const response = await api.patch(`/forums/${postId}/answer/${replyId}`);
-      console.log('✅ Reply marked as answer successfully');
       return response.data;
     } catch (error) {
-      console.error('❌ Error marking as answer:', error);
       throw error;
     }
   },
 
-  // Pin/Lock methods
-  pinPost: async (postId: string): Promise<any> => {
+  // ✅ PIN: Toggle pin
+  togglePin: async (id: string): Promise<{
+    success: boolean;
+    message: string;
+    isPinned: boolean;
+  }> => {
     try {
-      console.log('📌 Pinning post:', postId);
-      const response = await api.patch(`/forums/${postId}/pin`);
-      console.log('✅ Post pinned successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error pinning post:', error);
-      throw error;
-    }
-  },
-
-  togglePin: async (id: string): Promise<any> => {
-    try {
-      console.log('📌 Toggling pin for post:', id);
       const response = await api.patch(`/forums/${id}/pin`);
-      console.log('✅ Pin toggled successfully');
       return response.data;
     } catch (error) {
-      console.error('❌ Error toggling pin:', error);
       throw error;
     }
   },
 
-  toggleLock: async (id: string): Promise<any> => {
+  // ✅ LEGACY ALIAS
+  pinPost: async (postId: string): Promise<any> => {
+    return forumService.togglePin(postId);
+  },
+
+  // ✅ LOCK: Toggle lock
+  toggleLock: async (id: string): Promise<{
+    success: boolean;
+    message: string;
+    isLocked: boolean;
+  }> => {
     try {
-      console.log('🔒 Toggling lock for post:', id);
       const response = await api.patch(`/forums/${id}/lock`);
-      console.log('✅ Lock toggled successfully');
       return response.data;
     } catch (error) {
-      console.error('❌ Error toggling lock:', error);
       throw error;
     }
   },
 
-  toggleLike: async (id: string): Promise<any> => {
-    try {
-      console.log('❤️ Toggling like for post:', id);
-      const response = await api.post(`/forums/${id}/like`);
-      console.log('✅ Like toggled successfully');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Error toggling like:', error);
-      throw error;
+  // ✅ VALIDATION: Helper function for frontend validation
+  validatePostData: (data: {
+    title?: string;
+    content: string;
+    courseId: string;
+    parentId?: string;
+  }): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    // Title validation (required for root posts)
+    if (!data.parentId && (!data.title || !data.title.trim())) {
+      errors.push('Judul post wajib diisi untuk post utama');
     }
+
+    // Content validation (always required)
+    if (!data.content || !data.content.trim()) {
+      errors.push('Konten post wajib diisi');
+    }
+
+    // CourseId validation
+    if (!data.courseId || !data.courseId.trim()) {
+      errors.push('Course ID wajib diisi');
+    } else {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(data.courseId.trim())) {
+        errors.push('Course ID harus berupa UUID yang valid');
+      }
+    }
+
+    // ParentId validation (if provided)
+    if (data.parentId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(data.parentId)) {
+        errors.push('Parent ID harus berupa UUID yang valid');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   },
 };

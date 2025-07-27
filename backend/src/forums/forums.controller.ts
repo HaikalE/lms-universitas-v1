@@ -32,7 +32,7 @@ import { User, UserRole } from '../entities/user.entity';
 export class ForumsController {
   constructor(private readonly forumsService: ForumsService) {}
 
-  // ✅ NEW: GET MY DISCUSSIONS (missing endpoint)
+  // GET MY DISCUSSIONS
   @Get('my-discussions')
   async getMyDiscussions(@GetUser() user: User, @Query() queryDto: QueryForumPostsDto) {
     try {
@@ -56,7 +56,7 @@ export class ForumsController {
     }
   }
 
-  // CREATE FORUM POST - FIXED VALIDATION
+  // ✅ FIXED: CREATE FORUM POST - Better validation and error handling
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ValidationPipe({ 
@@ -67,27 +67,41 @@ export class ForumsController {
   }))
   async create(@Body() createForumPostDto: CreateForumPostDto, @GetUser() user: User) {
     try {
-      // ✅ FIXED: Better validation with proper error messages
+      // ✅ ENHANCED: Better validation with detailed error messages
       const validationErrors: string[] = [];
 
-      // Validate title - only required if it's not a reply
-      if (!createForumPostDto.parentId && (!createForumPostDto.title || !createForumPostDto.title.trim())) {
-        validationErrors.push('Judul post wajib diisi');
+      // Validate title - required for root posts, optional for replies
+      if (!createForumPostDto.parentId) {
+        if (!createForumPostDto.title || !createForumPostDto.title.trim()) {
+          validationErrors.push('Judul post wajib diisi untuk post utama');
+        }
       }
 
-      // Validate content
+      // Validate content - always required
       if (!createForumPostDto.content || !createForumPostDto.content.trim()) {
         validationErrors.push('Konten post wajib diisi');
       }
 
-      // Validate courseId - MOST IMPORTANT FIX
-      if (!createForumPostDto.courseId || !createForumPostDto.courseId.trim()) {
+      // ✅ CRITICAL FIX: Validate courseId with better error messages
+      if (!createForumPostDto.courseId) {
         validationErrors.push('Course ID wajib diisi');
+      } else if (typeof createForumPostDto.courseId !== 'string') {
+        validationErrors.push('Course ID harus berupa string');
+      } else if (!createForumPostDto.courseId.trim()) {
+        validationErrors.push('Course ID tidak boleh kosong');
       } else {
-        // Validate UUID format
+        // Validate UUID format more thoroughly
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(createForumPostDto.courseId)) {
+        if (!uuidRegex.test(createForumPostDto.courseId.trim())) {
           validationErrors.push('Course ID harus berupa UUID yang valid');
+        }
+      }
+
+      // Validate parentId if provided
+      if (createForumPostDto.parentId) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(createForumPostDto.parentId)) {
+          validationErrors.push('Parent ID harus berupa UUID yang valid');
         }
       }
 
@@ -383,7 +397,7 @@ export class ForumsController {
     }
   }
 
-  // TOGGLE LIKE POST - FIXED TO PREVENT MULTIPLE LIKES
+  // ✅ FIXED: TOGGLE LIKE POST - Proper implementation
   @Post(':id/like')
   async toggleLike(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
