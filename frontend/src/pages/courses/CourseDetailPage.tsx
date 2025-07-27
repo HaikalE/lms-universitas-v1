@@ -56,7 +56,6 @@ import { Course, CourseMaterial, MaterialType, Assignment, ForumPost, UserRole }
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { formatDate } from '../../utils/date';
-import AttendanceTriggerDebug from '../../components/debug/AttendanceTriggerDebug';
 
 type TabType = 'overview' | 'materials' | 'assignments' | 'forums' | 'students' | 'attendance' | 'settings';
 
@@ -193,7 +192,6 @@ const CourseDetailPage: React.FC = () => {
       switch (activeTab) {
         case 'materials':
           const materialsData = await courseService.getCourseMaterials(course.id);
-          console.log('📚 Materials data:', materialsData);
           setMaterials(materialsData);
           break;
         case 'assignments':
@@ -201,18 +199,11 @@ const CourseDetailPage: React.FC = () => {
           setAssignments(assignmentsData.data);
           break;
         case 'forums':
-          console.log('🔍 Frontend: Fetching forums for course:', course.id);
           try {
             const forumsResponse = await forumService.getForumPosts(course.id);
-            console.log('✅ Frontend: Forum response received:', forumsResponse);
-            
-            // Handle both possible response structures
             const forumsData = forumsResponse.data || forumsResponse;
             setForums(Array.isArray(forumsData) ? forumsData : []);
-            
-            console.log(`✅ Frontend: Set ${Array.isArray(forumsData) ? forumsData.length : 0} forum posts`);
           } catch (forumError) {
-            console.error('❌ Frontend: Error fetching forums:', forumError);
             setForums([]);
             // Don't show error to user for forums as it's not critical
           }
@@ -227,7 +218,6 @@ const CourseDetailPage: React.FC = () => {
           break;
       }
     } catch (error) {
-      console.error('Error fetching tab data:', error);
       if (activeTab !== 'forums') {
         toast.error(`Gagal memuat data ${activeTab}`);
       }
@@ -243,7 +233,6 @@ const CourseDetailPage: React.FC = () => {
       setStudents(response.data);
       setStudentsMeta(response.meta);
     } catch (error) {
-      console.error('Error fetching students:', error);
       toast.error('Gagal memuat data mahasiswa');
     } finally {
       setStudentsLoading(false);
@@ -257,7 +246,6 @@ const CourseDetailPage: React.FC = () => {
       const data = await courseService.getAvailableStudents(course.id);
       setAvailableStudents(data);
     } catch (error) {
-      console.error('Error fetching available students:', error);
       toast.error('Gagal memuat data mahasiswa tersedia');
     }
   };
@@ -273,7 +261,6 @@ const CourseDetailPage: React.FC = () => {
       );
       setAttendanceData(data);
     } catch (error) {
-      console.error('Error fetching attendance data:', error);
       toast.error('Gagal memuat data absensi');
     } finally {
       setAttendanceLoading(false);
@@ -440,18 +427,6 @@ const CourseDetailPage: React.FC = () => {
         formData.append('file', materialForm.file);
       }
 
-      console.log('📤 Submitting material form:', {
-        title: materialForm.title,
-        type: materialForm.type,
-        week: materialForm.week,
-        orderIndex: materialForm.orderIndex,
-        hasFile: !!materialForm.file,
-        url: materialForm.url,
-        isAttendanceTrigger: materialForm.isAttendanceTrigger,
-        attendanceThreshold: materialForm.attendanceThreshold,
-        isEditing: !!editingMaterial
-      });
-
       if (editingMaterial) {
         await courseService.updateCourseMaterial(course.id, editingMaterial.id, formData);
         toast.success('Materi berhasil diperbarui');
@@ -464,7 +439,6 @@ const CourseDetailPage: React.FC = () => {
       resetMaterialForm();
       fetchTabData();
     } catch (error: any) {
-      console.error('❌ Error submitting material:', error);
       const errorMessage = error?.response?.data?.message || error?.message || 'Gagal menyimpan materi';
       toast.error(errorMessage);
     } finally {
@@ -801,7 +775,7 @@ const CourseDetailPage: React.FC = () => {
           </div>
         )}
 
-        {/* Materials Tab - FIXED TO SHOW ALL MATERIALS PROPERLY */}
+        {/* Materials Tab - CLEANED VERSION */}
         {activeTab === 'materials' && (
           <div className="space-y-6">
             {canManageCourse && (
@@ -822,15 +796,6 @@ const CourseDetailPage: React.FC = () => {
               </Card>
             ) : (
               <div className="space-y-6">
-                {/* Debug Info */}
-                {canManageCourse && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="font-bold text-blue-800 mb-2">🐛 DEBUG: Materials Data</h4>
-                    <p className="text-sm text-blue-700">Total materials: {materials.length}</p>
-                    <p className="text-sm text-blue-700">Weeks: {Array.from(new Set(materials.map(m => m.week))).sort().join(', ')}</p>
-                  </div>
-                )}
-
                 {/* Group materials by week */}
                 {Array.from(new Set(materials.map(m => m.week))).sort().map(week => {
                   const weekMaterials = materials.filter(m => m.week === week).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
@@ -847,204 +812,193 @@ const CourseDetailPage: React.FC = () => {
                       </div>
                       
                       <div className="space-y-4">
-                        {weekMaterials.map(material => {
-                          console.log('🔍 Rendering material:', material.id, material.title, material.type);
-                          
-                          // SIMPLE MATERIAL CARD - ALWAYS VISIBLE FOR STUDENTS
-                          return (
-                            <Card key={material.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-indigo-500">
-                              <CardContent className="p-6">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex items-start space-x-4 flex-1">
-                                    {/* Material Icon */}
-                                    <div className={`p-3 rounded-lg ${getMaterialTypeColor(material.type)}`}>
-                                      {getMaterialIcon(material.type)}
-                                    </div>
+                        {weekMaterials.map(material => (
+                          <Card key={material.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-indigo-500">
+                            <CardContent className="p-6">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start space-x-4 flex-1">
+                                  {/* Material Icon */}
+                                  <div className={`p-3 rounded-lg ${getMaterialTypeColor(material.type)}`}>
+                                    {getMaterialIcon(material.type)}
+                                  </div>
+                                  
+                                  {/* Material Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-lg text-gray-900 mb-2">{material.title}</h4>
+                                    {material.description && (
+                                      <p className="text-gray-600 mb-3 line-clamp-2">{material.description}</p>
+                                    )}
                                     
-                                    {/* Material Info */}
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="font-semibold text-lg text-gray-900 mb-2">{material.title}</h4>
-                                      {material.description && (
-                                        <p className="text-gray-600 mb-3 line-clamp-2">{material.description}</p>
+                                    {/* Material Metadata */}
+                                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-4 h-4" />
+                                        {formatDate(material.createdAt)}
+                                      </span>
+                                      {material.fileSize && (
+                                        <span>{formatFileSize(material.fileSize)}</span>
                                       )}
-                                      
-                                      {/* Material Metadata */}
-                                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                                        <span className="flex items-center gap-1">
-                                          <Clock className="w-4 h-4" />
-                                          {formatDate(material.createdAt)}
-                                        </span>
-                                        {material.fileSize && (
-                                          <span>{formatFileSize(material.fileSize)}</span>
-                                        )}
-                                        <Badge 
-                                          variant="outline" 
-                                          className="text-xs px-2 py-1"
-                                        >
-                                          {material.type.toUpperCase()}
+                                      <Badge 
+                                        variant="outline" 
+                                        className="text-xs px-2 py-1"
+                                      >
+                                        {material.type.toUpperCase()}
+                                      </Badge>
+                                      {material.isAttendanceTrigger && (
+                                        <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                          🎯 Attendance Trigger ({material.attendanceThreshold || 80}%)
                                         </Badge>
-                                        {material.isAttendanceTrigger && (
-                                          <Badge className="bg-blue-100 text-blue-800 text-xs">
-                                            🎯 Attendance Trigger ({material.attendanceThreshold || 80}%)
-                                          </Badge>
-                                        )}
-                                      </div>
+                                      )}
+                                    </div>
 
-                                      {/* Action Buttons */}
-                                      <div className="flex gap-3">
-                                        {/* Video Materials - UPDATED TO USE VIDEOPREVIEWPAGE */}
-                                        {material.type === MaterialType.VIDEO && (
-                                          <Button
-                                            size="sm"
-                                            className="bg-red-600 hover:bg-red-700 text-white"
-                                            onClick={() => {
-                                              // Navigate to VideoPreviewPage with proper LMS layout
-                                              console.log('🎥 Opening video preview page:', material.title);
-                                              navigate(`/courses/${course.id}/materials/${material.id}/video`);
-                                            }}
-                                          >
-                                            <Play className="w-4 h-4 mr-2" />
-                                            Tonton Video
-                                          </Button>
-                                        )}
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-3">
+                                      {/* Video Materials */}
+                                      {material.type === MaterialType.VIDEO && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-red-600 hover:bg-red-700 text-white"
+                                          onClick={() => {
+                                            navigate(`/courses/${course.id}/materials/${material.id}/video`);
+                                          }}
+                                        >
+                                          <Play className="w-4 h-4 mr-2" />
+                                          Tonton Video
+                                        </Button>
+                                      )}
 
-                                        {/* PDF & Document Materials */}
-                                        {(material.type === MaterialType.PDF || 
-                                          material.type === MaterialType.DOCUMENT || 
-                                          material.type === MaterialType.PRESENTATION) && (
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                              const downloadUrl = getFileDownloadUrl(material);
-                                              console.log('📄 Download URL:', downloadUrl);
-                                              if (downloadUrl !== '#') {
-                                                window.open(downloadUrl, '_blank');
-                                              } else {
-                                                toast.error('File tidak tersedia untuk diunduh');
-                                              }
-                                            }}
-                                          >
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Download {material.type.toUpperCase()}
-                                          </Button>
-                                        )}
-
-                                        {/* Link Materials */}
-                                        {material.type === MaterialType.LINK && material.url && (
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                              window.open(material.url, '_blank', 'noopener,noreferrer');
-                                            }}
-                                          >
-                                            <ExternalLink className="w-4 h-4 mr-2" />
-                                            Buka Link
-                                          </Button>
-                                        )}
-
-                                        {/* View/Preview Button for all types */}
+                                      {/* PDF & Document Materials */}
+                                      {(material.type === MaterialType.PDF || 
+                                        material.type === MaterialType.DOCUMENT || 
+                                        material.type === MaterialType.PRESENTATION) && (
                                         <Button
                                           size="sm"
                                           variant="outline"
                                           onClick={() => {
-                                            if (material.type === MaterialType.VIDEO) {
-                                              // For videos, use VideoPreviewPage
-                                              navigate(`/courses/${course.id}/materials/${material.id}/video`);
+                                            const downloadUrl = getFileDownloadUrl(material);
+                                            if (downloadUrl !== '#') {
+                                              window.open(downloadUrl, '_blank');
                                             } else {
-                                              // For other files, open directly
-                                              const url = getFileDownloadUrl(material);
-                                              if (url !== '#') {
-                                                window.open(url, '_blank');
-                                              } else {
-                                                toast.error('File tidak tersedia');
-                                              }
+                                              toast.error('File tidak tersedia untuk diunduh');
                                             }
                                           }}
                                         >
-                                          <Eye className="w-4 h-4 mr-2" />
-                                          Lihat
+                                          <Download className="w-4 h-4 mr-2" />
+                                          Download {material.type.toUpperCase()}
                                         </Button>
-                                      </div>
-                                    </div>
-                                  </div>
+                                      )}
 
-                                  {/* Lecturer Actions */}
-                                  {canManageCourse && (
-                                    <div className="relative action-menu">
+                                      {/* Link Materials */}
+                                      {material.type === MaterialType.LINK && material.url && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => {
+                                            window.open(material.url, '_blank', 'noopener,noreferrer');
+                                          }}
+                                        >
+                                          <ExternalLink className="w-4 h-4 mr-2" />
+                                          Buka Link
+                                        </Button>
+                                      )}
+
+                                      {/* View/Preview Button for all types */}
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="p-2"
-                                        onClick={() => setShowActionMenu(showActionMenu === material.id ? null : material.id)}
+                                        onClick={() => {
+                                          if (material.type === MaterialType.VIDEO) {
+                                            navigate(`/courses/${course.id}/materials/${material.id}/video`);
+                                          } else {
+                                            const url = getFileDownloadUrl(material);
+                                            if (url !== '#') {
+                                              window.open(url, '_blank');
+                                            } else {
+                                              toast.error('File tidak tersedia');
+                                            }
+                                          }
+                                        }}
                                       >
-                                        <MoreVertical className="w-4 h-4" />
+                                        <Eye className="w-4 h-4 mr-2" />
+                                        Lihat
                                       </Button>
-                                      
-                                      {showActionMenu === material.id && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
-                                          <button
-                                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                                            onClick={() => {
-                                              setEditingMaterial(material);
-                                              setMaterialForm({
-                                                title: material.title,
-                                                description: material.description || '',
-                                                type: material.type,
-                                                week: material.week,
-                                                orderIndex: material.orderIndex || 1,
-                                                url: material.url || '',
-                                                isAttendanceTrigger: material.isAttendanceTrigger || false,
-                                                attendanceThreshold: material.attendanceThreshold || 80,
-                                              });
-                                              setMaterialModalOpen(true);
-                                              setShowActionMenu(null);
-                                            }}
-                                          >
-                                            <Edit className="w-4 h-4 mr-2" />
-                                            Edit
-                                          </button>
-                                          <button
-                                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
-                                            onClick={() => {
-                                              // Toggle visibility
-                                              toast.success(material.isVisible ? 'Materi disembunyikan' : 'Materi ditampilkan');
-                                              setShowActionMenu(null);
-                                            }}
-                                          >
-                                            {material.isVisible ? (
-                                              <>
-                                                <EyeOff className="w-4 h-4 mr-2" />
-                                                Sembunyikan
-                                              </>
-                                            ) : (
-                                              <>
-                                                <Eye className="w-4 h-4 mr-2" />
-                                                Tampilkan
-                                              </>
-                                            )}
-                                          </button>
-                                          <button
-                                            className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full"
-                                            onClick={() => {
-                                              setSelectedMaterial(material);
-                                              setDeleteMaterialModalOpen(true);
-                                              setShowActionMenu(null);
-                                            }}
-                                          >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            Hapus
-                                          </button>
-                                        </div>
-                                      )}
                                     </div>
-                                  )}
+                                  </div>
                                 </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
+
+                                {/* Lecturer Actions */}
+                                {canManageCourse && (
+                                  <div className="relative action-menu">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="p-2"
+                                      onClick={() => setShowActionMenu(showActionMenu === material.id ? null : material.id)}
+                                    >
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                    
+                                    {showActionMenu === material.id && (
+                                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                                        <button
+                                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                                          onClick={() => {
+                                            setEditingMaterial(material);
+                                            setMaterialForm({
+                                              title: material.title,
+                                              description: material.description || '',
+                                              type: material.type,
+                                              week: material.week,
+                                              orderIndex: material.orderIndex || 1,
+                                              url: material.url || '',
+                                              isAttendanceTrigger: material.isAttendanceTrigger || false,
+                                              attendanceThreshold: material.attendanceThreshold || 80,
+                                            });
+                                            setMaterialModalOpen(true);
+                                            setShowActionMenu(null);
+                                          }}
+                                        >
+                                          <Edit className="w-4 h-4 mr-2" />
+                                          Edit
+                                        </button>
+                                        <button
+                                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full"
+                                          onClick={() => {
+                                            toast.success(material.isVisible ? 'Materi disembunyikan' : 'Materi ditampilkan');
+                                            setShowActionMenu(null);
+                                          }}
+                                        >
+                                          {material.isVisible ? (
+                                            <>
+                                              <EyeOff className="w-4 h-4 mr-2" />
+                                              Sembunyikan
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Eye className="w-4 h-4 mr-2" />
+                                              Tampilkan
+                                            </>
+                                          )}
+                                        </button>
+                                        <button
+                                          className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full"
+                                          onClick={() => {
+                                            setSelectedMaterial(material);
+                                            setDeleteMaterialModalOpen(true);
+                                            setShowActionMenu(null);
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4 mr-2" />
+                                          Hapus
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
 
                       {/* Material management for lecturers */}
@@ -1802,7 +1756,7 @@ const CourseDetailPage: React.FC = () => {
         </Modal>
       )}
 
-      {/* Material Form Modal - UPDATED WITH ATTENDANCE TRIGGER FIELDS + DEBUG */}
+      {/* Material Form Modal - CLEANED VERSION WITHOUT DEBUG */}
       {materialModalOpen && (
         <Modal
           onClose={() => {
@@ -1813,17 +1767,6 @@ const CourseDetailPage: React.FC = () => {
           size="lg"
         >
           <form onSubmit={handleMaterialSubmit} className="space-y-6">
-            {/* DEBUG COMPONENT - TEMPORARY */}
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <h4 className="font-bold text-yellow-800 mb-2">🐛 DEBUG INFO</h4>
-              <AttendanceTriggerDebug />
-              <div className="mt-4 text-sm">
-                <p><strong>Current Form Type:</strong> {materialForm.type}</p>
-                <p><strong>Is Video?:</strong> {materialForm.type === MaterialType.VIDEO ? '✅ YES' : '❌ NO'}</p>
-                <p><strong>Should Show Section?:</strong> {materialForm.type === MaterialType.VIDEO ? '✅ YES' : '❌ NO'}</p>
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Judul Materi <span className="text-red-500">*</span>
@@ -1865,7 +1808,6 @@ const CourseDetailPage: React.FC = () => {
               <Select
                 value={materialForm.type}
                 onChange={(e) => {
-                  console.log('🔄 Type changed to:', e.target.value);
                   setMaterialForm({...materialForm, type: e.target.value as MaterialType});
                   if (formErrors.type) setFormErrors({...formErrors, type: ''});
                 }}
@@ -1934,7 +1876,7 @@ const CourseDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* ATTENDANCE TRIGGER SETTINGS - Only show for VIDEO type */}
+            {/* ATTENDANCE TRIGGER SETTINGS - Clean version for VIDEO type */}
             {materialForm.type === MaterialType.VIDEO && (
               <div className="border-2 border-blue-100 rounded-lg p-4 bg-blue-50 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1961,7 +1903,7 @@ const CourseDetailPage: React.FC = () => {
                 </div>
                 
                 <p className="text-sm text-gray-600">
-                  ✅ SUCCESS! Section ini muncul karena type = VIDEO
+                  Aktifkan untuk mencatat kehadiran otomatis berdasarkan waktu menonton video
                 </p>
 
                 {materialForm.isAttendanceTrigger && (
