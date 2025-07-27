@@ -29,6 +29,8 @@ export enum AttendanceType {
 @Entity('attendances')
 @Index(['studentId', 'courseId', 'attendanceDate']) // Optimize attendance queries
 @Index(['courseId', 'attendanceDate']) // For course attendance reports
+@Index(['studentId', 'courseId', 'week']) // 🔥 NEW: Weekly attendance optimization
+@Index(['courseId', 'week']) // 🔥 NEW: Course weekly reports
 export class Attendance {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -53,6 +55,10 @@ export class Attendance {
 
   @Column({ type: 'date' })
   attendanceDate: Date; // tanggal absensi (YYYY-MM-DD)
+
+  // 🔥 NEW: Track week number for weekly attendance system
+  @Column({ nullable: true })
+  week: number; // minggu ke berapa (1-16)
 
   @Column({
     type: 'enum',
@@ -86,6 +92,14 @@ export class Attendance {
     completionTime?: Date;
     ipAddress?: string;
     userAgent?: string;
+    weekNumber?: number; // 🔥 ENHANCED: Backup week tracking in metadata
+    weeklyCompletion?: boolean; // 🔥 NEW: Flag for weekly completion
+    weeklyCompletionDetails?: {
+      totalRequired: number;
+      completedCount: number;
+      weeklyCompletionRate: number;
+      completedVideos: any[];
+    };
   };
 
   @CreateDateColumn()
