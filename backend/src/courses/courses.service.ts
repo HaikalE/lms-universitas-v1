@@ -834,6 +834,7 @@ export class CoursesService {
       order: { week: 'ASC', orderIndex: 'ASC' },
     });
 
+    // ✅ FIXED: Include isAttendanceTrigger and attendanceThreshold in response
     return materials.map((material) => ({
       id: material.id,
       title: material.title,
@@ -845,6 +846,10 @@ export class CoursesService {
       url: material.url,
       week: material.week,
       orderIndex: material.orderIndex,
+      isVisible: material.isVisible,
+      // ✅ NEW: Include weekly attendance fields
+      isAttendanceTrigger: material.isAttendanceTrigger || false,
+      attendanceThreshold: material.attendanceThreshold,
       uploadedBy: {
         id: material.uploadedBy.id,
         fullName: material.uploadedBy.fullName,
