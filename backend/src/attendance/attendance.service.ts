@@ -405,8 +405,8 @@ export class AttendanceService {
   }
 
   /**
-   * Get course attendance grouped by week with student details
-   * For lecturer dashboard to see attendance by week/pertemuan
+   * 🔧 FIXED: Get course attendance grouped by week with student details
+   * Added null checking for attendanceDate to prevent errors
    */
   async getCourseAttendanceByWeek(
     courseId: string,
@@ -418,6 +418,8 @@ export class AttendanceService {
     students: any[];
     weeklyStats: any[];
   }> {
+    this.logger.log(`🔍 Getting attendance by week for course: ${courseId}, week: ${week}`);
+
     // Get course enrollment count
     const course = await this.courseRepository.findOne({
       where: { id: courseId },
@@ -428,6 +430,8 @@ export class AttendanceService {
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
+    this.logger.log(`✅ Course loaded with students count: ${course.students.length}`);
+
     const students = course.students.map(student => ({
       id: student.id,
       fullName: student.fullName,
@@ -435,12 +439,13 @@ export class AttendanceService {
       email: student.email,
     }));
 
-    // Build query for attendances
+    // Build query for attendances with null checking
     const queryBuilder = this.attendanceRepository
       .createQueryBuilder('attendance')
       .leftJoinAndSelect('attendance.student', 'student')
       .leftJoinAndSelect('attendance.triggerMaterial', 'material')
       .where('attendance.courseId = :courseId', { courseId })
+      .andWhere('attendance.attendanceDate IS NOT NULL') // 🔧 Filter out null dates
       .orderBy('attendance.attendanceDate', 'DESC')
       .addOrderBy('student.fullName', 'ASC');
 
@@ -453,6 +458,7 @@ export class AttendanceService {
     }
 
     const attendances = await queryBuilder.getMany();
+    this.logger.log(`📊 Found ${attendances.length} attendance records`);
 
     // Group attendances by week if materials have week info
     const attendancesByWeek: any = {};
@@ -474,44 +480,69 @@ export class AttendanceService {
     // Group attendances by date and categorize
     const attendancesByDate: any = {};
     attendances.forEach(attendance => {
-      const dateKey = attendance.attendanceDate.toISOString().split('T')[0];
-      if (!attendancesByDate[dateKey]) {
-        attendancesByDate[dateKey] = [];
+      try {
+        // 🔧 FIXED: Safe date handling with null checking
+        if (!attendance.attendanceDate) {
+          this.logger.warn(`⚠️ Skipping attendance with null date: ${attendance.id}`);
+          return;
+        }
+
+        // Ensure attendanceDate is a Date object
+        const attendanceDate = attendance.attendanceDate instanceof Date 
+          ? attendance.attendanceDate 
+          : new Date(attendance.attendanceDate);
+
+        if (isNaN(attendanceDate.getTime())) {
+          this.logger.warn(`⚠️ Skipping attendance with invalid date: ${attendance.id}`);
+          return;
+        }
+
+        const dateKey = attendanceDate.toISOString().split('T')[0];
+        if (!attendancesByDate[dateKey]) {
+          attendancesByDate[dateKey] = [];
+        }
+        
+        attendancesByDate[dateKey].push({
+          ...this.mapToResponseDto(attendance),
+          week: attendance.triggerMaterial?.week || this.getWeekFromDate(attendanceDate),
+        });
+      } catch (error) {
+        this.logger.error(`❌ Error processing attendance ${attendance.id}:`, error.message);
       }
-      attendancesByDate[dateKey].push({
-        ...this.mapToResponseDto(attendance),
-        week: attendance.triggerMaterial?.week || this.getWeekFromDate(attendance.attendanceDate),
-      });
     });
 
     // Calculate attendance for each week based on date patterns
     Object.entries(attendancesByDate).forEach(([date, dayAttendances]: [string, any[]]) => {
-      // Determine week number (you might want to adjust this logic)
-      const weekNumber = dayAttendances[0]?.week || this.getWeekFromDate(new Date(date));
-      
-      if (weekNumber >= 1 && weekNumber <= 16) {
-        attendancesByWeek[weekNumber].push({
-          date,
-          attendances: dayAttendances,
-          presentStudents: dayAttendances.filter(a => 
-            a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
-          ),
-          absentStudents: students.filter(student => 
-            !dayAttendances.some(a => a.studentId === student.id)
-          ),
-        });
-
-        // Update weekly stats
-        const presentCount = dayAttendances.filter(a => 
-          a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
-        ).length;
-        const autoCount = dayAttendances.filter(a => a.status === 'auto_present').length;
+      try {
+        // Determine week number (you might want to adjust this logic)
+        const weekNumber = dayAttendances[0]?.week || this.getWeekFromDate(new Date(date));
         
-        weeklyStats[weekNumber].presentCount += presentCount;
-        weeklyStats[weekNumber].autoAttendanceCount += autoCount;
-        weeklyStats[weekNumber].attendanceRate = students.length > 0 
-          ? (weeklyStats[weekNumber].presentCount / students.length * 100) 
-          : 0;
+        if (weekNumber >= 1 && weekNumber <= 16) {
+          attendancesByWeek[weekNumber].push({
+            date,
+            attendances: dayAttendances,
+            presentStudents: dayAttendances.filter(a => 
+              a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
+            ),
+            absentStudents: students.filter(student => 
+              !dayAttendances.some(a => a.studentId === student.id)
+            ),
+          });
+
+          // Update weekly stats
+          const presentCount = dayAttendances.filter(a => 
+            a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
+          ).length;
+          const autoCount = dayAttendances.filter(a => a.status === 'auto_present').length;
+          
+          weeklyStats[weekNumber].presentCount += presentCount;
+          weeklyStats[weekNumber].autoAttendanceCount += autoCount;
+          weeklyStats[weekNumber].attendanceRate = students.length > 0 
+            ? (weeklyStats[weekNumber].presentCount / students.length * 100) 
+            : 0;
+        }
+      } catch (error) {
+        this.logger.error(`❌ Error processing week data for date ${date}:`, error.message);
       }
     });
 
@@ -540,6 +571,55 @@ export class AttendanceService {
   }
 
   /**
+   * 🆕 Clean up null attendance dates
+   * This fixes data integrity issues
+   */
+  async cleanupNullAttendanceDates(): Promise<{
+    fixed: number;
+    deleted: number;
+  }> {
+    this.logger.log('🧹 Starting cleanup of null attendance dates...');
+
+    // Find records with null attendanceDate
+    const nullDateAttendances = await this.attendanceRepository.find({
+      where: { attendanceDate: null as any },
+      relations: ['student', 'course'],
+    });
+
+    this.logger.log(`Found ${nullDateAttendances.length} records with null attendanceDate`);
+
+    let fixed = 0;
+    let deleted = 0;
+
+    for (const attendance of nullDateAttendances) {
+      try {
+        // Try to fix by using submittedAt or createdAt as fallback
+        if (attendance.submittedAt) {
+          attendance.attendanceDate = new Date(attendance.submittedAt.getFullYear(), attendance.submittedAt.getMonth(), attendance.submittedAt.getDate());
+          await this.attendanceRepository.save(attendance);
+          fixed++;
+          this.logger.log(`✅ Fixed attendance ${attendance.id} using submittedAt`);
+        } else if (attendance.createdAt) {
+          attendance.attendanceDate = new Date(attendance.createdAt.getFullYear(), attendance.createdAt.getMonth(), attendance.createdAt.getDate());
+          await this.attendanceRepository.save(attendance);
+          fixed++;
+          this.logger.log(`✅ Fixed attendance ${attendance.id} using createdAt`);
+        } else {
+          // Delete if we can't determine the date
+          await this.attendanceRepository.remove(attendance);
+          deleted++;
+          this.logger.log(`🗑️ Deleted attendance ${attendance.id} - no date available`);
+        }
+      } catch (error) {
+        this.logger.error(`❌ Error processing attendance ${attendance.id}:`, error.message);
+      }
+    }
+
+    this.logger.log(`🎉 Cleanup completed: ${fixed} fixed, ${deleted} deleted`);
+    return { fixed, deleted };
+  }
+
+  /**
    * Helper method to determine week number from date
    * You can customize this logic based on your academic calendar
    */
@@ -551,15 +631,33 @@ export class AttendanceService {
   }
 
   /**
-   * Map entity to response DTO
+   * 🔧 FIXED: Map entity to response DTO with null safety
    */
   private mapToResponseDto(attendance: Attendance): AttendanceResponseDto {
+    // 🔧 Safe date conversion with fallback
+    let attendanceDateStr: string;
+    try {
+      if (attendance.attendanceDate) {
+        const date = attendance.attendanceDate instanceof Date 
+          ? attendance.attendanceDate 
+          : new Date(attendance.attendanceDate);
+        attendanceDateStr = isNaN(date.getTime()) 
+          ? new Date().toISOString().split('T')[0] // Fallback to today
+          : date.toISOString().split('T')[0];
+      } else {
+        attendanceDateStr = new Date().toISOString().split('T')[0]; // Fallback to today
+      }
+    } catch (error) {
+      this.logger.warn(`⚠️ Error converting attendance date for ${attendance.id}, using fallback`);
+      attendanceDateStr = new Date().toISOString().split('T')[0];
+    }
+
     return {
       id: attendance.id,
       studentId: attendance.studentId,
       courseId: attendance.courseId,
       triggerMaterialId: attendance.triggerMaterialId,
-      attendanceDate: attendance.attendanceDate.toISOString().split('T')[0],
+      attendanceDate: attendanceDateStr,
       status: attendance.status,
       attendanceType: attendance.attendanceType,
       notes: attendance.notes,
