@@ -53,7 +53,7 @@ export class AttendanceService {
   }
 
   /**
-   * Auto-submit attendance when video is completed
+   * 🔥 FIXED: Auto-submit attendance when video is completed (WEEKLY SYSTEM)
    * This is called from VideoProgressService when completion threshold is reached
    */
   async autoSubmitAttendance(
@@ -63,12 +63,15 @@ export class AttendanceService {
   ): Promise<AttendanceResponseDto> {
     const { studentId, courseId, triggerMaterialId, completionPercentage, metadata } = autoSubmitDto;
 
+    this.logger.log(`🎯 AUTO-SUBMIT ATTENDANCE: Student ${studentId}, Course ${courseId}, Material ${triggerMaterialId}`);
+
     // 🔍 Validate student exists
     const student = await this.userRepository.findOne({
       where: { id: studentId },
     });
 
     if (!student) {
+      this.logger.error(`❌ Student not found: ${studentId}`);
       throw new NotFoundException(`Student with ID ${studentId} not found`);
     }
 
@@ -78,6 +81,7 @@ export class AttendanceService {
     });
 
     if (!course) {
+      this.logger.error(`❌ Course not found: ${courseId}`);
       throw new NotFoundException(`Course with ID ${courseId} not found`);
     }
 
@@ -87,32 +91,32 @@ export class AttendanceService {
     });
 
     if (!material) {
+      this.logger.error(`❌ Material not found: ${triggerMaterialId}`);
       throw new NotFoundException(`Material with ID ${triggerMaterialId} not found`);
     }
 
     if (!material.isAttendanceTrigger) {
+      this.logger.error(`❌ Material not attendance trigger: ${triggerMaterialId}`);
       throw new BadRequestException('This material is not configured to trigger attendance');
     }
 
-    // 📅 Check if attendance already exists for today
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    this.logger.log(`✅ Validation passed for material "${material.title}" (week ${material.week})`);
 
-    const existingAttendance = await this.attendanceRepository.findOne({
-      where: {
-        studentId,
-        courseId,
-        attendanceDate: Between(startOfDay, endOfDay),
-      },
-    });
-
-    if (existingAttendance) {
-      this.logger.warn(`Attendance already exists for student ${studentId} in course ${courseId} on ${today.toISOString().split('T')[0]}`);
-      throw new ConflictException('Attendance for today already submitted');
+    // 🔥 FIXED: Check for WEEKLY attendance instead of daily
+    if (material.week) {
+      const existingWeeklyAttendance = await this.hasWeeklyAttendance(studentId, courseId, material.week);
+      
+      if (existingWeeklyAttendance) {
+        this.logger.warn(`⚠️ Weekly attendance already exists for student ${studentId} in course ${courseId}, week ${material.week}`);
+        throw new ConflictException(`Attendance for week ${material.week} already submitted`);
+      }
     }
 
-    // ✅ Create auto attendance record
+    // 📅 Use today as attendance date but track by week in metadata
+    const today = new Date();
+    const attendanceDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    // ✅ Create auto attendance record with WEEKLY metadata
     const attendance = this.attendanceRepository.create({
       studentId,
       courseId,
@@ -120,65 +124,92 @@ export class AttendanceService {
       student,
       course,
       triggerMaterial: material,
-      attendanceDate: startOfDay,
+      attendanceDate, // Daily date for compatibility
+      week: material.week, // 🔥 NEW: Track week number
       status: AttendanceStatus.AUTO_PRESENT,
       attendanceType: AttendanceType.VIDEO_COMPLETION,
       submittedAt: new Date(),
-      notes: `Auto-submitted via video completion (${completionPercentage.toFixed(1)}%)`,
+      notes: `Auto-submitted via weekly video completion (${completionPercentage.toFixed(1)}%) - Week ${material.week}`,
       metadata: {
         videoProgress: completionPercentage,
         completionTime: new Date(),
+        weekNumber: material.week,
+        weeklyCompletion: true,
         ipAddress,
         userAgent,
         ...metadata,
       },
     });
 
-    const savedAttendance = await this.attendanceRepository.save(attendance);
+    try {
+      const savedAttendance = await this.attendanceRepository.save(attendance);
 
-    this.logger.log(`✅ Auto-attendance submitted: Student ${student.fullName} (${student.studentId}) - Course ${course.title} - ${completionPercentage.toFixed(1)}% completion`);
+      this.logger.log(`✅ WEEKLY AUTO-ATTENDANCE SUCCESS: Student ${student.fullName} (${student.studentId}) - Course ${course.title} - Week ${material.week} - ${completionPercentage.toFixed(1)}% completion`);
 
-    return this.mapToResponseDto(savedAttendance);
+      return this.mapToResponseDto(savedAttendance);
+    } catch (error) {
+      this.logger.error(`❌ Failed to save attendance:`, error.message);
+      this.logger.error(`❌ Full error:`, error);
+      throw error;
+    }
   }
 
   /**
-   * 🆕 Check if student has weekly attendance for a specific week
+   * 🔥 ENHANCED: Check if student has weekly attendance for a specific week
    * Used by VideoProgressService to avoid duplicate attendance
    */
   async hasWeeklyAttendance(studentId: string, courseId: string, week: number): Promise<boolean> {
     this.logger.log(`🔍 Checking if student ${studentId} has attendance for course ${courseId}, week ${week}`);
 
-    // Get all course materials for this week that trigger attendance
-    const weekMaterials = await this.courseMaterialRepository.find({
-      where: {
-        courseId,
-        week,
-        isAttendanceTrigger: true,
-      },
-      select: ['id'],
-    });
+    try {
+      // Check if there's any attendance record for this student, course, and week
+      const existingAttendance = await this.attendanceRepository
+        .createQueryBuilder('attendance')
+        .where('attendance.studentId = :studentId', { studentId })
+        .andWhere('attendance.courseId = :courseId', { courseId })
+        .andWhere('attendance.week = :week', { week })
+        .getOne();
 
-    if (weekMaterials.length === 0) {
-      this.logger.log(`⚠️ No attendance-trigger materials found for week ${week}`);
-      return false;
+      const hasAttendance = !!existingAttendance;
+      
+      this.logger.log(`📊 Student ${studentId} ${hasAttendance ? 'HAS' : 'DOES NOT HAVE'} attendance for week ${week}`);
+      
+      return hasAttendance;
+    } catch (error) {
+      this.logger.error(`❌ Error checking weekly attendance:`, error.message);
+      
+      // Fallback: Check by material from this week
+      const weekMaterials = await this.courseMaterialRepository.find({
+        where: {
+          courseId,
+          week,
+          isAttendanceTrigger: true,
+        },
+        select: ['id'],
+      });
+
+      if (weekMaterials.length === 0) {
+        this.logger.log(`⚠️ No attendance-trigger materials found for week ${week}`);
+        return false;
+      }
+
+      const materialIds = weekMaterials.map(m => m.id);
+
+      // Check if student has ANY attendance record triggered by materials from this week
+      const existingAttendance = await this.attendanceRepository.findOne({
+        where: {
+          studentId,
+          courseId,
+          triggerMaterialId: In(materialIds), // Using TypeORM In operator
+        },
+      });
+
+      const hasAttendance = !!existingAttendance;
+      
+      this.logger.log(`📊 Fallback check - Student ${studentId} ${hasAttendance ? 'HAS' : 'DOES NOT HAVE'} attendance for week ${week}`);
+      
+      return hasAttendance;
     }
-
-    const materialIds = weekMaterials.map(m => m.id);
-
-    // Check if student has ANY attendance record triggered by materials from this week
-    const existingAttendance = await this.attendanceRepository.findOne({
-      where: {
-        studentId,
-        courseId,
-        triggerMaterialId: In(materialIds), // Using TypeORM In operator
-      },
-    });
-
-    const hasAttendance = !!existingAttendance;
-    
-    this.logger.log(`📊 Student ${studentId} ${hasAttendance ? 'HAS' : 'DOES NOT HAVE'} attendance for week ${week}`);
-    
-    return hasAttendance;
   }
 
   /**
@@ -230,15 +261,25 @@ export class AttendanceService {
         continue;
       }
 
-      const materialIds = weekMaterials.map(m => m.id);
-
-      // Count attendance for this week
-      const attendanceCount = await this.attendanceRepository.count({
-        where: {
-          courseId,
-          triggerMaterialId: In(materialIds),
-        },
-      });
+      // Count attendance for this week - use week field if available
+      let attendanceCount = 0;
+      try {
+        attendanceCount = await this.attendanceRepository.count({
+          where: {
+            courseId,
+            week,
+          },
+        });
+      } catch (error) {
+        // Fallback to material-based checking
+        const materialIds = weekMaterials.map(m => m.id);
+        attendanceCount = await this.attendanceRepository.count({
+          where: {
+            courseId,
+            triggerMaterialId: In(materialIds),
+          },
+        });
+      }
 
       // Calculate completion rate
       const attendanceRate = totalStudents > 0 ? (attendanceCount / totalStudents) * 100 : 0;
@@ -295,18 +336,31 @@ export class AttendanceService {
         continue;
       }
 
-      const materialIds = weekMaterials.map(m => m.id);
-
       // Check if student has attendance for this week
-      const attendance = await this.attendanceRepository.findOne({
-        where: {
-          studentId,
-          courseId,
-          triggerMaterialId: In(materialIds),
-        },
-        relations: ['triggerMaterial'],
-        order: { createdAt: 'DESC' },
-      });
+      let attendance = null;
+      try {
+        attendance = await this.attendanceRepository.findOne({
+          where: {
+            studentId,
+            courseId,
+            week,
+          },
+          relations: ['triggerMaterial'],
+          order: { createdAt: 'DESC' },
+        });
+      } catch (error) {
+        // Fallback to material-based checking
+        const materialIds = weekMaterials.map(m => m.id);
+        attendance = await this.attendanceRepository.findOne({
+          where: {
+            studentId,
+            courseId,
+            triggerMaterialId: In(materialIds),
+          },
+          relations: ['triggerMaterial'],
+          order: { createdAt: 'DESC' },
+        });
+      }
 
       weeklyStatus.push({
         week,
@@ -639,7 +693,7 @@ export class AttendanceService {
     const attendances = await queryBuilder.getMany();
     this.logger.log(`📊 Found ${attendances.length} attendance records`);
 
-    // Group attendances by week if materials have week info
+    // Group attendances by week
     const attendancesByWeek: any = {};
     const weeklyStats: any = {};
 
@@ -656,72 +710,29 @@ export class AttendanceService {
       };
     }
 
-    // Group attendances by date and categorize
-    const attendancesByDate: any = {};
+    // Group attendances by week number
     attendances.forEach(attendance => {
       try {
-        // 🔧 FIXED: Safe date handling with null checking
-        if (!attendance.attendanceDate) {
-          this.logger.warn(`⚠️ Skipping attendance with null date: ${attendance.id}`);
-          return;
-        }
-
-        // Ensure attendanceDate is a Date object
-        const attendanceDate = attendance.attendanceDate instanceof Date 
-          ? attendance.attendanceDate 
-          : new Date(attendance.attendanceDate);
-
-        if (isNaN(attendanceDate.getTime())) {
-          this.logger.warn(`⚠️ Skipping attendance with invalid date: ${attendance.id}`);
-          return;
-        }
-
-        const dateKey = attendanceDate.toISOString().split('T')[0];
-        if (!attendancesByDate[dateKey]) {
-          attendancesByDate[dateKey] = [];
-        }
-        
-        attendancesByDate[dateKey].push({
-          ...this.mapToResponseDto(attendance),
-          week: attendance.triggerMaterial?.week || this.getWeekFromDate(attendanceDate),
-        });
-      } catch (error) {
-        this.logger.error(`❌ Error processing attendance ${attendance.id}:`, error.message);
-      }
-    });
-
-    // Calculate attendance for each week based on date patterns
-    Object.entries(attendancesByDate).forEach(([date, dayAttendances]: [string, any[]]) => {
-      try {
-        // Determine week number (you might want to adjust this logic)
-        const weekNumber = dayAttendances[0]?.week || this.getWeekFromDate(new Date(date));
+        // 🔥 Use week field from attendance if available, or derive from material
+        const weekNumber = attendance.week || attendance.triggerMaterial?.week || this.getWeekFromDate(attendance.attendanceDate);
         
         if (weekNumber >= 1 && weekNumber <= 16) {
-          attendancesByWeek[weekNumber].push({
-            date,
-            attendances: dayAttendances,
-            presentStudents: dayAttendances.filter(a => 
-              a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
-            ),
-            absentStudents: students.filter(student => 
-              !dayAttendances.some(a => a.studentId === student.id)
-            ),
-          });
+          attendancesByWeek[weekNumber].push(this.mapToResponseDto(attendance));
 
           // Update weekly stats
-          const presentCount = dayAttendances.filter(a => 
-            a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
-          ).length;
-          const autoCount = dayAttendances.filter(a => a.status === 'auto_present').length;
+          if (attendance.status === 'present' || attendance.status === 'auto_present' || attendance.status === 'late') {
+            weeklyStats[weekNumber].presentCount++;
+          }
+          if (attendance.status === 'auto_present') {
+            weeklyStats[weekNumber].autoAttendanceCount++;
+          }
           
-          weeklyStats[weekNumber].presentCount += presentCount;
-          weeklyStats[weekNumber].autoAttendanceCount += autoCount;
           weeklyStats[weekNumber].attendanceRate = students.length > 0 
             ? (weeklyStats[weekNumber].presentCount / students.length * 100) 
             : 0;
         }
       } catch (error) {
-        this.logger.error(`❌ Error processing week data for date ${date}:`, error.message);
+        this.logger.error(`❌ Error processing attendance ${attendance.id}:`, error.message);
       }
     });
 
@@ -837,6 +848,7 @@ export class AttendanceService {
       courseId: attendance.courseId,
       triggerMaterialId: attendance.triggerMaterialId,
       attendanceDate: attendanceDateStr,
+      week: attendance.week, // 🔥 Include week field
       status: attendance.status,
       attendanceType: attendance.attendanceType,
       notes: attendance.notes,
