@@ -54,6 +54,41 @@ export class AttendanceController {
   }
 
   /**
+   * 🆕 Cleanup null attendance dates (Admin only)
+   * Fixes database integrity issues
+   * 
+   * POST /api/attendance/cleanup-null-dates
+   */
+  @Post('cleanup-null-dates')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  async cleanupNullAttendanceDates(): Promise<{
+    success: boolean;
+    fixed: number;
+    deleted: number;
+    message: string;
+  }> {
+    try {
+      const result = await this.attendanceService.cleanupNullAttendanceDates();
+      
+      return {
+        success: true,
+        fixed: result.fixed,
+        deleted: result.deleted,
+        message: `Successfully processed ${result.fixed + result.deleted} records. Fixed: ${result.fixed}, Deleted: ${result.deleted}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        fixed: 0,
+        deleted: 0,
+        message: `Cleanup failed: ${error.message}`,
+      };
+    }
+  }
+
+  /**
    * Create manual attendance record (Lecturer/Admin only)
    * 
    * POST /api/attendance
