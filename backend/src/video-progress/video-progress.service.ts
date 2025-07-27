@@ -166,6 +166,121 @@ export class VideoProgressService {
   }
 
   /**
+   * 🆕 Manual trigger attendance for completed videos (Fix for existing issue)
+   * This is used when videos were completed before isAttendanceTrigger was enabled
+   */
+  async manualTriggerAttendanceForCompletedVideos(materialId: string): Promise<{
+    triggered: number;
+    skipped: number;
+    errors: any[];
+  }> {
+    this.logger.log(`🔧 Manual attendance trigger for material: ${materialId}`);
+
+    // Validate material exists and is attendance trigger
+    const material = await this.courseMaterialRepository.findOne({
+      where: { id: materialId },
+    });
+
+    if (!material) {
+      throw new NotFoundException(`Material ${materialId} not found`);
+    }
+
+    if (!material.isAttendanceTrigger) {
+      throw new BadRequestException(`Material ${materialId} is not configured as attendance trigger`);
+    }
+
+    // Find all completed videos that haven't triggered attendance
+    const completedProgress = await this.videoProgressRepository.find({
+      where: { 
+        materialId, 
+        isCompleted: true, 
+        hasTriggeredAttendance: false 
+      },
+      relations: ['material']
+    });
+
+    this.logger.log(`Found ${completedProgress.length} completed videos without attendance`);
+
+    let triggered = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (const progress of completedProgress) {
+      try {
+        // Trigger attendance
+        await this.triggerAttendance(
+          progress.studentId,
+          progress.material.courseId,
+          materialId,
+          progress.watchedPercentage
+        );
+        
+        // Mark as triggered
+        progress.hasTriggeredAttendance = true;
+        await this.videoProgressRepository.save(progress);
+        
+        triggered++;
+        this.logger.log(`✅ Triggered attendance for student ${progress.studentId}`);
+        
+      } catch (error) {
+        skipped++;
+        errors.push({
+          studentId: progress.studentId,
+          error: error.message
+        });
+        this.logger.error(`❌ Failed to trigger attendance for student ${progress.studentId}:`, error.message);
+      }
+    }
+
+    const result = { triggered, skipped, errors };
+    this.logger.log(`🎯 Manual trigger completed: ${triggered} triggered, ${skipped} skipped`);
+    return result;
+  }
+
+  /**
+   * 🆕 Get attendance trigger status for a material
+   */
+  async getAttendanceTriggerStatus(materialId: string): Promise<{
+    isAttendanceTrigger: boolean;
+    threshold: number;
+    completedStudents: number;
+    attendanceTriggered: number;
+    pendingTrigger: number;
+  }> {
+    const material = await this.courseMaterialRepository.findOne({
+      where: { id: materialId },
+    });
+
+    if (!material) {
+      throw new NotFoundException(`Material ${materialId} not found`);
+    }
+
+    // Count progress statistics
+    const stats = await this.videoProgressRepository
+      .createQueryBuilder('vp')
+      .select([
+        'COUNT(CASE WHEN vp.isCompleted THEN 1 END) as completedStudents',
+        'COUNT(CASE WHEN vp.hasTriggeredAttendance THEN 1 END) as attendanceTriggered',
+      ])
+      .where('vp.materialId = :materialId', { materialId })
+      .getRawOne();
+
+    const completedStudents = parseInt(stats.completedStudents || '0');
+    const attendanceTriggered = parseInt(stats.attendanceTriggered || '0');
+    const pendingTrigger = material.isAttendanceTrigger 
+      ? completedStudents - attendanceTriggered 
+      : 0;
+
+    return {
+      isAttendanceTrigger: material.isAttendanceTrigger || false,
+      threshold: material.attendanceThreshold || this.defaultCompletionThreshold,
+      completedStudents,
+      attendanceTriggered,
+      pendingTrigger,
+    };
+  }
+
+  /**
    * Get video progress for a student and material
    */
   async getProgress(
