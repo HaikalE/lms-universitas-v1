@@ -147,15 +147,18 @@ export class VideoProgressService {
     // 💾 Save progress
     progress = await this.videoProgressRepository.save(progress);
 
-    // 🎯 NEW LOGIC: Check weekly completion instead of single video
-    if (isCompleted && !wasCompletedBefore && material.isAttendanceTrigger && !progress.hasTriggeredAttendance) {
+    // 🔥 ENHANCED LOGIC: Check weekly completion - ALWAYS check if completed and is attendance trigger
+    if (isCompleted && material.isAttendanceTrigger && !progress.hasTriggeredAttendance) {
+      this.logger.log(`🔥 ATTENDANCE TRIGGER CHECK: Video ${materialId} completed, isAttendanceTrigger=${material.isAttendanceTrigger}, hasTriggeredAttendance=${progress.hasTriggeredAttendance}`);
+      this.logger.log(`🔥 Conditions: isCompleted=${isCompleted}, wasCompletedBefore=${wasCompletedBefore}, material.week=${material.week}`);
+      
       try {
-        this.logger.log(`🔥 WEEKLY ATTENDANCE CHECK: Material ${materialId} completed, checking week ${material.week} completion...`);
-        
         // Check if material has week info
         if (!material.week) {
           this.logger.warn(`⚠️ Material ${materialId} has no week info - cannot check weekly completion`);
         } else {
+          this.logger.log(`🔥 WEEKLY ATTENDANCE CHECK: Material ${materialId} completed, checking week ${material.week} completion...`);
+          
           // Check if ALL videos in this week are completed
           const weeklyCompletionResult = await this.checkAndTriggerWeeklyAttendance(
             studentId, 
@@ -184,7 +187,17 @@ export class VideoProgressService {
         
       } catch (error) {
         this.logger.error(`❌ Failed to check weekly completion for student ${studentId}, week ${material.week}:`, error);
+        this.logger.error(`❌ Full error stack:`, error.stack);
         // Don't throw error - video progress should still be saved
+      }
+    } else {
+      // Log why attendance check was skipped
+      if (!isCompleted) {
+        this.logger.log(`⏭️ SKIP ATTENDANCE: Video ${materialId} not completed (${calculatedPercentage.toFixed(1)}% < ${completionThreshold}%)`);
+      } else if (!material.isAttendanceTrigger) {
+        this.logger.log(`⏭️ SKIP ATTENDANCE: Video ${materialId} not configured as attendance trigger`);
+      } else if (progress.hasTriggeredAttendance) {
+        this.logger.log(`⏭️ SKIP ATTENDANCE: Video ${materialId} already triggered attendance`);
       }
     }
 
@@ -221,7 +234,7 @@ export class VideoProgressService {
     });
 
     if (requiredVideos.length === 0) {
-      this.logger.log(`⚠️ No attendance-trigger videos found for week ${week}`);
+      this.logger.log(`⚠️ No attendance-trigger videos found for week ${week} in course ${courseId}`);
       return {
         canTriggerAttendance: false,
         totalRequired: 0,
@@ -232,7 +245,7 @@ export class VideoProgressService {
       };
     }
 
-    this.logger.log(`📹 Found ${requiredVideos.length} attendance-trigger videos for week ${week}:`);
+    this.logger.log(`📹 Found ${requiredVideos.length} attendance-trigger videos for week ${week} in course ${courseId}:`);
     requiredVideos.forEach(video => {
       this.logger.log(`  - ${video.title} (ID: ${video.id}, threshold: ${video.attendanceThreshold || this.defaultCompletionThreshold}%)`);
     });
