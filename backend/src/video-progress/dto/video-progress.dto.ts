@@ -64,11 +64,12 @@ export class VideoProgressResponseDto {
   createdAt: Date;
   updatedAt: Date;
   
-  // Include material info
+  // Include material info with week field
   material?: {
     id: string;
     title: string;
     type: string;
+    week: number;  // ✅ FIXED: Added missing week field!
     isAttendanceTrigger: boolean;
     attendanceThreshold: number | null;
   };
