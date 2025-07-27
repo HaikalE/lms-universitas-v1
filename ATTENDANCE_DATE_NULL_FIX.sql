@@ -1,167 +1,151 @@
--- 🔧 SQL Fix: AttendanceDate Null Error 
+-- ✅ FIXED SQL: AttendanceDate Null Error (PostgreSQL Compatible)
 -- Error: "attendance.attendanceDate.toISOString is not a function"
--- Cause: Records with null attendanceDate in database
+-- Fix: Corrected column names for PostgreSQL case sensitivity
 
 -- ========================================
--- 1. DIAGNOSTIC: Check for Null AttendanceDate Records
+-- 🔍 STEP 1: DIAGNOSTIC (Check Column Names & Null Records)
 -- ========================================
 
--- Count records with null attendanceDate
+-- First, let's see the actual table structure
+\d attendances;
+
+-- Check for null attendance_date records (using snake_case)
 SELECT 
-    COUNT(*) as null_count,
-    COUNT(CASE WHEN attendanceDate IS NOT NULL THEN 1 END) as valid_count
+    COUNT(*) as total_records,
+    COUNT("attendanceDate") as valid_dates,
+    COUNT(*) - COUNT("attendanceDate") as null_dates
 FROM attendances;
 
--- Show problematic records
+-- Show problematic records (first 10)
 SELECT 
     id,
-    studentId,
-    courseId,
-    attendanceDate,
-    submittedAt,
-    createdAt,
+    "studentId",
+    "courseId", 
+    "attendanceDate",
+    "submittedAt",
+    "createdAt",
     status
 FROM attendances 
-WHERE attendanceDate IS NULL
-ORDER BY createdAt DESC
-LIMIT 20;
+WHERE "attendanceDate" IS NULL
+ORDER BY "createdAt" DESC
+LIMIT 10;
 
 -- ========================================
--- 2. IMMEDIATE FIX: Handle Null Dates
+-- 🔧 STEP 2: IMMEDIATE FIX (Execute These in Order)
 -- ========================================
 
--- Option A: Fix by using submittedAt as fallback
+-- Fix null dates using submittedAt as fallback
 UPDATE attendances 
-SET attendanceDate = DATE(submittedAt)
-WHERE attendanceDate IS NULL 
-  AND submittedAt IS NOT NULL;
+SET "attendanceDate" = DATE("submittedAt")
+WHERE "attendanceDate" IS NULL 
+  AND "submittedAt" IS NOT NULL;
 
--- Option B: Fix by using createdAt as fallback  
+-- Fix remaining null dates using createdAt as fallback  
 UPDATE attendances 
-SET attendanceDate = DATE(createdAt)
-WHERE attendanceDate IS NULL 
-  AND createdAt IS NOT NULL
-  AND submittedAt IS NULL;
+SET "attendanceDate" = DATE("createdAt")
+WHERE "attendanceDate" IS NULL 
+  AND "createdAt" IS NOT NULL;
 
--- Option C: Fix remaining records with today's date
+-- Fix any remaining null dates with current date
 UPDATE attendances 
-SET attendanceDate = CURRENT_DATE
-WHERE attendanceDate IS NULL;
+SET "attendanceDate" = CURRENT_DATE
+WHERE "attendanceDate" IS NULL;
 
 -- ========================================
--- 3. VERIFICATION: Check Fix Results
+-- 🎯 STEP 3: ENABLE ATTENDANCE TRIGGER FOR YOUR VIDEO
 -- ========================================
 
--- Verify no null dates remain
+-- Enable attendance trigger for your specific video
+UPDATE course_materials 
+SET 
+    "isAttendanceTrigger" = true,
+    "attendanceThreshold" = 80,
+    "updatedAt" = NOW()
+WHERE id = 'e2915fc2-9345-4188-a6ba-484e7294ee42';
+
+-- Verify the video is now configured
+SELECT 
+    id,
+    title,
+    type,
+    week,
+    "isAttendanceTrigger",
+    "attendanceThreshold"
+FROM course_materials 
+WHERE id = 'e2915fc2-9345-4188-a6ba-484e7294ee42';
+
+-- ========================================
+-- ✅ STEP 4: VERIFICATION (Check Everything Fixed)
+-- ========================================
+
+-- Should return 0 null dates
 SELECT COUNT(*) as remaining_null_dates
 FROM attendances 
-WHERE attendanceDate IS NULL;
+WHERE "attendanceDate" IS NULL;
 
--- Check distribution of fixed dates
+-- Check recent attendance records
 SELECT 
-    DATE(attendanceDate) as attendance_date,
+    "attendanceDate",
     COUNT(*) as count,
     status
 FROM attendances 
-WHERE DATE(attendanceDate) >= CURRENT_DATE - INTERVAL '30 days'
-GROUP BY DATE(attendanceDate), status
-ORDER BY attendance_date DESC
-LIMIT 20;
+WHERE "attendanceDate" >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY "attendanceDate", status
+ORDER BY "attendanceDate" DESC;
 
 -- ========================================
--- 4. PREVENTION: Add Database Constraints
+-- 🚀 STEP 5: BULK ENABLE FOR WEEK 1 (Optional)
 -- ========================================
 
--- Add NOT NULL constraint to prevent future null dates
--- Note: This will fail if there are still null records
-ALTER TABLE attendances 
-ALTER COLUMN attendanceDate SET NOT NULL;
+-- Enable attendance trigger for ALL Week 1 videos in your course
+UPDATE course_materials 
+SET 
+    "isAttendanceTrigger" = true,
+    "attendanceThreshold" = 80,
+    "updatedAt" = NOW()
+WHERE 
+    "courseId" = '2024ece7-edc2-4f75-bdd2-e605512f4ac7'  -- Your course ID
+    AND type = 'video'
+    AND week = 1
+    AND ("isAttendanceTrigger" IS NULL OR "isAttendanceTrigger" = false);
 
--- Add check constraint to ensure valid dates
-ALTER TABLE attendances 
-ADD CONSTRAINT chk_valid_attendance_date 
-CHECK (attendanceDate IS NOT NULL AND attendanceDate >= '2020-01-01');
-
--- ========================================
--- 5. CLEAN UP DUPLICATE RECORDS (Optional)
--- ========================================
-
--- Find potential duplicates (same student, course, date)
+-- Verify bulk update
 SELECT 
-    studentId,
-    courseId,
-    attendanceDate,
-    COUNT(*) as duplicate_count
-FROM attendances
-GROUP BY studentId, courseId, attendanceDate
-HAVING COUNT(*) > 1
-ORDER BY duplicate_count DESC;
-
--- Remove duplicates, keeping the latest record
-WITH ranked_attendance AS (
-    SELECT *,
-           ROW_NUMBER() OVER (
-               PARTITION BY studentId, courseId, attendanceDate 
-               ORDER BY submittedAt DESC, createdAt DESC
-           ) as rn
-    FROM attendances
-)
-DELETE FROM attendances 
-WHERE id IN (
-    SELECT id 
-    FROM ranked_attendance 
-    WHERE rn > 1
-);
+    id,
+    title,
+    week,
+    "orderIndex",
+    "isAttendanceTrigger",
+    "attendanceThreshold"
+FROM course_materials 
+WHERE 
+    "courseId" = '2024ece7-edc2-4f75-bdd2-e605512f4ac7'
+    AND type = 'video'
+    AND week = 1
+ORDER BY "orderIndex";
 
 -- ========================================
--- 6. ADVANCED: Fix Week Data Issues
+-- 📊 STEP 6: DATA HEALTH CHECK
 -- ========================================
 
--- Update week numbers for attendance records based on material
-UPDATE attendances a
-SET metadata = jsonb_set(
-    COALESCE(a.metadata, '{}'::jsonb),
-    '{week}',
-    to_jsonb(cm.week)
-)
-FROM course_materials cm
-WHERE a.triggerMaterialId = cm.id
-  AND cm.week IS NOT NULL
-  AND (a.metadata IS NULL OR a.metadata->>'week' IS NULL);
-
--- ========================================
--- 7. MONITORING QUERIES
--- ========================================
-
--- Monitor attendance creation patterns
+-- Check attendance data quality
 SELECT 
-    DATE(createdAt) as creation_date,
-    COUNT(*) as records_created,
-    COUNT(CASE WHEN attendanceDate IS NULL THEN 1 END) as null_dates,
-    COUNT(CASE WHEN status = 'auto_present' THEN 1 END) as auto_attendance
-FROM attendances
-WHERE createdAt >= CURRENT_DATE - INTERVAL '7 days'
-GROUP BY DATE(createdAt)
-ORDER BY creation_date DESC;
-
--- Check data quality metrics
-SELECT 
-    'Total Records' as metric,
+    'Total Attendances' as metric,
     COUNT(*) as value
 FROM attendances
 
 UNION ALL
 
 SELECT 
-    'Records with Valid Dates' as metric,
+    'Valid Attendance Dates' as metric,
     COUNT(*) as value
 FROM attendances 
-WHERE attendanceDate IS NOT NULL
+WHERE "attendanceDate" IS NOT NULL
 
 UNION ALL
 
 SELECT 
-    'Auto-Generated Attendance' as metric,
+    'Auto Attendances' as metric,
     COUNT(*) as value
 FROM attendances 
 WHERE status = 'auto_present'
@@ -169,37 +153,57 @@ WHERE status = 'auto_present'
 UNION ALL
 
 SELECT 
-    'Records from Last 30 Days' as metric,
+    'Videos with Attendance Trigger' as metric,
     COUNT(*) as value
-FROM attendances 
-WHERE createdAt >= CURRENT_DATE - INTERVAL '30 days';
+FROM course_materials 
+WHERE type = 'video' AND "isAttendanceTrigger" = true;
+
+-- Check for students who completed videos but no attendance
+SELECT 
+    vp."studentId",
+    u."fullName",
+    vp."materialId",
+    cm.title as video_title,
+    cm.week,
+    vp."watchedPercentage",
+    vp."isCompleted",
+    vp."hasTriggeredAttendance",
+    cm."isAttendanceTrigger"
+FROM video_progress vp
+JOIN users u ON vp."studentId" = u.id
+JOIN course_materials cm ON vp."materialId" = cm.id  
+WHERE 
+    cm."courseId" = '2024ece7-edc2-4f75-bdd2-e605512f4ac7'
+    AND cm.week = 1
+    AND vp."isCompleted" = true
+    AND vp."hasTriggeredAttendance" = false
+    AND cm."isAttendanceTrigger" = true
+ORDER BY cm.week, cm."orderIndex", u."fullName";
 
 -- ========================================
--- 8. BACKUP & RESTORE (Safety)
+-- 🔒 STEP 7: PREVENT FUTURE ISSUES (Optional)
 -- ========================================
 
--- Create backup table before major changes
-CREATE TABLE attendances_backup AS 
-SELECT * FROM attendances WHERE attendanceDate IS NULL;
-
--- Restore from backup if needed
--- INSERT INTO attendances SELECT * FROM attendances_backup;
+-- Add constraint to prevent null attendance dates in future
+ALTER TABLE attendances 
+ALTER COLUMN "attendanceDate" SET NOT NULL;
 
 -- ========================================
--- USAGE INSTRUCTIONS:
+-- 📋 USAGE INSTRUCTIONS:
 -- ========================================
--- 1. Run section 1 to diagnose the problem
--- 2. Run section 2 step by step to fix null dates
--- 3. Run section 3 to verify the fix
--- 4. Run section 4 to add constraints (optional)
--- 5. Run section 5 to clean duplicates (optional)
--- 6. Use section 7 for ongoing monitoring
+-- 1. Copy and paste EACH SECTION separately in pgAdmin or psql
+-- 2. Execute Step 1 to check current state
+-- 3. Execute Step 2 to fix null dates  
+-- 4. Execute Step 3 to enable attendance trigger
+-- 5. Execute Step 4 to verify everything is fixed
+-- 6. Execute Step 5 if you want to enable all Week 1 videos
+-- 7. Run Step 6 to check data health
+-- 8. Restart your backend after running these queries
 -- ========================================
 
--- ========================================
--- EXPECTED RESULTS:
--- ========================================
--- Before fix: attendance.attendanceDate.toISOString() → Error
--- After fix:  attendance.attendanceDate.toISOString() → "2025-07-27"
--- API response: 200 OK instead of 500 Internal Server Error
+-- ✅ EXPECTED RESULTS AFTER FIX:
+-- - No more 500 errors in attendance API
+-- - Students get attendance when completing videos  
+-- - Attendance dashboard loads successfully
+-- - Blue "Attendance Trigger" badge on videos
 -- ========================================
