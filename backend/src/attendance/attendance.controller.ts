@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  ParseIntPipe,
   Ip,
   Headers,
 } from '@nestjs/common';
@@ -134,6 +135,107 @@ export class AttendanceController {
     @Query() queryDto: AttendanceQueryDto,
   ) {
     return this.attendanceService.getAttendances(queryDto);
+  }
+
+  /**
+   * 🆕 Get weekly attendance summary for course (Lecturer/Admin only)
+   * Shows attendance breakdown by week with required videos info
+   * 
+   * GET /api/attendance/course/:courseId/weekly-summary
+   */
+  @Get('course/:courseId/weekly-summary')
+  @Roles(UserRole.LECTURER, UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  async getWeeklyAttendanceSummary(
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Query('startWeek', ParseIntPipe) startWeek?: number,
+    @Query('endWeek', ParseIntPipe) endWeek?: number,
+  ) {
+    return this.attendanceService.getWeeklyAttendanceSummary(
+      courseId,
+      startWeek || 1,
+      endWeek || 16
+    );
+  }
+
+  /**
+   * 🆕 Get current user's weekly attendance status (Student)
+   * Shows which weeks have attendance and which don't
+   * 
+   * GET /api/attendance/my-weekly-status/course/:courseId
+   */
+  @Get('my-weekly-status/course/:courseId')
+  @Roles(UserRole.STUDENT)
+  @UseGuards(RolesGuard)
+  async getMyWeeklyAttendanceStatus(
+    @Request() req,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Query('startWeek', ParseIntPipe) startWeek?: number,
+    @Query('endWeek', ParseIntPipe) endWeek?: number,
+  ) {
+    const studentId = req.user.id;
+    return this.attendanceService.getStudentWeeklyAttendanceStatus(
+      studentId,
+      courseId,
+      startWeek || 1,
+      endWeek || 16
+    );
+  }
+
+  /**
+   * 🆕 Get specific student's weekly attendance status (Lecturer/Admin only)
+   * 
+   * GET /api/attendance/student/:studentId/weekly-status/course/:courseId
+   */
+  @Get('student/:studentId/weekly-status/course/:courseId')
+  @Roles(UserRole.LECTURER, UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  async getStudentWeeklyAttendanceStatus(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Query('startWeek', ParseIntPipe) startWeek?: number,
+    @Query('endWeek', ParseIntPipe) endWeek?: number,
+  ) {
+    return this.attendanceService.getStudentWeeklyAttendanceStatus(
+      studentId,
+      courseId,
+      startWeek || 1,
+      endWeek || 16
+    );
+  }
+
+  /**
+   * 🆕 Check if student has attendance for specific week
+   * 
+   * GET /api/attendance/check-weekly/:studentId/course/:courseId/week/:week
+   */
+  @Get('check-weekly/:studentId/course/:courseId/week/:week')
+  @Roles(UserRole.LECTURER, UserRole.ADMIN, UserRole.STUDENT)
+  @UseGuards(RolesGuard)
+  async checkWeeklyAttendance(
+    @Request() req,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+    @Param('week', ParseIntPipe) week: number,
+  ) {
+    // Students can only check their own attendance
+    if (req.user.role === UserRole.STUDENT && req.user.id !== studentId) {
+      throw new Error('Students can only check their own attendance');
+    }
+
+    const hasAttendance = await this.attendanceService.hasWeeklyAttendance(
+      studentId,
+      courseId,
+      week
+    );
+
+    return {
+      studentId,
+      courseId,
+      week,
+      hasAttendance,
+      checkedAt: new Date(),
+    };
   }
 
   /**
@@ -293,6 +395,63 @@ export class AttendanceController {
       hasAttendanceToday: false,
       canAutoSubmit: true,
       attendance: null,
+    };
+  }
+
+  /**
+   * 🆕 Get enhanced attendance summary with weekly breakdown
+   * Shows weekly attendance status for better insights
+   * 
+   * GET /api/attendance/enhanced-summary/course/:courseId
+   */
+  @Get('enhanced-summary/course/:courseId')
+  @Roles(UserRole.STUDENT)
+  @UseGuards(RolesGuard)
+  async getEnhancedAttendanceSummary(
+    @Request() req,
+    @Param('courseId', ParseUUIDPipe) courseId: string,
+  ) {
+    const studentId = req.user.id;
+    
+    // Get regular attendance records
+    const attendances = await this.attendanceService.getStudentAttendance(studentId, courseId);
+    
+    // Get weekly attendance status
+    const weeklyStatus = await this.attendanceService.getStudentWeeklyAttendanceStatus(
+      studentId,
+      courseId
+    );
+
+    // Calculate summary stats
+    const summary = {
+      totalDays: attendances.length,
+      presentDays: attendances.filter(a => 
+        a.status === 'present' || a.status === 'auto_present' || a.status === 'late'
+      ).length,
+      absentDays: attendances.filter(a => a.status === 'absent').length,
+      excusedDays: attendances.filter(a => a.status === 'excused').length,
+      autoAttendanceDays: attendances.filter(a => a.status === 'auto_present').length,
+      attendanceRate: 0,
+      weeklyStats: {
+        totalWeeks: weeklyStatus.length,
+        weeksWithAttendance: weeklyStatus.filter(w => w.hasAttendance).length,
+        weeklyAttendanceRate: 0,
+      },
+    };
+    
+    summary.attendanceRate = summary.totalDays > 0 
+      ? (summary.presentDays / summary.totalDays * 100) 
+      : 0;
+      
+    summary.weeklyStats.weeklyAttendanceRate = summary.weeklyStats.totalWeeks > 0
+      ? (summary.weeklyStats.weeksWithAttendance / summary.weeklyStats.totalWeeks * 100)
+      : 0;
+    
+    return {
+      courseId,
+      summary,
+      weeklyStatus,
+      recentAttendances: attendances.slice(0, 10),
     };
   }
 }
