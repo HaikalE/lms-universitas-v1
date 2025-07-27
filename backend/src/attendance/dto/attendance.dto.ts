@@ -25,6 +25,13 @@ export class CreateAttendanceDto {
   @IsDateString()
   attendanceDate: string; // YYYY-MM-DD format
 
+  // 🔥 NEW: Week number for weekly attendance tracking
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(16)
+  week?: number;
+
   @IsEnum(AttendanceStatus)
   status: AttendanceStatus;
 
@@ -41,6 +48,8 @@ export class CreateAttendanceDto {
     completionTime?: Date;
     ipAddress?: string;
     userAgent?: string;
+    weekNumber?: number; // 🔥 NEW: Backup week tracking
+    weeklyCompletion?: boolean; // 🔥 NEW: Weekly completion flag
   };
 }
 
@@ -56,6 +65,13 @@ export class UpdateAttendanceDto {
   @IsOptional()
   @IsUUID()
   verifiedBy?: string;
+
+  // 🔥 NEW: Allow week updates
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(16)
+  week?: number;
 }
 
 export class AttendanceQueryDto {
@@ -82,6 +98,13 @@ export class AttendanceQueryDto {
   @IsOptional()
   @IsEnum(AttendanceType)
   attendanceType?: AttendanceType;
+
+  // 🔥 NEW: Filter by week
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(16)
+  week?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -116,6 +139,14 @@ export class AutoSubmitAttendanceDto {
     completionTime?: Date;
     ipAddress?: string;
     userAgent?: string;
+    weekNumber?: number; // 🔥 NEW: Include week in auto-submit
+    weeklyCompletion?: boolean; // 🔥 NEW: Weekly completion flag
+    weeklyCompletionDetails?: { // 🔥 NEW: Detailed weekly completion info
+      totalRequired: number;
+      completedCount: number;
+      weeklyCompletionRate: number;
+      completedVideos: any[];
+    };
   };
 }
 
@@ -125,6 +156,7 @@ export class AttendanceResponseDto {
   courseId: string;
   triggerMaterialId: string | null;
   attendanceDate: string;
+  week: number | null; // 🔥 NEW: Include week field
   status: AttendanceStatus;
   attendanceType: AttendanceType;
   notes: string | null;
@@ -165,6 +197,18 @@ export class AttendanceStatsDto {
   lateCount: number;
   autoAttendanceCount: number;
   attendanceRate: number;
+  
+  // 🔥 ENHANCED: Weekly breakdown
+  weeklyStats?: {
+    week: number;
+    present: number;
+    absent: number;
+    excused: number;
+    late: number;
+    autoPresent: number;
+    rate: number;
+    requiredVideos: number;
+  }[];
   
   // Breakdown by date
   dailyStats?: {
