@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { 
   Attendance, 
@@ -15,7 +15,7 @@ import {
 } from '../entities/attendance.entity';
 import { User } from '../entities/user.entity';
 import { Course } from '../entities/course.entity';
-import { CourseMaterial } from '../entities/course-material.entity';
+import { CourseMaterial, MaterialType } from '../entities/course-material.entity';
 import {
   CreateAttendanceDto,
   UpdateAttendanceDto,
@@ -139,6 +139,185 @@ export class AttendanceService {
     this.logger.log(`✅ Auto-attendance submitted: Student ${student.fullName} (${student.studentId}) - Course ${course.title} - ${completionPercentage.toFixed(1)}% completion`);
 
     return this.mapToResponseDto(savedAttendance);
+  }
+
+  /**
+   * 🆕 Check if student has weekly attendance for a specific week
+   * Used by VideoProgressService to avoid duplicate attendance
+   */
+  async hasWeeklyAttendance(studentId: string, courseId: string, week: number): Promise<boolean> {
+    this.logger.log(`🔍 Checking if student ${studentId} has attendance for course ${courseId}, week ${week}`);
+
+    // Get all course materials for this week that trigger attendance
+    const weekMaterials = await this.courseMaterialRepository.find({
+      where: {
+        courseId,
+        week,
+        isAttendanceTrigger: true,
+      },
+      select: ['id'],
+    });
+
+    if (weekMaterials.length === 0) {
+      this.logger.log(`⚠️ No attendance-trigger materials found for week ${week}`);
+      return false;
+    }
+
+    const materialIds = weekMaterials.map(m => m.id);
+
+    // Check if student has ANY attendance record triggered by materials from this week
+    const existingAttendance = await this.attendanceRepository.findOne({
+      where: {
+        studentId,
+        courseId,
+        triggerMaterialId: In(materialIds), // Using TypeORM In operator
+      },
+    });
+
+    const hasAttendance = !!existingAttendance;
+    
+    this.logger.log(`📊 Student ${studentId} ${hasAttendance ? 'HAS' : 'DOES NOT HAVE'} attendance for week ${week}`);
+    
+    return hasAttendance;
+  }
+
+  /**
+   * 🆕 Get weekly attendance summary for a course
+   * Useful for lecturer dashboard
+   */
+  async getWeeklyAttendanceSummary(
+    courseId: string,
+    startWeek: number = 1,
+    endWeek: number = 16
+  ): Promise<{
+    week: number;
+    totalStudents: number;
+    attendanceCount: number;
+    attendanceRate: number;
+    requiredVideos: number;
+    studentsWithFullCompletion: number;
+  }[]> {
+    this.logger.log(`📊 Getting weekly attendance summary for course ${courseId}, weeks ${startWeek}-${endWeek}`);
+
+    // Get course enrollment count
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId },
+      relations: ['students'],
+    });
+
+    if (!course) {
+      throw new NotFoundException(`Course with ID ${courseId} not found`);
+    }
+
+    const totalStudents = course.students.length;
+    const summary = [];
+
+    for (let week = startWeek; week <= endWeek; week++) {
+      // Get required videos for this week
+      const weekMaterials = await this.courseMaterialRepository.find({
+        where: {
+          courseId,
+          week,
+          type: MaterialType.VIDEO,
+          isAttendanceTrigger: true,
+        },
+      });
+
+      const requiredVideos = weekMaterials.length;
+      
+      if (requiredVideos === 0) {
+        // Skip weeks with no required videos
+        continue;
+      }
+
+      const materialIds = weekMaterials.map(m => m.id);
+
+      // Count attendance for this week
+      const attendanceCount = await this.attendanceRepository.count({
+        where: {
+          courseId,
+          triggerMaterialId: In(materialIds),
+        },
+      });
+
+      // Calculate completion rate
+      const attendanceRate = totalStudents > 0 ? (attendanceCount / totalStudents) * 100 : 0;
+
+      summary.push({
+        week,
+        totalStudents,
+        attendanceCount,
+        attendanceRate: parseFloat(attendanceRate.toFixed(2)),
+        requiredVideos,
+        studentsWithFullCompletion: attendanceCount, // Students who got attendance = students with full completion
+      });
+    }
+
+    return summary;
+  }
+
+  /**
+   * 🆕 Get attendance status by week for a specific student
+   * Useful for student dashboard
+   */
+  async getStudentWeeklyAttendanceStatus(
+    studentId: string,
+    courseId: string,
+    startWeek: number = 1,
+    endWeek: number = 16
+  ): Promise<{
+    week: number;
+    hasAttendance: boolean;
+    requiredVideos: number;
+    attendanceDate?: Date;
+    triggerMaterial?: string;
+  }[]> {
+    this.logger.log(`📊 Getting weekly attendance status for student ${studentId}, course ${courseId}`);
+
+    const weeklyStatus = [];
+
+    for (let week = startWeek; week <= endWeek; week++) {
+      // Get required videos for this week
+      const weekMaterials = await this.courseMaterialRepository.find({
+        where: {
+          courseId,
+          week,
+          type: MaterialType.VIDEO,
+          isAttendanceTrigger: true,
+        },
+        select: ['id', 'title'],
+      });
+
+      const requiredVideos = weekMaterials.length;
+      
+      if (requiredVideos === 0) {
+        // Skip weeks with no required videos
+        continue;
+      }
+
+      const materialIds = weekMaterials.map(m => m.id);
+
+      // Check if student has attendance for this week
+      const attendance = await this.attendanceRepository.findOne({
+        where: {
+          studentId,
+          courseId,
+          triggerMaterialId: In(materialIds),
+        },
+        relations: ['triggerMaterial'],
+        order: { createdAt: 'DESC' },
+      });
+
+      weeklyStatus.push({
+        week,
+        hasAttendance: !!attendance,
+        requiredVideos,
+        attendanceDate: attendance?.attendanceDate,
+        triggerMaterial: attendance?.triggerMaterial?.title,
+      });
+    }
+
+    return weeklyStatus;
   }
 
   /**
