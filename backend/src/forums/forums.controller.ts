@@ -36,11 +36,7 @@ export class ForumsController {
   @Get('my-discussions')
   async getMyDiscussions(@GetUser() user: User, @Query() queryDto: QueryForumPostsDto) {
     try {
-      console.log('📋 Fetching my discussions for user:', user.id);
-      
       const result = await this.forumsService.getMyDiscussions(user, queryDto);
-      
-      console.log(`✅ Found ${result.data.length} discussions for user`);
       
       return {
         success: true,
@@ -48,8 +44,6 @@ export class ForumsController {
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error fetching my discussions:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -62,7 +56,7 @@ export class ForumsController {
     }
   }
 
-  // CREATE FORUM POST
+  // CREATE FORUM POST - FIXED VALIDATION
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ValidationPipe({ 
@@ -73,31 +67,39 @@ export class ForumsController {
   }))
   async create(@Body() createForumPostDto: CreateForumPostDto, @GetUser() user: User) {
     try {
-      console.log('📝 Creating forum post request received:');
-      console.log('   - User:', user.id, user.fullName);
-      console.log('   - Title:', createForumPostDto.title);
-      console.log('   - CourseId:', createForumPostDto.courseId);
-      console.log('   - Content length:', createForumPostDto.content?.length || 0);
-      console.log('   - ParentId:', createForumPostDto.parentId || 'none (new post)');
-      
-      // Validate required fields
-      if (!createForumPostDto.title?.trim()) {
-        throw new BadRequestException('Judul post wajib diisi');
+      // ✅ FIXED: Better validation with proper error messages
+      const validationErrors: string[] = [];
+
+      // Validate title - only required if it's not a reply
+      if (!createForumPostDto.parentId && (!createForumPostDto.title || !createForumPostDto.title.trim())) {
+        validationErrors.push('Judul post wajib diisi');
       }
-      
-      if (!createForumPostDto.content?.trim()) {
-        throw new BadRequestException('Konten post wajib diisi');
+
+      // Validate content
+      if (!createForumPostDto.content || !createForumPostDto.content.trim()) {
+        validationErrors.push('Konten post wajib diisi');
       }
-      
-      if (!createForumPostDto.courseId?.trim()) {
-        throw new BadRequestException('Course ID wajib diisi');
+
+      // Validate courseId - MOST IMPORTANT FIX
+      if (!createForumPostDto.courseId || !createForumPostDto.courseId.trim()) {
+        validationErrors.push('Course ID wajib diisi');
+      } else {
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(createForumPostDto.courseId)) {
+          validationErrors.push('Course ID harus berupa UUID yang valid');
+        }
+      }
+
+      if (validationErrors.length > 0) {
+        throw new BadRequestException({
+          message: validationErrors,
+          error: 'Bad Request',
+          statusCode: 400,
+        });
       }
       
       const post = await this.forumsService.create(createForumPostDto, user);
-      
-      console.log('✅ Forum post created successfully:');
-      console.log('   - Post ID:', post.id);
-      console.log('   - Title:', post.title);
       
       return {
         success: true,
@@ -105,11 +107,6 @@ export class ForumsController {
         data: post,
       };
     } catch (error) {
-      console.error('❌ Error creating forum post:');
-      console.error('   - Error type:', error.constructor.name);
-      console.error('   - Error message:', error.message);
-      console.error('   - Request data:', createForumPostDto);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -130,10 +127,6 @@ export class ForumsController {
     @GetUser() user: User,
   ) {
     try {
-      console.log('🔍 Fetching forum posts for course:', courseId);
-      console.log('   - User:', user.id, user.role);
-      console.log('   - Query params:', queryDto);
-      
       // Validate courseId format
       if (!courseId || courseId.length < 10) {
         throw new BadRequestException('Invalid course ID format');
@@ -141,21 +134,12 @@ export class ForumsController {
       
       const result = await this.forumsService.findByCourse(courseId, queryDto, user);
       
-      console.log(`✅ Found ${result.data.length} forum posts`);
-      
       return {
         success: true,
         message: 'Forum posts berhasil diambil',
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error fetching forum posts:');
-      console.error('   - Error type:', error.constructor.name);
-      console.error('   - Error message:', error.message);
-      console.error('   - Course ID:', courseId);
-      console.error('   - User:', user?.id);
-      console.error('   - Stack:', error.stack);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -172,12 +156,7 @@ export class ForumsController {
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
-      console.log('🔍 Fetching forum post:', id);
-      console.log('   - User:', user.id);
-      
       const post = await this.forumsService.findOne(id, user);
-      
-      console.log('✅ Forum post found:', post.title);
       
       return {
         success: true,
@@ -185,8 +164,6 @@ export class ForumsController {
         data: post,
       };
     } catch (error) {
-      console.error('❌ Error fetching forum post:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -207,13 +184,7 @@ export class ForumsController {
     @GetUser() user: User,
   ) {
     try {
-      console.log('💬 Fetching replies for forum post:', id);
-      console.log('   - User:', user.id);
-      console.log('   - Query params:', queryDto);
-      
       const replies = await this.forumsService.getPostReplies(id, queryDto, user);
-      
-      console.log(`✅ Found ${replies.length} replies`);
       
       return {
         success: true,
@@ -221,8 +192,6 @@ export class ForumsController {
         data: replies,
       };
     } catch (error) {
-      console.error('❌ Error fetching replies:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -243,18 +212,11 @@ export class ForumsController {
     @GetUser() user: User,
   ) {
     try {
-      console.log('💬 Creating reply for forum post:', id);
-      console.log('   - User:', user.id);
-      console.log('   - Content length:', replyData.content?.length || 0);
-      console.log('   - Parent reply ID:', replyData.parentId || 'none (direct reply)');
-      
       if (!replyData.content?.trim()) {
         throw new BadRequestException('Konten balasan wajib diisi');
       }
       
       const reply = await this.forumsService.createReply(id, replyData, user);
-      
-      console.log('✅ Reply created successfully:', reply.id);
       
       return {
         success: true,
@@ -262,8 +224,6 @@ export class ForumsController {
         data: reply,
       };
     } catch (error) {
-      console.error('❌ Error creating reply:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -280,19 +240,13 @@ export class ForumsController {
   @Post(':id/view')
   async markAsViewed(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
-      console.log('👁️ Marking post as viewed:', id);
-      console.log('   - User:', user.id);
-      
       await this.forumsService.markAsViewed(id, user);
-      
-      console.log('✅ Post marked as viewed successfully');
       
       return {
         success: true,
         message: 'Post telah ditandai sebagai dilihat',
       };
     } catch (error) {
-      console.error('❌ Error marking post as viewed:', error.message);
       // Don't throw error for view tracking to avoid disrupting user experience
       return {
         success: false,
@@ -309,22 +263,13 @@ export class ForumsController {
     @GetUser() user: User,
   ) {
     try {
-      console.log('✅ Marking reply as answer:');
-      console.log('   - Post ID:', id);
-      console.log('   - Reply ID:', replyId);
-      console.log('   - User:', user.id);
-      
       const result = await this.forumsService.markAsAnswer(id, replyId, user);
-      
-      console.log('✅ Reply marked as answer successfully');
       
       return {
         success: true,
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error marking reply as answer:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -345,13 +290,7 @@ export class ForumsController {
     @GetUser() user: User,
   ) {
     try {
-      console.log('✏️ Updating forum post:', id);
-      console.log('   - User:', user.id);
-      console.log('   - Update data:', updateForumPostDto);
-      
       const post = await this.forumsService.update(id, updateForumPostDto, user);
-      
-      console.log('✅ Forum post updated successfully');
       
       return {
         success: true,
@@ -359,8 +298,6 @@ export class ForumsController {
         data: post,
       };
     } catch (error) {
-      console.error('❌ Error updating forum post:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -377,20 +314,13 @@ export class ForumsController {
   @Delete(':id')
   async remove(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
-      console.log('🗑️ Deleting forum post:', id);
-      console.log('   - User:', user.id);
-      
       const result = await this.forumsService.remove(id, user);
-      
-      console.log('✅ Forum post deleted successfully');
       
       return {
         success: true,
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error deleting forum post:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -409,20 +339,13 @@ export class ForumsController {
   @Roles(UserRole.ADMIN, UserRole.LECTURER)
   async togglePin(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
-      console.log('📌 Toggling pin for forum post:', id);
-      console.log('   - User:', user.id, user.role);
-      
       const result = await this.forumsService.togglePin(id, user);
-      
-      console.log('✅ Forum post pin toggled successfully');
       
       return {
         success: true,
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error toggling pin:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -441,20 +364,13 @@ export class ForumsController {
   @Roles(UserRole.ADMIN, UserRole.LECTURER)
   async toggleLock(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
-      console.log('🔒 Toggling lock for forum post:', id);
-      console.log('   - User:', user.id, user.role);
-      
       const result = await this.forumsService.toggleLock(id, user);
-      
-      console.log('✅ Forum post lock toggled successfully');
       
       return {
         success: true,
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error toggling lock:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -467,24 +383,17 @@ export class ForumsController {
     }
   }
 
-  // TOGGLE LIKE POST
+  // TOGGLE LIKE POST - FIXED TO PREVENT MULTIPLE LIKES
   @Post(':id/like')
   async toggleLike(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
     try {
-      console.log('❤️ Toggling like for forum post:', id);
-      console.log('   - User:', user.id);
-      
       const result = await this.forumsService.toggleLike(id, user);
-      
-      console.log('✅ Forum post like toggled successfully');
       
       return {
         success: true,
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error toggling like:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -501,20 +410,13 @@ export class ForumsController {
   @Post('replies/:replyId/like')
   async likeReply(@Param('replyId', ParseUUIDPipe) replyId: string, @GetUser() user: User) {
     try {
-      console.log('❤️ Toggling like for reply:', replyId);
-      console.log('   - User:', user.id);
-      
       const result = await this.forumsService.toggleLike(replyId, user);
-      
-      console.log('✅ Reply like toggled successfully');
       
       return {
         success: true,
         ...result,
       };
     } catch (error) {
-      console.error('❌ Error liking reply:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -535,12 +437,7 @@ export class ForumsController {
     @GetUser() user: User,
   ) {
     try {
-      console.log('✏️ Updating reply:', replyId);
-      console.log('   - User:', user.id);
-      
       const reply = await this.forumsService.update(replyId, updateData, user);
-      
-      console.log('✅ Reply updated successfully');
       
       return {
         success: true,
@@ -548,8 +445,6 @@ export class ForumsController {
         data: reply,
       };
     } catch (error) {
-      console.error('❌ Error updating reply:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
@@ -566,20 +461,13 @@ export class ForumsController {
   @Delete('replies/:replyId')
   async deleteReply(@Param('replyId', ParseUUIDPipe) replyId: string, @GetUser() user: User) {
     try {
-      console.log('🗑️ Deleting reply:', replyId);
-      console.log('   - User:', user.id);
-      
       const result = await this.forumsService.remove(replyId, user);
-      
-      console.log('✅ Reply deleted successfully');
       
       return {
         success: true,
         message: 'Balasan berhasil dihapus',
       };
     } catch (error) {
-      console.error('❌ Error deleting reply:', error.message);
-      
       if (error instanceof HttpException) {
         throw error;
       }
