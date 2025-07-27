@@ -46,6 +46,71 @@ export class VideoProgressController {
   }
 
   /**
+   * 🆕 Manual trigger attendance for completed videos
+   * This fixes the issue where videos were completed before isAttendanceTrigger was enabled
+   * 
+   * POST /api/video-progress/material/:materialId/trigger-attendance
+   */
+  @Post('material/:materialId/trigger-attendance')
+  @Roles(UserRole.LECTURER, UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  async manualTriggerAttendance(
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+  ): Promise<{
+    success: boolean;
+    triggered: number;
+    skipped: number;
+    message: string;
+    errors?: any[];
+  }> {
+    try {
+      const result = await this.videoProgressService.manualTriggerAttendanceForCompletedVideos(materialId);
+      
+      return {
+        success: true,
+        triggered: result.triggered,
+        skipped: result.skipped,
+        message: `Successfully triggered attendance for ${result.triggered} students. ${result.skipped} skipped.`,
+        errors: result.errors.length > 0 ? result.errors : undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        triggered: 0,
+        skipped: 0,
+        message: error.message,
+      };
+    }
+  }
+
+  /**
+   * 🆕 Get attendance trigger status for a material
+   * Shows how many students completed vs triggered attendance
+   * 
+   * GET /api/video-progress/material/:materialId/attendance-status
+   */
+  @Get('material/:materialId/attendance-status')
+  @Roles(UserRole.LECTURER, UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  async getAttendanceTriggerStatus(
+    @Param('materialId', ParseUUIDPipe) materialId: string,
+  ): Promise<{
+    isAttendanceTrigger: boolean;
+    threshold: number;
+    completedStudents: number;
+    attendanceTriggered: number;
+    pendingTrigger: number;
+    needsManualTrigger: boolean;
+  }> {
+    const status = await this.videoProgressService.getAttendanceTriggerStatus(materialId);
+    
+    return {
+      ...status,
+      needsManualTrigger: status.isAttendanceTrigger && status.pendingTrigger > 0,
+    };
+  }
+
+  /**
    * Get video progress for specific material
    * 
    * GET /api/video-progress/material/:materialId
