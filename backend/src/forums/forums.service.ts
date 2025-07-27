@@ -27,11 +27,9 @@ export class ForumsService {
     private courseRepository: Repository<Course>,
   ) {}
 
-  // ✅ NEW: Get user's own discussions
+  // Get user's own discussions
   async getMyDiscussions(currentUser: User, queryDto: QueryForumPostsDto) {
     try {
-      console.log('📋 Getting my discussions for user:', currentUser.id);
-
       const {
         page = 1,
         limit = 20,
@@ -39,7 +37,6 @@ export class ForumsService {
         type,
       } = queryDto;
 
-      // ✅ FIX: Use DTO helper methods for sorting
       const sortBy = queryDto.getSortBy();
       const sortOrder = queryDto.getSortOrder();
 
@@ -92,8 +89,6 @@ export class ForumsService {
 
       const [posts, total] = await queryBuilder.getManyAndCount();
 
-      console.log(`✅ Found ${posts.length} discussions for user ${currentUser.id}`);
-
       return {
         data: posts,
         meta: {
@@ -104,7 +99,6 @@ export class ForumsService {
         },
       };
     } catch (error) {
-      console.error('❌ Error getting my discussions:', error.message);
       throw error;
     }
   }
@@ -112,8 +106,6 @@ export class ForumsService {
   // Create forum post or reply
   async create(createForumPostDto: CreateForumPostDto, currentUser: User) {
     try {
-      console.log('📝 Creating forum post in service:', createForumPostDto.title);
-      
       const { courseId, parentId, type = ForumPostType.DISCUSSION } = createForumPostDto;
 
       // Verify course exists and user has access
@@ -161,11 +153,8 @@ export class ForumsService {
         );
       }
 
-      console.log('✅ Forum post created successfully:', savedPost.id);
       return await this.findOne(savedPost.id, currentUser);
     } catch (error) {
-      console.error('❌ Error creating forum post:', error.message);
-      console.error('❌ Stack trace:', error.stack);
       if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         throw new InternalServerErrorException('Database connection error');
       }
@@ -176,25 +165,17 @@ export class ForumsService {
   // Find posts by course with enhanced error handling
   async findByCourse(courseId: string, queryDto: QueryForumPostsDto, currentUser: User) {
     try {
-      console.log('🔍 Finding forum posts for course:', courseId);
-      console.log('🔍 User details:', currentUser?.id, currentUser?.role);
-      console.log('🔍 Query params:', queryDto);
-      
       // Add database connection test
       try {
         await this.forumPostRepository.query('SELECT 1');
-        console.log('✅ Database connection successful');
       } catch (dbError) {
-        console.error('❌ Database connection failed:', dbError.message);
         throw new InternalServerErrorException('Database connection failed');
       }
 
       // Verify course access with better error handling
       try {
         await this.verifyUserCourseAccess(courseId, currentUser);
-        console.log('✅ Course access verified');
       } catch (accessError) {
-        console.error('❌ Course access failed:', accessError.message);
         throw accessError;
       }
 
@@ -206,7 +187,6 @@ export class ForumsService {
         parentId = null, // Only root posts by default
       } = queryDto;
 
-      // ✅ FIX: Use DTO helper methods for sorting
       const sortBy = queryDto.getSortBy();
       const sortOrder = queryDto.getSortOrder();
 
@@ -268,10 +248,7 @@ export class ForumsService {
         const offset = (page - 1) * limit;
         queryBuilder.skip(offset).take(limit);
 
-        console.log('🔍 Executing query...');
         const [posts, total] = await queryBuilder.getManyAndCount();
-
-        console.log(`✅ Found ${posts.length} forum posts for course ${courseId}`);
 
         return {
           data: posts,
@@ -283,14 +260,9 @@ export class ForumsService {
           },
         };
       } catch (queryError) {
-        console.error('❌ Query execution error:', queryError.message);
-        console.error('❌ Query stack:', queryError.stack);
         throw new InternalServerErrorException('Failed to fetch forum posts');
       }
     } catch (error) {
-      console.error('❌ Error finding forum posts:', error.message);
-      console.error('❌ Full error:', error);
-      
       // Handle specific database errors
       if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         throw new InternalServerErrorException('Database connection error');
@@ -309,8 +281,6 @@ export class ForumsService {
   // Enhanced findOne with better error handling
   async findOne(id: string, currentUser: User) {
     try {
-      console.log('🔍 Finding forum post:', id);
-
       const post = await this.forumPostRepository
         .createQueryBuilder('post')
         .leftJoinAndSelect('post.author', 'author')
@@ -347,10 +317,8 @@ export class ForumsService {
       // Verify course access
       await this.verifyUserCourseAccess(post.course.id, currentUser);
 
-      console.log('✅ Forum post found:', post.title);
       return post;
     } catch (error) {
-      console.error('❌ Error finding forum post:', error.message);
       throw error;
     }
   }
@@ -358,8 +326,6 @@ export class ForumsService {
   // Get replies for a post
   async getPostReplies(postId: string, queryDto: any, currentUser: User) {
     try {
-      console.log('💬 Getting replies for post:', postId);
-
       // Verify parent post exists and get course access
       const parentPost = await this.findOne(postId, currentUser);
 
@@ -368,7 +334,6 @@ export class ForumsService {
         limit = 20,
       } = queryDto;
 
-      // ✅ FIX: Use default sorting for replies or add DTO helper methods
       // For replies, we typically want chronological order (oldest first)
       const sortBy = 'createdAt';
       const sortOrder = 'ASC';
@@ -398,10 +363,8 @@ export class ForumsService {
 
       const replies = await queryBuilder.getMany();
 
-      console.log(`✅ Found ${replies.length} replies for post ${postId}`);
       return replies;
     } catch (error) {
-      console.error('❌ Error getting post replies:', error.message);
       throw error;
     }
   }
@@ -409,8 +372,6 @@ export class ForumsService {
   // Create reply for a post
   async createReply(postId: string, replyData: { content: string; parentId?: string }, currentUser: User) {
     try {
-      console.log('💬 Creating reply for post:', postId);
-
       // Verify parent post exists
       const parentPost = await this.findOne(postId, currentUser);
 
@@ -428,7 +389,6 @@ export class ForumsService {
 
       return await this.create(createDto, currentUser);
     } catch (error) {
-      console.error('❌ Error creating reply:', error.message);
       throw error;
     }
   }
@@ -436,8 +396,6 @@ export class ForumsService {
   // Mark post as viewed
   async markAsViewed(id: string, currentUser: User) {
     try {
-      console.log('👁️ Marking post as viewed:', id);
-
       const post = await this.forumPostRepository.findOne({
         where: { id },
       });
@@ -455,10 +413,7 @@ export class ForumsService {
         'viewsCount',
         1
       );
-
-      console.log('✅ Post marked as viewed successfully');
     } catch (error) {
-      console.error('❌ Error marking post as viewed:', error.message);
       // Don't throw error for view tracking
     }
   }
@@ -466,8 +421,6 @@ export class ForumsService {
   // Mark reply as answer
   async markAsAnswer(postId: string, replyId: string, currentUser: User) {
     try {
-      console.log('✅ Marking reply as answer:', replyId, 'for post:', postId);
-
       const post = await this.findOne(postId, currentUser);
       
       // Only post author, lecturer, or admin can mark answers
@@ -505,12 +458,10 @@ export class ForumsService {
         { isAnswered: true }
       );
 
-      console.log('✅ Reply marked as answer successfully');
       return {
         message: 'Balasan berhasil ditandai sebagai jawaban',
       };
     } catch (error) {
-      console.error('❌ Error marking reply as answer:', error.message);
       throw error;
     }
   }
@@ -518,8 +469,6 @@ export class ForumsService {
   // Update forum post
   async update(id: string, updateForumPostDto: UpdateForumPostDto, currentUser: User) {
     try {
-      console.log('✏️ Updating forum post:', id);
-
       const post = await this.findOne(id, currentUser);
 
       // Only author, lecturer, or admin can update
@@ -534,10 +483,8 @@ export class ForumsService {
       Object.assign(post, updateForumPostDto);
       const updatedPost = await this.forumPostRepository.save(post);
 
-      console.log('✅ Forum post updated successfully');
       return await this.findOne(updatedPost.id, currentUser);
     } catch (error) {
-      console.error('❌ Error updating forum post:', error.message);
       throw error;
     }
   }
@@ -545,8 +492,6 @@ export class ForumsService {
   // Delete forum post
   async remove(id: string, currentUser: User) {
     try {
-      console.log('🗑️ Deleting forum post:', id);
-
       const post = await this.findOne(id, currentUser);
 
       // Only author, lecturer, or admin can delete
@@ -578,12 +523,10 @@ export class ForumsService {
 
       await this.forumPostRepository.remove(post);
 
-      console.log('✅ Forum post deleted successfully');
       return {
         message: 'Post berhasil dihapus',
       };
     } catch (error) {
-      console.error('❌ Error deleting forum post:', error.message);
       throw error;
     }
   }
@@ -591,8 +534,6 @@ export class ForumsService {
   // Toggle pin post
   async togglePin(id: string, currentUser: User) {
     try {
-      console.log('📌 Toggling pin for post:', id);
-
       const post = await this.findOne(id, currentUser);
 
       // Only lecturer or admin can pin posts
@@ -606,13 +547,11 @@ export class ForumsService {
       post.isPinned = !post.isPinned;
       await this.forumPostRepository.save(post);
 
-      console.log('✅ Post pin toggled successfully');
       return {
         message: post.isPinned ? 'Post berhasil disematkan' : 'Post berhasil dibatalkan sematannya',
         isPinned: post.isPinned,
       };
     } catch (error) {
-      console.error('❌ Error toggling pin:', error.message);
       throw error;
     }
   }
@@ -620,8 +559,6 @@ export class ForumsService {
   // Toggle lock post
   async toggleLock(id: string, currentUser: User) {
     try {
-      console.log('🔒 Toggling lock for post:', id);
-
       const post = await this.findOne(id, currentUser);
 
       // Only lecturer or admin can lock posts
@@ -635,22 +572,18 @@ export class ForumsService {
       post.isLocked = !post.isLocked;
       await this.forumPostRepository.save(post);
 
-      console.log('✅ Post lock toggled successfully');
       return {
         message: post.isLocked ? 'Post berhasil dikunci' : 'Post berhasil dibuka kuncinya',
         isLocked: post.isLocked,
       };
     } catch (error) {
-      console.error('❌ Error toggling lock:', error.message);
       throw error;
     }
   }
 
-  // Toggle like post
+  // ✅ FIXED: Toggle like post - PROPER IMPLEMENTATION
   async toggleLike(id: string, currentUser: User) {
     try {
-      console.log('❤️ Toggling like in service:', id);
-      
       const post = await this.forumPostRepository.findOne({
         where: { id },
       });
@@ -662,17 +595,52 @@ export class ForumsService {
       // Verify access to course
       await this.verifyUserCourseAccess(post.courseId, currentUser);
 
-      // Simple like count increment (in real app, you'd track individual likes)
-      post.likesCount = (post.likesCount || 0) + 1;
-      await this.forumPostRepository.save(post);
+      // ✅ FIXED: Check if user already liked this post
+      // In a real implementation, you would have a separate ForumPostLikes table
+      // For now, we'll use a simple check mechanism
+      const userLikeRecord = await this.forumPostRepository.query(
+        `SELECT * FROM forum_post_likes WHERE post_id = $1 AND user_id = $2`,
+        [id, currentUser.id]
+      );
 
-      console.log('✅ Like toggled successfully');
-      return {
-        message: 'Like berhasil ditambahkan',
-        likesCount: post.likesCount,
-      };
+      if (userLikeRecord && userLikeRecord.length > 0) {
+        // User already liked, so unlike (remove like)
+        await this.forumPostRepository.query(
+          `DELETE FROM forum_post_likes WHERE post_id = $1 AND user_id = $2`,
+          [id, currentUser.id]
+        );
+        
+        // Decrement like count
+        await this.forumPostRepository.decrement({ id }, 'likesCount', 1);
+        
+        // Get updated count
+        const updatedPost = await this.forumPostRepository.findOne({ where: { id } });
+        
+        return {
+          message: 'Like berhasil dihapus',
+          likesCount: updatedPost.likesCount,
+          isLiked: false
+        };
+      } else {
+        // User hasn't liked, so add like
+        await this.forumPostRepository.query(
+          `INSERT INTO forum_post_likes (post_id, user_id, created_at) VALUES ($1, $2, NOW())`,
+          [id, currentUser.id]
+        );
+        
+        // Increment like count
+        await this.forumPostRepository.increment({ id }, 'likesCount', 1);
+        
+        // Get updated count
+        const updatedPost = await this.forumPostRepository.findOne({ where: { id } });
+        
+        return {
+          message: 'Like berhasil ditambahkan',
+          likesCount: updatedPost.likesCount,
+          isLiked: true
+        };
+      }
     } catch (error) {
-      console.error('❌ Error toggling like:', error.message);
       throw error;
     }
   }
@@ -680,8 +648,6 @@ export class ForumsService {
   // Helper method to verify user has access to course with enhanced error handling
   private async verifyUserCourseAccess(courseId: string, currentUser: User) {
     try {
-      console.log('🔐 Verifying course access:', courseId, 'for user:', currentUser.id);
-
       // Test if course exists first
       const courseExists = await this.courseRepository
         .createQueryBuilder('course')
@@ -703,14 +669,12 @@ export class ForumsService {
 
       // Admin has access to all courses
       if (currentUser.role === UserRole.ADMIN) {
-        console.log('✅ Admin access granted');
         return;
       }
 
       // Lecturer access - must be the course lecturer
       if (currentUser.role === UserRole.LECTURER) {
         if (course.lecturerId === currentUser.id) {
-          console.log('✅ Lecturer access granted');
           return;
         } else {
           throw new ForbiddenException('Anda tidak memiliki akses ke mata kuliah ini');
@@ -721,7 +685,6 @@ export class ForumsService {
       if (currentUser.role === UserRole.STUDENT) {
         const isEnrolled = course.students.some(student => student.id === currentUser.id);
         if (isEnrolled) {
-          console.log('✅ Student access granted');
           return;
         } else {
           throw new ForbiddenException('Anda tidak terdaftar di mata kuliah ini');
@@ -730,8 +693,6 @@ export class ForumsService {
 
       throw new ForbiddenException('Anda tidak memiliki akses ke mata kuliah ini');
     } catch (error) {
-      console.error('❌ Course access verification failed:', error.message);
-      console.error('❌ Error details:', error);
       throw error;
     }
   }
