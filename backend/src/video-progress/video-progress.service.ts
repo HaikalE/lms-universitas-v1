@@ -147,22 +147,194 @@ export class VideoProgressService {
     // 💾 Save progress
     progress = await this.videoProgressRepository.save(progress);
 
-    // 🎯 Check if we should trigger attendance
+    // 🎯 NEW LOGIC: Check weekly completion instead of single video
     if (isCompleted && !wasCompletedBefore && material.isAttendanceTrigger && !progress.hasTriggeredAttendance) {
       try {
-        await this.triggerAttendance(studentId, material.courseId, materialId, calculatedPercentage);
+        // Check if ALL videos in this week are completed
+        const weeklyCompletionResult = await this.checkAndTriggerWeeklyAttendance(
+          studentId, 
+          material.courseId, 
+          material.week
+        );
         
-        // Mark as triggered to prevent duplicates
-        progress.hasTriggeredAttendance = true;
-        await this.videoProgressRepository.save(progress);
+        if (weeklyCompletionResult.canTriggerAttendance) {
+          this.logger.log(`🎉 WEEKLY COMPLETION: Student ${studentId} completed ALL videos for week ${material.week}`);
+          
+          // Trigger attendance for the week
+          await this.triggerAttendance(
+            studentId, 
+            material.courseId, 
+            materialId, 
+            calculatedPercentage,
+            weeklyCompletionResult
+          );
+          
+          // Mark ALL completed videos in this week as triggered
+          await this.markWeekVideosAsTriggered(studentId, material.courseId, material.week);
+        } else {
+          this.logger.log(`⏳ PARTIAL COMPLETION: Student ${studentId} completed ${weeklyCompletionResult.completedCount}/${weeklyCompletionResult.totalRequired} videos for week ${material.week}`);
+        }
         
       } catch (error) {
-        this.logger.error(`Failed to trigger attendance for student ${studentId}, material ${materialId}:`, error);
+        this.logger.error(`Failed to check weekly completion for student ${studentId}, week ${material.week}:`, error);
         // Don't throw error - video progress should still be saved
       }
     }
 
     return this.mapToResponseDto(progress);
+  }
+
+  /**
+   * 🆕 Check if all required videos in a week are completed
+   * Only trigger attendance when ALL videos with attendance trigger are completed
+   */
+  async checkAndTriggerWeeklyAttendance(
+    studentId: string,
+    courseId: string,
+    week: number
+  ): Promise<{
+    canTriggerAttendance: boolean;
+    totalRequired: number;
+    completedCount: number;
+    pendingVideos: any[];
+    completedVideos: any[];
+    weeklyCompletionRate: number;
+  }> {
+    this.logger.log(`🔍 Checking weekly attendance completion for student ${studentId}, course ${courseId}, week ${week}`);
+
+    // Get all videos with attendance trigger in this week
+    const requiredVideos = await this.courseMaterialRepository.find({
+      where: {
+        courseId,
+        week,
+        type: MaterialType.VIDEO,
+        isAttendanceTrigger: true,
+      },
+      order: { orderIndex: 'ASC' },
+    });
+
+    if (requiredVideos.length === 0) {
+      this.logger.log(`⚠️ No attendance-trigger videos found for week ${week}`);
+      return {
+        canTriggerAttendance: false,
+        totalRequired: 0,
+        completedCount: 0,
+        pendingVideos: [],
+        completedVideos: [],
+        weeklyCompletionRate: 0,
+      };
+    }
+
+    this.logger.log(`📹 Found ${requiredVideos.length} attendance-trigger videos for week ${week}`);
+
+    // Check completion status for each video
+    const completedVideos = [];
+    const pendingVideos = [];
+
+    for (const video of requiredVideos) {
+      const progress = await this.videoProgressRepository.findOne({
+        where: { studentId, materialId: video.id },
+      });
+
+      const threshold = video.attendanceThreshold || this.defaultCompletionThreshold;
+      const isCompleted = progress && progress.isCompleted && progress.watchedPercentage >= threshold;
+
+      if (isCompleted) {
+        completedVideos.push({
+          videoId: video.id,
+          title: video.title,
+          completedAt: progress.completedAt,
+          watchedPercentage: progress.watchedPercentage,
+          threshold,
+        });
+      } else {
+        pendingVideos.push({
+          videoId: video.id,
+          title: video.title,
+          currentProgress: progress?.watchedPercentage || 0,
+          threshold,
+        });
+      }
+    }
+
+    const completedCount = completedVideos.length;
+    const totalRequired = requiredVideos.length;
+    const weeklyCompletionRate = (completedCount / totalRequired) * 100;
+    const canTriggerAttendance = completedCount === totalRequired;
+
+    this.logger.log(`📊 Weekly completion status: ${completedCount}/${totalRequired} videos completed (${weeklyCompletionRate.toFixed(1)}%)`);
+
+    if (canTriggerAttendance) {
+      this.logger.log(`✅ ALL VIDEOS COMPLETED! Student ${studentId} can get attendance for week ${week}`);
+    } else {
+      this.logger.log(`⏳ Still pending: ${pendingVideos.map(v => v.title).join(', ')}`);
+    }
+
+    return {
+      canTriggerAttendance,
+      totalRequired,
+      completedCount,
+      pendingVideos,
+      completedVideos,
+      weeklyCompletionRate,
+    };
+  }
+
+  /**
+   * 🆕 Mark all completed videos in a week as attendance-triggered
+   */
+  async markWeekVideosAsTriggered(studentId: string, courseId: string, week: number): Promise<void> {
+    const result = await this.videoProgressRepository
+      .createQueryBuilder()
+      .update(VideoProgress)
+      .set({ hasTriggeredAttendance: true })
+      .where('studentId = :studentId', { studentId })
+      .andWhere('materialId IN (SELECT id FROM course_materials WHERE "courseId" = :courseId AND week = :week AND type = :type AND "isAttendanceTrigger" = true)', {
+        courseId,
+        week,
+        type: MaterialType.VIDEO,
+      })
+      .andWhere('isCompleted = true')
+      .execute();
+
+    this.logger.log(`📝 Marked ${result.affected} videos as attendance-triggered for student ${studentId}, week ${week}`);
+  }
+
+  /**
+   * 🆕 Get weekly completion status for a student
+   */
+  async getWeeklyCompletionStatus(
+    studentId: string,
+    courseId: string,
+    week: number
+  ): Promise<{
+    week: number;
+    totalRequired: number;
+    completedCount: number;
+    canGetAttendance: boolean;
+    weeklyCompletionRate: number;
+    videoDetails: any[];
+    hasAttendance: boolean;
+  }> {
+    const completionResult = await this.checkAndTriggerWeeklyAttendance(studentId, courseId, week);
+
+    // Check if student already has attendance for this week
+    const hasAttendance = await this.attendanceService.hasWeeklyAttendance(studentId, courseId, week);
+
+    const videoDetails = [
+      ...completionResult.completedVideos.map(v => ({ ...v, status: 'completed' })),
+      ...completionResult.pendingVideos.map(v => ({ ...v, status: 'pending' })),
+    ];
+
+    return {
+      week,
+      totalRequired: completionResult.totalRequired,
+      completedCount: completionResult.completedCount,
+      canGetAttendance: completionResult.canTriggerAttendance,
+      weeklyCompletionRate: completionResult.weeklyCompletionRate,
+      videoDetails,
+      hasAttendance,
+    };
   }
 
   /**
@@ -207,20 +379,36 @@ export class VideoProgressService {
 
     for (const progress of completedProgress) {
       try {
-        // Trigger attendance
-        await this.triggerAttendance(
+        // NEW: Check weekly completion instead of single video
+        const weeklyResult = await this.checkAndTriggerWeeklyAttendance(
           progress.studentId,
           progress.material.courseId,
-          materialId,
-          progress.watchedPercentage
+          progress.material.week
         );
-        
-        // Mark as triggered
-        progress.hasTriggeredAttendance = true;
-        await this.videoProgressRepository.save(progress);
-        
-        triggered++;
-        this.logger.log(`✅ Triggered attendance for student ${progress.studentId}`);
+
+        if (weeklyResult.canTriggerAttendance) {
+          // Trigger attendance
+          await this.triggerAttendance(
+            progress.studentId,
+            progress.material.courseId,
+            materialId,
+            progress.watchedPercentage,
+            weeklyResult
+          );
+          
+          // Mark ALL videos in week as triggered
+          await this.markWeekVideosAsTriggered(
+            progress.studentId,
+            progress.material.courseId,
+            progress.material.week
+          );
+          
+          triggered++;
+          this.logger.log(`✅ Triggered attendance for student ${progress.studentId} (weekly completion)`);
+        } else {
+          skipped++;
+          this.logger.log(`⏭️ Skipped student ${progress.studentId} - only ${weeklyResult.completedCount}/${weeklyResult.totalRequired} videos completed`);
+        }
         
       } catch (error) {
         skipped++;
@@ -246,6 +434,11 @@ export class VideoProgressService {
     completedStudents: number;
     attendanceTriggered: number;
     pendingTrigger: number;
+    weeklyRequirements?: {
+      week: number;
+      totalVideosInWeek: number;
+      studentsWithFullWeekCompletion: number;
+    };
   }> {
     const material = await this.courseMaterialRepository.findOne({
       where: { id: materialId },
@@ -271,13 +464,72 @@ export class VideoProgressService {
       ? completedStudents - attendanceTriggered 
       : 0;
 
+    // Get weekly requirements if this is an attendance trigger
+    let weeklyRequirements;
+    if (material.isAttendanceTrigger && material.week) {
+      const weekVideos = await this.courseMaterialRepository.count({
+        where: {
+          courseId: material.courseId,
+          week: material.week,
+          type: MaterialType.VIDEO,
+          isAttendanceTrigger: true,
+        },
+      });
+
+      // Count students who completed ALL videos in this week
+      const studentsWithFullCompletion = await this.getStudentsWithFullWeekCompletion(
+        material.courseId,
+        material.week
+      );
+
+      weeklyRequirements = {
+        week: material.week,
+        totalVideosInWeek: weekVideos,
+        studentsWithFullWeekCompletion: studentsWithFullCompletion,
+      };
+    }
+
     return {
       isAttendanceTrigger: material.isAttendanceTrigger || false,
       threshold: material.attendanceThreshold || this.defaultCompletionThreshold,
       completedStudents,
       attendanceTriggered,
       pendingTrigger,
+      weeklyRequirements,
     };
+  }
+
+  /**
+   * 🆕 Get count of students who completed ALL videos in a week
+   */
+  async getStudentsWithFullWeekCompletion(courseId: string, week: number): Promise<number> {
+    const requiredVideos = await this.courseMaterialRepository.find({
+      where: {
+        courseId,
+        week,
+        type: MaterialType.VIDEO,
+        isAttendanceTrigger: true,
+      },
+      select: ['id'],
+    });
+
+    if (requiredVideos.length === 0) {
+      return 0;
+    }
+
+    const videoIds = requiredVideos.map(v => v.id);
+
+    // Count students who completed ALL required videos
+    const result = await this.videoProgressRepository
+      .createQueryBuilder('vp')
+      .select('vp.studentId')
+      .where('vp.materialId IN (:...videoIds)', { videoIds })
+      .andWhere('vp.isCompleted = true')
+      .groupBy('vp.studentId')
+      .having('COUNT(vp.materialId) = :requiredCount', { requiredCount: videoIds.length })
+      .getCount();
+
+    return result;
   }
 
   /**
@@ -356,8 +608,9 @@ export class VideoProgressService {
     courseId: string,
     materialId: string,
     completionPercentage: number,
+    weeklyResult?: any,
   ): Promise<void> {
-    this.logger.log(`🎯 TRIGGERING AUTO-ATTENDANCE: Student ${studentId} completed video ${materialId} in course ${courseId} (${completionPercentage.toFixed(1)}%)`);
+    this.logger.log(`🎯 TRIGGERING WEEKLY AUTO-ATTENDANCE: Student ${studentId} completed ALL required videos in course ${courseId}`);
     
     try {
       // ✅ Call AttendanceService to auto-submit attendance
@@ -369,13 +622,20 @@ export class VideoProgressService {
         metadata: {
           videoProgress: completionPercentage,
           completionTime: new Date(),
+          weeklyCompletion: weeklyResult ? {
+            week: weeklyResult.week,
+            totalRequired: weeklyResult.totalRequired,
+            completedCount: weeklyResult.completedCount,
+            weeklyCompletionRate: weeklyResult.weeklyCompletionRate,
+            completedVideos: weeklyResult.completedVideos,
+          } : undefined,
         },
       });
 
-      this.logger.log(`✅ AUTO-ATTENDANCE SUCCESS: Student ${studentId} attendance submitted for course ${courseId}`);
+      this.logger.log(`✅ WEEKLY AUTO-ATTENDANCE SUCCESS: Student ${studentId} attendance submitted for course ${courseId}`);
       
     } catch (error) {
-      this.logger.error(`❌ AUTO-ATTENDANCE FAILED: ${error.message}`, error.stack);
+      this.logger.error(`❌ WEEKLY AUTO-ATTENDANCE FAILED: ${error.message}`, error.stack);
       throw error; // Re-throw for proper error handling in calling method
     }
   }
