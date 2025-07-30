@@ -34,7 +34,7 @@ const ForumDetailPage: React.FC = () => {
   const { user } = useAuth();
   
   const [post, setPost] = useState<ForumPost | null>(null);
-  // FIXED: Use ForumPost[] instead of ForumReply[] to match backend data structure
+  // ✅ FIXED: Use ForumPost[] instead of ForumReply[] to match backend data structure
   const [replies, setReplies] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyContent, setReplyContent] = useState('');
@@ -56,44 +56,43 @@ const ForumDetailPage: React.FC = () => {
     }
   }, [id]);
 
-  // ✅ FIXED: Separate function to fetch replies
-  const fetchReplies = async (postId: string) => {
-    try {
-      console.log('🔍 Fetching replies for post:', postId);
-      
-      const repliesResponse = await forumService.getForumReplies(postId);
-      const repliesData = repliesResponse.data || repliesResponse;
-      
-      console.log('✅ Replies fetched:', repliesData);
-      
-      if (Array.isArray(repliesData)) {
-        setReplies(repliesData);
-        console.log(`📝 Found ${repliesData.length} replies`);
-      } else {
-        setReplies([]);
-        console.log('📝 No replies found');
-      }
-    } catch (error) {
-      console.error('❌ Error fetching replies:', error);
-      setReplies([]);
-    }
-  };
-
+  // ✅ FIXED: Extract replies from tree structure OR fallback to API call
   const fetchPostDetails = async () => {
     try {
       setLoading(true);
       
       console.log('🔍 Fetching forum post details for ID:', id);
       
-      // Fetch post details
+      // Fetch post details with tree structure
       const postResponse = await forumService.getForumPost(id!);
       console.log('✅ Forum post fetched:', postResponse.data);
       
       const postData = postResponse.data;
       setPost(postData);
       
-      // ✅ FIXED: Fetch replies separately using dedicated endpoint
-      await fetchReplies(id!);
+      // ✅ FIXED: Extract replies from tree structure first
+      if (postData.children && Array.isArray(postData.children)) {
+        console.log(`📝 Found ${postData.children.length} direct replies in tree structure`);
+        setReplies(postData.children);
+      } else {
+        console.log('🔄 No children in tree structure, trying separate API call...');
+        // Fallback to separate API call if tree structure doesn't have children
+        try {
+          const repliesResponse = await forumService.getForumReplies(id!);
+          const repliesData = repliesResponse.data || repliesResponse;
+          
+          if (Array.isArray(repliesData)) {
+            console.log(`📝 Found ${repliesData.length} replies from API call`);
+            setReplies(repliesData);
+          } else {
+            console.log('📝 No replies found from API call either');
+            setReplies([]);
+          }
+        } catch (repliesError) {
+          console.warn('⚠️ Could not fetch replies separately:', repliesError);
+          setReplies([]);
+        }
+      }
       
       // Mark as viewed (non-blocking)
       try {
