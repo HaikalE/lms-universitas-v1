@@ -56,70 +56,36 @@ const ForumDetailPage: React.FC = () => {
     }
   }, [id]);
 
+  // ✅ FIXED: Only refresh replies when sort changes (not on initial load)
   useEffect(() => {
-    if (id && post) {
+    if (id && post && replies.length > 0 && sortReplies !== 'oldest') {
+      // Only fetch separately if we're not using default sort and we have replies
       fetchReplies(id);
     }
-  }, [id, post, sortReplies]);
+  }, [sortReplies]); // Removed post dependency to avoid re-fetching
 
-  // ✅ FIXED: Enhanced fetchReplies with better error handling and data processing
-  const fetchReplies = async (postId: string) => {
-    try {
-      console.log('🔍 FRONTEND: Fetching replies for post:', postId);
-      console.log('📊 FRONTEND: Sort by:', sortReplies);
-      
-      const repliesResponse = await forumService.getForumReplies(postId, { sort: sortReplies });
-      console.log('✅ FRONTEND: Raw replies response:', repliesResponse);
-      
-      // ✅ FIXED: Better response handling with multiple fallbacks
-      let repliesData = [];
-      
-      if (repliesResponse && repliesResponse.data) {
-        // Standard response format: {success: true, data: [...], meta: {...}}
-        repliesData = repliesResponse.data;
-        console.log('📝 FRONTEND: Using response.data format');
-      } else if (Array.isArray(repliesResponse)) {
-        // Direct array response (legacy format)
-        repliesData = repliesResponse;
-        console.log('📝 FRONTEND: Using direct array format');
-      } else if (repliesResponse && Array.isArray(repliesResponse.replies)) {
-        // Alternative nested format
-        repliesData = repliesResponse.replies;
-        console.log('📝 FRONTEND: Using response.replies format');
-      } else {
-        console.warn('⚠️ FRONTEND: Unexpected response format:', repliesResponse);
-        repliesData = [];
-      }
-
-      console.log(`📝 FRONTEND: Processed ${repliesData.length} replies`);
-      console.log('📋 FRONTEND: Replies data sample:', repliesData[0]);
-
-      // ✅ FIXED: Ensure we always set an array
-      setReplies(Array.isArray(repliesData) ? repliesData : []);
-      
-    } catch (error) {
-      console.error('❌ FRONTEND: Error fetching replies:', error);
-      console.error('❌ FRONTEND: Error details:', {
-        message: error?.message,
-        status: error?.response?.status,
-        data: error?.response?.data
-      });
-      setReplies([]);
-    }
-  };
-
+  // ✅ FIXED: Updated fetchPostDetails to handle replies from main response
   const fetchPostDetails = async () => {
     try {
       setLoading(true);
       
       console.log('🔍 FRONTEND: Fetching forum post details for ID:', id);
       
-      // Fetch post details
+      // ✅ FIXED: Fetch post details which now includes replies
       const postResponse = await forumService.getForumPost(id!);
       console.log('✅ FRONTEND: Forum post fetched:', postResponse.data);
       
       const postData = postResponse.data;
       setPost(postData);
+      
+      // ✅ FIXED: Extract replies from post response instead of separate API call
+      if (postData.replies && Array.isArray(postData.replies)) {
+        console.log(`📝 FRONTEND: Found ${postData.replies.length} replies in post response`);
+        setReplies(postData.replies);
+      } else {
+        console.log('📝 FRONTEND: No replies found in post response');
+        setReplies([]);
+      }
       
       // Mark as viewed (non-blocking)
       try {
@@ -130,8 +96,38 @@ const ForumDetailPage: React.FC = () => {
       
     } catch (error) {
       console.error('❌ FRONTEND: Error fetching post details:', error);
+      setReplies([]); // Ensure replies is always an array
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ FIXED: Simplified fetchReplies - now only used for refreshing after sort changes
+  const fetchReplies = async (postId: string) => {
+    try {
+      console.log('🔄 FRONTEND: Refreshing replies with sort:', sortReplies);
+      
+      // Only fetch replies separately if we need to apply different sorting
+      const repliesResponse = await forumService.getForumReplies(postId, { sort: sortReplies });
+      console.log('✅ FRONTEND: Replies refreshed:', repliesResponse);
+      
+      // Handle response format
+      let repliesData = [];
+      if (repliesResponse && repliesResponse.data) {
+        repliesData = repliesResponse.data;
+      } else if (Array.isArray(repliesResponse)) {
+        repliesData = repliesResponse;
+      } else {
+        console.warn('⚠️ FRONTEND: Unexpected replies response format:', repliesResponse);
+        repliesData = [];
+      }
+
+      console.log(`📝 FRONTEND: Updated replies list with ${repliesData.length} items`);
+      setReplies(Array.isArray(repliesData) ? repliesData : []);
+      
+    } catch (error) {
+      console.error('❌ FRONTEND: Error refreshing replies:', error);
+      // Don't clear replies on refresh error, keep existing data
     }
   };
 
@@ -463,9 +459,10 @@ const ForumDetailPage: React.FC = () => {
                 <span>{post.viewsCount || 0} views</span>
               </div>
               
+              {/* ✅ FIXED: Update the replies count display to be consistent */}
               <div className="flex items-center gap-2 text-gray-600">
                 <MessageCircle className="w-5 h-5" />
-                <span>{replies.length} balasan</span>
+                <span>{post.repliesCount || replies.length} balasan</span>
               </div>
             </div>
             
@@ -490,9 +487,10 @@ const ForumDetailPage: React.FC = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
+            {/* ✅ FIXED: Update the Replies Section header */}
             <CardTitle className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
-              Balasan ({replies.length})
+              Balasan ({post.repliesCount || replies.length})
             </CardTitle>
             
             <select
