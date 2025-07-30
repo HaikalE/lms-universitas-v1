@@ -56,27 +56,44 @@ const ForumDetailPage: React.FC = () => {
     }
   }, [id]);
 
+  // ✅ FIXED: Separate function to fetch replies
+  const fetchReplies = async (postId: string) => {
+    try {
+      console.log('🔍 Fetching replies for post:', postId);
+      
+      const repliesResponse = await forumService.getForumReplies(postId);
+      const repliesData = repliesResponse.data || repliesResponse;
+      
+      console.log('✅ Replies fetched:', repliesData);
+      
+      if (Array.isArray(repliesData)) {
+        setReplies(repliesData);
+        console.log(`📝 Found ${repliesData.length} replies`);
+      } else {
+        setReplies([]);
+        console.log('📝 No replies found');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching replies:', error);
+      setReplies([]);
+    }
+  };
+
   const fetchPostDetails = async () => {
     try {
       setLoading(true);
       
       console.log('🔍 Fetching forum post details for ID:', id);
       
-      // Fetch post details (includes tree structure with replies)
+      // Fetch post details
       const postResponse = await forumService.getForumPost(id!);
       console.log('✅ Forum post fetched:', postResponse.data);
       
       const postData = postResponse.data;
       setPost(postData);
       
-      // FIXED: Extract replies from tree structure - now compatible types
-      if (postData.children && Array.isArray(postData.children)) {
-        console.log(`📝 Found ${postData.children.length} direct replies in tree structure`);
-        setReplies(postData.children);
-      } else {
-        console.log('📝 No replies found in tree structure');
-        setReplies([]);
-      }
+      // ✅ FIXED: Fetch replies separately using dedicated endpoint
+      await fetchReplies(id!);
       
       // Mark as viewed (non-blocking)
       try {
@@ -134,7 +151,7 @@ const ForumDetailPage: React.FC = () => {
     }
   };
 
-  // ✅ FIXED: Use proper createReply endpoint instead of createForumPost
+  // ✅ FIXED: After creating reply, add to local state AND update reply count
   const handleSubmitReply = async () => {
     if (!replyContent.trim() || !post) return;
     
@@ -155,18 +172,18 @@ const ForumDetailPage: React.FC = () => {
       
       console.log('✅ Reply created successfully:', newReply);
       
-      // Add to local replies state
-      setReplies([...replies, newReply]);
+      // ✅ FIXED: Add to local replies state (ensure it's an array)
+      setReplies(prevReplies => [...prevReplies, newReply]);
       setReplyContent('');
       setReplyingTo(null);
       
-      // Update reply count if available
-      if (post.repliesCount !== undefined) {
-        setPost({
-          ...post,
-          repliesCount: post.repliesCount + 1
-        });
-      }
+      // ✅ FIXED: Update reply count in post
+      setPost(prevPost => ({
+        ...prevPost!,
+        repliesCount: (prevPost!.repliesCount || 0) + 1
+      }));
+      
+      console.log('✅ Reply added to UI successfully');
       
     } catch (error) {
       console.error('❌ Error submitting reply:', error);
