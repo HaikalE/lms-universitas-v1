@@ -134,33 +134,24 @@ const ForumDetailPage: React.FC = () => {
     }
   };
 
+  // ✅ FIXED: Use proper createReply endpoint instead of createForumPost
   const handleSubmitReply = async () => {
     if (!replyContent.trim() || !post) return;
     
     try {
       console.log('💬 Creating reply for post:', post.id);
       
-      // FIXED: Generate proper title for replies
-      let replyTitle = null;
-      if (replyingTo) {
-        // If replying to a specific reply, find its title
-        const parentReply = replies.find(r => r.id === replyingTo);
-        replyTitle = parentReply?.title ? `Re: ${parentReply.title}` : `Re: ${post.title}`;
-      } else {
-        // If replying to the main post
-        replyTitle = `Re: ${post.title}`;
-      }
-      
+      // ✅ FIXED: Use createReply service which calls the correct endpoint
       const replyData = {
-        title: replyTitle, // Fixed: Proper title instead of empty string
         content: replyContent.trim(),
-        courseId: post.courseId,
-        parentId: replyingTo || post.id // Use post.id if not replying to specific reply
+        ...(replyingTo && { parentId: replyingTo })
       };
       
       console.log('🚀 Submitting reply data:', replyData);
       
-      const newReply = await forumService.createForumPost(replyData);
+      // ✅ CORRECT: Use createReply instead of createForumPost
+      const newReplyResponse = await forumService.createReply(post.id, replyData);
+      const newReply = newReplyResponse.data || newReplyResponse;
       
       console.log('✅ Reply created successfully:', newReply);
       
