@@ -13,17 +13,17 @@ export enum ForumPostType {
 }
 
 export class CreateForumPostDto {
-  @IsNotEmpty({ message: 'Judul post wajib diisi' })
+  @IsOptional() // ✅ FIXED: Title is optional for replies
   @IsString({ message: 'Judul post harus berupa string' })
-  title: string;
+  title?: string;
 
   @IsNotEmpty({ message: 'Konten post wajib diisi' })
   @IsString({ message: 'Konten post harus berupa string' })
   content: string;
 
-  @IsNotEmpty({ message: 'Course ID wajib diisi' })
+  @IsOptional() // ✅ FIXED: CourseId is optional for replies (will inherit from parent)
   @IsUUID('4', { message: 'Course ID harus berupa UUID yang valid' })
-  courseId: string;
+  courseId?: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'Parent ID harus berupa UUID yang valid' })
