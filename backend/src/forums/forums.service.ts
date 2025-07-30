@@ -354,48 +354,90 @@ export class ForumsService {
     }
   }
 
-  // Get replies for a post
+  // ✅ FIXED: Get replies for a post - PROPER IMPLEMENTATION
   async getPostReplies(postId: string, queryDto: any, currentUser: User) {
     try {
+      console.log('🔍 BACKEND: Getting replies for post:', postId);
+      console.log('📝 BACKEND: Query params:', queryDto);
+
       // Verify parent post exists and get course access
       const parentPost = await this.findOne(postId, currentUser);
 
       const {
         page = 1,
         limit = 20,
+        sort = 'oldest', // ✅ FIXED: Support sort parameter from frontend
       } = queryDto;
 
-      // For replies, we typically want chronological order (oldest first)
-      const sortBy = 'createdAt';
-      const sortOrder = 'ASC';
+      // ✅ FIXED: Handle different sort options properly
+      let sortBy = 'createdAt';
+      let sortOrder: 'ASC' | 'DESC' = 'ASC';
+
+      if (sort === 'latest') {
+        sortOrder = 'DESC';
+      } else if (sort === 'popular') {
+        sortBy = 'likesCount';
+        sortOrder = 'DESC';
+      } else if (sort === 'oldest') {
+        sortOrder = 'ASC';
+      }
+
+      console.log(`📊 BACKEND: Sorting by ${sortBy} ${sortOrder}`);
 
       const queryBuilder = this.forumPostRepository
         .createQueryBuilder('post')
         .leftJoinAndSelect('post.author', 'author')
+        .leftJoinAndSelect('post.course', 'course') // ✅ FIXED: Include course data
         .where('post.parentId = :parentId', { parentId: postId })
         .select([
           'post.id',
+          'post.title',        // ✅ FIXED: Include title for replies
           'post.content',
+          'post.type',         // ✅ FIXED: Include type
           'post.likesCount',
+          'post.viewsCount',   // ✅ FIXED: Include viewsCount
+          'post.repliesCount', // ✅ FIXED: Include repliesCount for nested replies
           'post.isAnswer',
           'post.createdAt',
           'post.updatedAt',
+          'post.parentId',     // ✅ FIXED: Include parentId
           'author.id',
           'author.fullName',
           'author.role',
+          'course.id',         // ✅ FIXED: Include course info
+          'course.name',
+          'course.code',
         ]);
 
       // Apply sorting
       queryBuilder.orderBy(`post.${sortBy}`, sortOrder);
 
+      // ✅ FIXED: Add secondary sort for consistency
+      if (sortBy !== 'createdAt') {
+        queryBuilder.addOrderBy('post.createdAt', 'ASC');
+      }
+
       // Apply pagination
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
 
-      const replies = await queryBuilder.getMany();
+      console.log('🔍 BACKEND: Running query...');
+      const [replies, total] = await queryBuilder.getManyAndCount();
 
-      return replies;
+      console.log(`✅ BACKEND: Found ${replies.length} replies out of ${total} total`);
+
+      // ✅ FIXED: Return proper data structure to match frontend expectation
+      return {
+        data: replies,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
     } catch (error) {
+      console.error('❌ BACKEND: Error getting replies:', error);
       throw error;
     }
   }
