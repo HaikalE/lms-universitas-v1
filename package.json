@@ -58,5 +58,8 @@
   "workspaces": [
     "backend",
     "frontend"
-  ]
+  ],
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
 }

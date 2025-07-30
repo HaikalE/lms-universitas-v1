@@ -20,7 +20,15 @@
       "Bash(sudo service:*)",
       "Bash(createdb:*)",
       "Bash(docker exec:*)",
-      "Bash(docker-compose build:*)"
+      "Bash(docker-compose build:*)",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(PGPASSWORD=\"Facebook.com\" psql -h localhost -U postgres -l)",
+      "Bash(PGPASSWORD=\"Facebook.com\" psql -h localhost -U postgres -c \"CREATE DATABASE lms_db;\")",
+      "Bash(PGPASSWORD=\"Facebook.com\" psql -h localhost -U postgres -d lms_db -c \"\\dt\")",
+      "Bash(cd:*)",
+      "Bash(cd:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

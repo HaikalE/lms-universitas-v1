@@ -1303,118 +1303,181 @@ const CourseDetailPage: React.FC = () => {
                 {attendanceData.attendancesByWeek && Object.keys(attendanceData.attendancesByWeek).length > 0 ? (
                   Object.entries(attendanceData.attendancesByWeek).map(([week, weekData]: [string, any]) => (
                     <Card key={week} className="overflow-hidden">
-                      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
                         <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            📅 Minggu {week}
-                            <Badge className="bg-blue-100 text-blue-800">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-5 h-5 text-blue-600" />
+                              <span className="font-semibold text-gray-900">Minggu {week}</span>
+                            </div>
+                            <Badge className="bg-blue-100 text-blue-800 px-2 py-1">
                               {weekData.length} pertemuan
                             </Badge>
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {attendanceData.students?.length || 0} mahasiswa terdaftar
-                          </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Users className="w-4 h-4" />
+                            <span>{attendanceData.students?.length || 0} mahasiswa terdaftar</span>
+                          </div>
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-0">
-                        {weekData.map((dayData: any, index: number) => (
-                          <div key={index} className="border-b last:border-b-0">
-                            {/* Date Header */}
-                            <div className="bg-gray-50 px-6 py-3 border-b">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-medium text-gray-900">
-                                  📍 {new Date(dayData.date).toLocaleDateString('id-ID', {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </h4>
-                                <div className="flex items-center gap-4 text-sm">
-                                  <span className="text-green-600">
-                                    ✅ {dayData.presentStudents?.length || 0} hadir
-                                  </span>
-                                  <span className="text-red-600">
-                                    ❌ {dayData.absentStudents?.length || 0} tidak hadir
-                                  </span>
+                        {(() => {
+                          // Group attendance records by date
+                          const attendancesByDate = weekData.reduce((acc: any, attendance: any) => {
+                            const date = attendance.attendanceDate;
+                            if (!acc[date]) {
+                              acc[date] = [];
+                            }
+                            acc[date].push(attendance);
+                            return acc;
+                          }, {});
+
+                          // Create day data with present and absent students
+                          const dayDataArray = Object.entries(attendancesByDate).map(([date, attendances]: [string, any[]]) => {
+                            const presentStudents = attendances.filter(a => 
+                              ['present', 'auto_present', 'late'].includes(a.status)
+                            );
+                            
+                            // Get students who didn't attend this date
+                            const presentStudentIds = new Set(presentStudents.map(a => a.studentId));
+                            const absentStudents = (attendanceData.students || []).filter((student: any) => 
+                              !presentStudentIds.has(student.id)
+                            );
+
+                            return {
+                              date,
+                              presentStudents,
+                              absentStudents
+                            };
+                          });
+
+                          return dayDataArray.map((dayData: any, index: number) => (
+                            <div key={index} className="border-b last:border-b-0">
+                              {/* Date Header */}
+                              <div className="bg-gray-50 px-6 py-4 border-b">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
+                                    <div>
+                                      <h4 className="font-semibold text-gray-900">
+                                        {new Date(dayData.date).toLocaleDateString('id-ID', {
+                                          weekday: 'long',
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric'
+                                        })}
+                                      </h4>
+                                      <p className="text-sm text-gray-500 mt-1">
+                                        Pertemuan • {dayData.presentStudents?.length + dayData.absentStudents?.length || 0} mahasiswa
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2 bg-green-100 px-3 py-2 rounded-lg">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span className="text-sm font-medium text-green-700">
+                                        {dayData.presentStudents?.length || 0} hadir
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-red-100 px-3 py-2 rounded-lg">
+                                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                      <span className="text-sm font-medium text-red-700">
+                                        {dayData.absentStudents?.length || 0} tidak hadir
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Student Attendance List */}
-                            <div className="p-6">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Present Students */}
-                                <div>
-                                  <h5 className="font-medium text-green-700 mb-3 flex items-center gap-2">
-                                    ✅ Mahasiswa Hadir ({dayData.presentStudents?.length || 0})
-                                  </h5>
-                                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                                    {dayData.presentStudents?.map((attendance: any) => {
-                                      const statusInfo = attendanceService.formatAttendanceStatus(attendance.status);
-                                      const typeInfo = attendanceService.formatAttendanceType(attendance.attendanceType);
-                                      
-                                      return (
-                                        <div key={attendance.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                          <div className="flex items-center space-x-3">
-                                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-sm font-semibold text-green-700">
-                                              {attendance.student?.fullName?.charAt(0)?.toUpperCase()}
+                              {/* Student Attendance List */}
+                              <div className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  {/* Present Students */}
+                                  <div>
+                                    <h5 className="font-medium text-green-700 mb-3 flex items-center gap-2">
+                                      ✅ Mahasiswa Hadir ({dayData.presentStudents?.length || 0})
+                                    </h5>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                      {dayData.presentStudents?.length > 0 ? (
+                                        dayData.presentStudents.map((attendance: any) => {
+                                          const statusInfo = attendanceService.formatAttendanceStatus(attendance.status);
+                                          const typeInfo = attendanceService.formatAttendanceType(attendance.attendanceType);
+                                          
+                                          return (
+                                            <div key={attendance.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                                              <div className="flex items-center space-x-3">
+                                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-sm font-semibold text-green-700">
+                                                  {attendance.student?.fullName?.charAt(0)?.toUpperCase()}
+                                                </div>
+                                                <div>
+                                                  <div className="font-medium text-gray-900">
+                                                    {attendance.student?.fullName}
+                                                  </div>
+                                                  <div className="text-sm text-gray-600">
+                                                    {attendance.student?.studentId}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="text-right">
+                                                <div className={`text-sm font-medium ${statusInfo.color}`}>
+                                                  {statusInfo.icon} {statusInfo.text}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                  {typeInfo.icon} {typeInfo.text}
+                                                </div>
+                                                {attendance.submittedAt && (
+                                                  <div className="text-xs text-gray-400">
+                                                    {new Date(attendance.submittedAt).toLocaleTimeString('id-ID')}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })
+                                      ) : (
+                                        <div className="text-center py-6 text-gray-500">
+                                          <GraduationCap className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                          <p className="text-sm">Tidak ada mahasiswa yang hadir</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Absent Students */}
+                                  <div>
+                                    <h5 className="font-medium text-red-700 mb-3 flex items-center gap-2">
+                                      ❌ Mahasiswa Tidak Hadir ({dayData.absentStudents?.length || 0})
+                                    </h5>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                      {dayData.absentStudents?.length > 0 ? (
+                                        dayData.absentStudents.map((student: any) => (
+                                          <div key={student.id} className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-sm font-semibold text-red-700">
+                                              {student.fullName?.charAt(0)?.toUpperCase()}
                                             </div>
                                             <div>
                                               <div className="font-medium text-gray-900">
-                                                {attendance.student?.fullName}
+                                                {student.fullName}
                                               </div>
                                               <div className="text-sm text-gray-600">
-                                                {attendance.student?.studentId}
+                                                {student.studentId}
                                               </div>
                                             </div>
                                           </div>
-                                          <div className="text-right">
-                                            <div className={`text-sm font-medium ${statusInfo.color}`}>
-                                              {statusInfo.icon} {statusInfo.text}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                              {typeInfo.icon} {typeInfo.text}
-                                            </div>
-                                            {attendance.submittedAt && (
-                                              <div className="text-xs text-gray-400">
-                                                {new Date(attendance.submittedAt).toLocaleTimeString('id-ID')}
-                                              </div>
-                                            )}
-                                          </div>
+                                        ))
+                                      ) : (
+                                        <div className="text-center py-6 text-gray-500">
+                                          <GraduationCap className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                          <p className="text-sm">Semua mahasiswa hadir</p>
                                         </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                {/* Absent Students */}
-                                <div>
-                                  <h5 className="font-medium text-red-700 mb-3 flex items-center gap-2">
-                                    ❌ Mahasiswa Tidak Hadir ({dayData.absentStudents?.length || 0})
-                                  </h5>
-                                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                                    {dayData.absentStudents?.map((student: any) => (
-                                      <div key={student.id} className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
-                                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-sm font-semibold text-red-700">
-                                          {student.fullName?.charAt(0)?.toUpperCase()}
-                                        </div>
-                                        <div>
-                                          <div className="font-medium text-gray-900">
-                                            {student.fullName}
-                                          </div>
-                                          <div className="text-sm text-gray-600">
-                                            {student.studentId}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ));
+                        })()}
                       </CardContent>
                     </Card>
                   ))
