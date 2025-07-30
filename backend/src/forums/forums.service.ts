@@ -103,33 +103,56 @@ export class ForumsService {
     }
   }
 
-  // Create forum post or reply
+  // ✅ FIXED: Create forum post or reply with courseId inheritance
   async create(createForumPostDto: CreateForumPostDto, currentUser: User) {
     try {
-      const { courseId, parentId, type = ForumPostType.DISCUSSION } = createForumPostDto;
+      let { courseId, parentId, type = ForumPostType.DISCUSSION } = createForumPostDto;
 
-      // Verify course exists and user has access
-      await this.verifyUserCourseAccess(courseId, currentUser);
-
-      // If this is a reply, verify parent post exists
+      // ✅ FIXED: Handle courseId inheritance for replies
       let parentPost = null;
       if (parentId) {
+        // This is a reply - find parent post and inherit courseId if not provided
         parentPost = await this.forumPostRepository.findOne({
-          where: { id: parentId, courseId },
+          where: { id: parentId },
+          relations: ['course'],
         });
         
         if (!parentPost) {
           throw new NotFoundException('Post induk tidak ditemukan');
         }
 
+        // ✅ INHERIT COURSEID: If courseId not provided, inherit from parent
+        if (!courseId) {
+          courseId = parentPost.courseId;
+          console.log(`🔄 Reply inheriting courseId from parent: ${courseId}`);
+        }
+
         // Check if parent post is locked
         if (parentPost.isLocked) {
           throw new ForbiddenException('Tidak dapat membalas post yang dikunci');
         }
+      } else {
+        // This is a root post - courseId is required
+        if (!courseId) {
+          throw new BadRequestException('Course ID wajib diisi untuk post utama');
+        }
+      }
+
+      // Verify course exists and user has access
+      await this.verifyUserCourseAccess(courseId, currentUser);
+
+      // ✅ FIXED: Auto-generate title for replies if not provided
+      let title = createForumPostDto.title;
+      if (parentId && !title) {
+        const rootPost = parentPost.parentId ? 
+          await this.forumPostRepository.findOne({ where: { id: parentPost.parentId } }) : 
+          parentPost;
+        title = `Re: ${rootPost?.title || 'Discussion'}`;
       }
 
       const forumPost = this.forumPostRepository.create({
         ...createForumPostDto,
+        title,
         type,
         authorId: currentUser.id,
         courseId,
@@ -140,6 +163,13 @@ export class ForumsService {
         isLocked: false,
         isAnswer: false,
         isAnswered: false,
+      });
+
+      console.log('💾 Creating forum post with data:', {
+        title,
+        courseId,
+        parentId,
+        authorId: currentUser.id
       });
 
       const savedPost = await this.forumPostRepository.save(forumPost);
@@ -155,6 +185,7 @@ export class ForumsService {
 
       return await this.findOne(savedPost.id, currentUser);
     } catch (error) {
+      console.error('❌ Error creating forum post:', error);
       if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         throw new InternalServerErrorException('Database connection error');
       }
