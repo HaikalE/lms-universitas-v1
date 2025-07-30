@@ -28,7 +28,7 @@ export class ForumPost {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true }) // Fixed: Made nullable for replies
   title: string;
 
   @Column({ type: 'text' })
@@ -102,4 +102,7 @@ export class ForumPost {
 
   @TreeChildren()
   children: ForumPost[];
+
+  // Virtual properties for frontend compatibility
+  isLiked?: boolean;
 }
