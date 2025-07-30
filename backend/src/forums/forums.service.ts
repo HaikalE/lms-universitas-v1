@@ -309,9 +309,12 @@ export class ForumsService {
     }
   }
 
-  // Enhanced findOne with better error handling
+  // ✅ FIXED: Enhanced findOne with replies included
   async findOne(id: string, currentUser: User) {
     try {
+      console.log('🔍 BACKEND: Finding forum post with replies:', id);
+
+      // Get the main post data
       const post = await this.forumPostRepository
         .createQueryBuilder('post')
         .leftJoinAndSelect('post.author', 'author')
@@ -348,8 +351,53 @@ export class ForumsService {
       // Verify course access
       await this.verifyUserCourseAccess(post.course.id, currentUser);
 
-      return post;
+      // ✅ NEW: Fetch replies for this post
+      console.log('📝 BACKEND: Fetching replies for post:', id);
+      
+      const replies = await this.forumPostRepository
+        .createQueryBuilder('reply')
+        .leftJoinAndSelect('reply.author', 'replyAuthor')
+        .leftJoinAndSelect('reply.course', 'replyCourse')
+        .where('reply.parentId = :parentId', { parentId: id })
+        .select([
+          'reply.id',
+          'reply.title',
+          'reply.content',
+          'reply.type',
+          'reply.likesCount',
+          'reply.viewsCount',
+          'reply.repliesCount', // For nested replies
+          'reply.isAnswer',
+          'reply.createdAt',
+          'reply.updatedAt',
+          'reply.parentId',
+          'replyAuthor.id',
+          'replyAuthor.fullName',
+          'replyAuthor.role',
+          'replyCourse.id',
+          'replyCourse.name',
+          'replyCourse.code',
+        ])
+        .orderBy('reply.createdAt', 'ASC') // Default to oldest first
+        .getMany();
+
+      console.log(`✅ BACKEND: Found ${replies.length} replies for post ${id}`);
+
+      // ✅ FIXED: Return post with replies included
+      const result = {
+        ...post,
+        replies: replies, // Include the actual replies data
+      };
+
+      console.log('🎯 BACKEND: Returning post with replies:', {
+        postId: result.id,
+        repliesCount: result.repliesCount,
+        actualRepliesLength: result.replies.length
+      });
+
+      return result;
     } catch (error) {
+      console.error('❌ BACKEND: Error in findOne:', error);
       throw error;
     }
   }
@@ -361,7 +409,17 @@ export class ForumsService {
       console.log('📝 BACKEND: Query params:', queryDto);
 
       // Verify parent post exists and get course access
-      const parentPost = await this.findOne(postId, currentUser);
+      const parentPost = await this.forumPostRepository.findOne({
+        where: { id: postId },
+        relations: ['course'],
+      });
+
+      if (!parentPost) {
+        throw new NotFoundException('Post tidak ditemukan');
+      }
+
+      // Verify course access
+      await this.verifyUserCourseAccess(parentPost.course.id, currentUser);
 
       const {
         page = 1,
@@ -446,7 +504,14 @@ export class ForumsService {
   async createReply(postId: string, replyData: { content: string; parentId?: string }, currentUser: User) {
     try {
       // Verify parent post exists
-      const parentPost = await this.findOne(postId, currentUser);
+      const parentPost = await this.forumPostRepository.findOne({
+        where: { id: postId },
+        relations: ['course'],
+      });
+
+      if (!parentPost) {
+        throw new NotFoundException('Post tidak ditemukan');
+      }
 
       if (parentPost.isLocked) {
         throw new ForbiddenException('Tidak dapat membalas post yang dikunci');
@@ -542,7 +607,14 @@ export class ForumsService {
   // Update forum post
   async update(id: string, updateForumPostDto: UpdateForumPostDto, currentUser: User) {
     try {
-      const post = await this.findOne(id, currentUser);
+      const post = await this.forumPostRepository.findOne({
+        where: { id },
+        relations: ['author', 'course'],
+      });
+
+      if (!post) {
+        throw new NotFoundException('Post tidak ditemukan');
+      }
 
       // Only author, lecturer, or admin can update
       if (
@@ -565,7 +637,14 @@ export class ForumsService {
   // Delete forum post
   async remove(id: string, currentUser: User) {
     try {
-      const post = await this.findOne(id, currentUser);
+      const post = await this.forumPostRepository.findOne({
+        where: { id },
+        relations: ['author', 'course'],
+      });
+
+      if (!post) {
+        throw new NotFoundException('Post tidak ditemukan');
+      }
 
       // Only author, lecturer, or admin can delete
       if (
@@ -607,7 +686,14 @@ export class ForumsService {
   // Toggle pin post
   async togglePin(id: string, currentUser: User) {
     try {
-      const post = await this.findOne(id, currentUser);
+      const post = await this.forumPostRepository.findOne({
+        where: { id },
+        relations: ['author', 'course'],
+      });
+
+      if (!post) {
+        throw new NotFoundException('Post tidak ditemukan');
+      }
 
       // Only lecturer or admin can pin posts
       if (
@@ -632,7 +718,14 @@ export class ForumsService {
   // Toggle lock post
   async toggleLock(id: string, currentUser: User) {
     try {
-      const post = await this.findOne(id, currentUser);
+      const post = await this.forumPostRepository.findOne({
+        where: { id },
+        relations: ['author', 'course'],
+      });
+
+      if (!post) {
+        throw new NotFoundException('Post tidak ditemukan');
+      }
 
       // Only lecturer or admin can lock posts
       if (
