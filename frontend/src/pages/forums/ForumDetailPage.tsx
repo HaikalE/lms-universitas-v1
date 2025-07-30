@@ -56,26 +56,54 @@ const ForumDetailPage: React.FC = () => {
     }
   }, [id]);
 
-  // ✅ FIXED: Use the dedicated API endpoint for replies
+  useEffect(() => {
+    if (id && post) {
+      fetchReplies(id);
+    }
+  }, [id, post, sortReplies]);
+
+  // ✅ FIXED: Enhanced fetchReplies with better error handling and data processing
   const fetchReplies = async (postId: string) => {
     try {
-      console.log('🔍 Fetching replies for post:', postId);
+      console.log('🔍 FRONTEND: Fetching replies for post:', postId);
+      console.log('📊 FRONTEND: Sort by:', sortReplies);
       
       const repliesResponse = await forumService.getForumReplies(postId, { sort: sortReplies });
-      console.log('✅ Raw replies response:', repliesResponse);
+      console.log('✅ FRONTEND: Raw replies response:', repliesResponse);
       
-      // Extract data from response
-      const repliesData = repliesResponse.data || repliesResponse;
+      // ✅ FIXED: Better response handling with multiple fallbacks
+      let repliesData = [];
       
-      if (Array.isArray(repliesData)) {
-        console.log(`📝 Found ${repliesData.length} replies`);
-        setReplies(repliesData);
+      if (repliesResponse && repliesResponse.data) {
+        // Standard response format: {success: true, data: [...], meta: {...}}
+        repliesData = repliesResponse.data;
+        console.log('📝 FRONTEND: Using response.data format');
+      } else if (Array.isArray(repliesResponse)) {
+        // Direct array response (legacy format)
+        repliesData = repliesResponse;
+        console.log('📝 FRONTEND: Using direct array format');
+      } else if (repliesResponse && Array.isArray(repliesResponse.replies)) {
+        // Alternative nested format
+        repliesData = repliesResponse.replies;
+        console.log('📝 FRONTEND: Using response.replies format');
       } else {
-        console.log('📝 No replies found or invalid format');
-        setReplies([]);
+        console.warn('⚠️ FRONTEND: Unexpected response format:', repliesResponse);
+        repliesData = [];
       }
+
+      console.log(`📝 FRONTEND: Processed ${repliesData.length} replies`);
+      console.log('📋 FRONTEND: Replies data sample:', repliesData[0]);
+
+      // ✅ FIXED: Ensure we always set an array
+      setReplies(Array.isArray(repliesData) ? repliesData : []);
+      
     } catch (error) {
-      console.error('❌ Error fetching replies:', error);
+      console.error('❌ FRONTEND: Error fetching replies:', error);
+      console.error('❌ FRONTEND: Error details:', {
+        message: error?.message,
+        status: error?.response?.status,
+        data: error?.response?.data
+      });
       setReplies([]);
     }
   };
@@ -84,27 +112,24 @@ const ForumDetailPage: React.FC = () => {
     try {
       setLoading(true);
       
-      console.log('🔍 Fetching forum post details for ID:', id);
+      console.log('🔍 FRONTEND: Fetching forum post details for ID:', id);
       
       // Fetch post details
       const postResponse = await forumService.getForumPost(id!);
-      console.log('✅ Forum post fetched:', postResponse.data);
+      console.log('✅ FRONTEND: Forum post fetched:', postResponse.data);
       
       const postData = postResponse.data;
       setPost(postData);
-      
-      // ✅ FIXED: Fetch replies using dedicated endpoint
-      await fetchReplies(id!);
       
       // Mark as viewed (non-blocking)
       try {
         await forumService.markPostAsViewed(id!);
       } catch (viewError) {
-        console.warn('⚠️ Could not mark post as viewed:', viewError);
+        console.warn('⚠️ FRONTEND: Could not mark post as viewed:', viewError);
       }
       
     } catch (error) {
-      console.error('❌ Error fetching post details:', error);
+      console.error('❌ FRONTEND: Error fetching post details:', error);
     } finally {
       setLoading(false);
     }
@@ -114,7 +139,7 @@ const ForumDetailPage: React.FC = () => {
     if (!post) return;
     
     try {
-      console.log('❤️ Liking post:', post.id);
+      console.log('❤️ FRONTEND: Liking post:', post.id);
       await forumService.toggleLike(post.id);
       
       // Update local state
@@ -124,15 +149,15 @@ const ForumDetailPage: React.FC = () => {
         likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1
       });
       
-      console.log('✅ Post like toggled successfully');
+      console.log('✅ FRONTEND: Post like toggled successfully');
     } catch (error) {
-      console.error('❌ Error liking post:', error);
+      console.error('❌ FRONTEND: Error liking post:', error);
     }
   };
 
   const handleLikeReply = async (replyId: string) => {
     try {
-      console.log('❤️ Liking reply:', replyId);
+      console.log('❤️ FRONTEND: Liking reply:', replyId);
       // Note: This endpoint might not exist yet, handle gracefully
       await forumService.likeReply(replyId);
       
@@ -146,9 +171,9 @@ const ForumDetailPage: React.FC = () => {
           : reply
       ));
       
-      console.log('✅ Reply like toggled successfully');
+      console.log('✅ FRONTEND: Reply like toggled successfully');
     } catch (error) {
-      console.error('❌ Error liking reply (endpoint may not exist):', error);
+      console.error('❌ FRONTEND: Error liking reply (endpoint may not exist):', error);
     }
   };
 
@@ -157,7 +182,7 @@ const ForumDetailPage: React.FC = () => {
     if (!replyContent.trim() || !post) return;
     
     try {
-      console.log('💬 Creating reply for post:', post.id);
+      console.log('💬 FRONTEND: Creating reply for post:', post.id);
       
       // ✅ FIXED: Use createReply service which calls the correct endpoint
       const replyData = {
@@ -165,13 +190,13 @@ const ForumDetailPage: React.FC = () => {
         ...(replyingTo && { parentId: replyingTo })
       };
       
-      console.log('🚀 Submitting reply data:', replyData);
+      console.log('🚀 FRONTEND: Submitting reply data:', replyData);
       
       // ✅ CORRECT: Use createReply instead of createForumPost
       const newReplyResponse = await forumService.createReply(post.id, replyData);
       const newReply = newReplyResponse.data || newReplyResponse;
       
-      console.log('✅ Reply created successfully:', newReply);
+      console.log('✅ FRONTEND: Reply created successfully:', newReply);
       
       // ✅ FIXED: Add to local replies state (ensure it's an array)
       setReplies(prevReplies => [...prevReplies, newReply]);
@@ -184,10 +209,10 @@ const ForumDetailPage: React.FC = () => {
         repliesCount: (prevPost!.repliesCount || 0) + 1
       }));
       
-      console.log('✅ Reply added to UI successfully');
+      console.log('✅ FRONTEND: Reply added to UI successfully');
       
     } catch (error) {
-      console.error('❌ Error submitting reply:', error);
+      console.error('❌ FRONTEND: Error submitting reply:', error);
       alert('Gagal mengirim balasan. Silakan coba lagi.');
     }
   };
@@ -196,7 +221,7 @@ const ForumDetailPage: React.FC = () => {
     if (!editContent.trim()) return;
     
     try {
-      console.log('✏️ Updating reply:', replyId);
+      console.log('✏️ FRONTEND: Updating reply:', replyId);
       
       await forumService.updateForumPost(replyId, { content: editContent });
       
@@ -206,9 +231,9 @@ const ForumDetailPage: React.FC = () => {
       setEditingReply(null);
       setEditContent('');
       
-      console.log('✅ Reply updated successfully');
+      console.log('✅ FRONTEND: Reply updated successfully');
     } catch (error) {
-      console.error('❌ Error updating reply:', error);
+      console.error('❌ FRONTEND: Error updating reply:', error);
     }
   };
 
@@ -216,7 +241,7 @@ const ForumDetailPage: React.FC = () => {
     if (!window.confirm('Yakin ingin menghapus balasan ini?')) return;
     
     try {
-      console.log('🗑️ Deleting reply:', replyId);
+      console.log('🗑️ FRONTEND: Deleting reply:', replyId);
       
       await forumService.deleteForumPost(replyId);
       
@@ -229,9 +254,9 @@ const ForumDetailPage: React.FC = () => {
         });
       }
       
-      console.log('✅ Reply deleted successfully');
+      console.log('✅ FRONTEND: Reply deleted successfully');
     } catch (error) {
-      console.error('❌ Error deleting reply:', error);
+      console.error('❌ FRONTEND: Error deleting reply:', error);
     }
   };
 
@@ -239,7 +264,7 @@ const ForumDetailPage: React.FC = () => {
     if (!post || !isOwner) return;
     
     try {
-      console.log('✅ Marking reply as answer:', replyId);
+      console.log('✅ FRONTEND: Marking reply as answer:', replyId);
       // Note: This endpoint might not exist yet
       await forumService.markAsAnswer(post.id, replyId);
       
@@ -249,9 +274,9 @@ const ForumDetailPage: React.FC = () => {
       })));
       setPost({ ...post, isAnswered: true });
       
-      console.log('✅ Reply marked as answer successfully');
+      console.log('✅ FRONTEND: Reply marked as answer successfully');
     } catch (error) {
-      console.error('❌ Error marking as answer (endpoint may not exist):', error);
+      console.error('❌ FRONTEND: Error marking as answer (endpoint may not exist):', error);
     }
   };
 
@@ -259,14 +284,14 @@ const ForumDetailPage: React.FC = () => {
     if (!post || !canModerate) return;
     
     try {
-      console.log('📌 Toggling pin for post:', post.id);
+      console.log('📌 FRONTEND: Toggling pin for post:', post.id);
       
       await forumService.togglePin(post.id);
       setPost({ ...post, isPinned: !post.isPinned });
       
-      console.log('✅ Post pin toggled successfully');
+      console.log('✅ FRONTEND: Post pin toggled successfully');
     } catch (error) {
-      console.error('❌ Error pinning post:', error);
+      console.error('❌ FRONTEND: Error pinning post:', error);
     }
   };
 
@@ -519,11 +544,19 @@ const ForumDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Replies List */}
+          {/* ✅ FIXED: Better replies display with debug info */}
           {replies.length === 0 ? (
             <div className="text-center py-8">
               <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-500">Belum ada balasan. Jadilah yang pertama!</p>
+              {/* ✅ DEBUG INFO: Show if we have any debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 text-xs text-gray-400">
+                  <p>Debug: Post ID = {post.id}</p>
+                  <p>Debug: Replies Count = {post.repliesCount}</p>
+                  <p>Debug: Replies Array Length = {replies.length}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
