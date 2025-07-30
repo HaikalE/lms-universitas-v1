@@ -23,12 +23,20 @@ export const forumService = {
     }
   },
 
-  // ✅ GET: Forum replies
-  getForumReplies: async (postId: string, params?: any): Promise<ApiResponse<ForumReply[]>> => {
+  // ✅ FIXED: Get Forum replies - Updated to match backend structure
+  getForumReplies: async (postId: string, params?: any): Promise<ApiResponse<ForumPost[]>> => {
     try {
+      console.log('🚀 FRONTEND SERVICE: Getting replies for post:', postId);
+      console.log('📝 FRONTEND SERVICE: Params:', params);
+      
       const response = await api.get(`/forums/${postId}/replies`, { params });
+      
+      console.log('✅ FRONTEND SERVICE: API response:', response.data);
+      
+      // ✅ FIXED: Ensure consistent response format
       return response.data;
     } catch (error) {
+      console.error('❌ FRONTEND SERVICE: Error getting replies:', error);
       throw error;
     }
   },
@@ -89,14 +97,14 @@ export const forumService = {
     }
   },
 
-  // ✅ COMPLETELY SEPARATE: Create reply (NO courseId validation)
+  // ✅ FIXED: Create reply with enhanced logging and error handling
   createReply: async (postId: string, replyData: {
     content: string;
     parentId?: string;
-  }): Promise<ApiResponse<ForumReply>> => {
+  }): Promise<ApiResponse<ForumPost>> => {
     try {
-      console.log('🚀 Creating reply via dedicated endpoint for post:', postId);
-      console.log('📝 Reply data:', replyData);
+      console.log('🚀 FRONTEND SERVICE: Creating reply via dedicated endpoint for post:', postId);
+      console.log('📝 FRONTEND SERVICE: Reply data:', replyData);
 
       // ✅ SIMPLE VALIDATION - No courseId required
       if (!replyData.content?.trim()) {
@@ -108,15 +116,15 @@ export const forumService = {
         ...(replyData.parentId && { parentId: replyData.parentId })
       };
 
-      console.log('📡 Sending to /forums/' + postId + '/replies with data:', cleanData);
+      console.log('📡 FRONTEND SERVICE: Sending to /forums/' + postId + '/replies with data:', cleanData);
 
       // ✅ DIRECT API CALL - No additional validation
       const response = await api.post(`/forums/${postId}/replies`, cleanData);
       
-      console.log('✅ Reply created successfully:', response.data);
+      console.log('✅ FRONTEND SERVICE: Reply created successfully:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Error in createReply:', error);
+      console.error('❌ FRONTEND SERVICE: Error in createReply:', error);
       throw error;
     }
   },
@@ -158,7 +166,7 @@ export const forumService = {
   },
 
   // ✅ UPDATE: Reply
-  updateReply: async (replyId: string, replyData: any): Promise<ForumReply> => {
+  updateReply: async (replyId: string, replyData: any): Promise<ForumPost> => {
     try {
       const response = await api.patch(`/forums/replies/${replyId}`, replyData);
       return response.data.data || response.data;
@@ -176,7 +184,7 @@ export const forumService = {
     }
   },
 
-  // ✅ FIXED: Like system with proper toggle
+  // ✅ FIXED: Like system with proper toggle and enhanced logging
   toggleLike: async (id: string): Promise<{
     success: boolean;
     message: string;
@@ -184,9 +192,12 @@ export const forumService = {
     isLiked: boolean;
   }> => {
     try {
+      console.log('❤️ FRONTEND SERVICE: Toggling like for post/reply:', id);
       const response = await api.post(`/forums/${id}/like`);
+      console.log('✅ FRONTEND SERVICE: Like toggled successfully:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ FRONTEND SERVICE: Error toggling like:', error);
       throw error;
     }
   },
@@ -198,9 +209,12 @@ export const forumService = {
 
   likeReply: async (replyId: string): Promise<any> => {
     try {
+      console.log('❤️ FRONTEND SERVICE: Liking reply via dedicated endpoint:', replyId);
       const response = await api.post(`/forums/replies/${replyId}/like`);
+      console.log('✅ FRONTEND SERVICE: Reply liked successfully:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ FRONTEND SERVICE: Error liking reply:', error);
       throw error;
     }
   },
@@ -211,15 +225,19 @@ export const forumService = {
       await api.post(`/forums/${postId}/view`);
     } catch (error) {
       // Silent failure for view tracking
+      console.warn('⚠️ FRONTEND SERVICE: Could not mark post as viewed:', error);
     }
   },
 
   // ✅ ANSWER: Mark as answer
   markAsAnswer: async (postId: string, replyId: string): Promise<any> => {
     try {
+      console.log('🏆 FRONTEND SERVICE: Marking reply as answer:', { postId, replyId });
       const response = await api.patch(`/forums/${postId}/answer/${replyId}`);
+      console.log('✅ FRONTEND SERVICE: Reply marked as answer successfully:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ FRONTEND SERVICE: Error marking reply as answer:', error);
       throw error;
     }
   },
@@ -231,9 +249,12 @@ export const forumService = {
     isPinned: boolean;
   }> => {
     try {
+      console.log('📌 FRONTEND SERVICE: Toggling pin for post:', id);
       const response = await api.patch(`/forums/${id}/pin`);
+      console.log('✅ FRONTEND SERVICE: Pin toggled successfully:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ FRONTEND SERVICE: Error toggling pin:', error);
       throw error;
     }
   },
@@ -250,9 +271,12 @@ export const forumService = {
     isLocked: boolean;
   }> => {
     try {
+      console.log('🔒 FRONTEND SERVICE: Toggling lock for post:', id);
       const response = await api.patch(`/forums/${id}/lock`);
+      console.log('✅ FRONTEND SERVICE: Lock toggled successfully:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ FRONTEND SERVICE: Error toggling lock:', error);
       throw error;
     }
   },
@@ -301,4 +325,65 @@ export const forumService = {
       errors
     };
   },
+
+  // ✅ NEW: Batch operations for performance
+  batchGetReplies: async (postIds: string[]): Promise<{ [postId: string]: ForumPost[] }> => {
+    try {
+      console.log('📦 FRONTEND SERVICE: Batch getting replies for posts:', postIds);
+      
+      const promises = postIds.map(async (postId) => {
+        try {
+          const response = await forumService.getForumReplies(postId);
+          return { postId, replies: response.data || [] };
+        } catch (error) {
+          console.warn(`⚠️ Failed to get replies for post ${postId}:`, error);
+          return { postId, replies: [] };
+        }
+      });
+      
+      const results = await Promise.all(promises);
+      const batchResults: { [postId: string]: ForumPost[] } = {};
+      
+      results.forEach(({ postId, replies }) => {
+        batchResults[postId] = replies;
+      });
+      
+      console.log('✅ FRONTEND SERVICE: Batch replies retrieved successfully');
+      return batchResults;
+    } catch (error) {
+      console.error('❌ FRONTEND SERVICE: Error in batch get replies:', error);
+      throw error;
+    }
+  },
+
+  // ✅ NEW: Check if user can moderate post
+  canModeratePost: (post: ForumPost, currentUser: any): boolean => {
+    if (!currentUser || !post) return false;
+    
+    return (
+      currentUser.id === post.authorId ||
+      currentUser.role === 'lecturer' ||
+      currentUser.role === 'admin'
+    );
+  },
+
+  // ✅ NEW: Get reply statistics
+  getReplyStats: async (postId: string): Promise<{
+    totalReplies: number;
+    hasAnswers: boolean;
+    lastReplyAt?: string;
+    mostActiveUser?: string;
+  }> => {
+    try {
+      const response = await api.get(`/forums/${postId}/stats`);
+      return response.data;
+    } catch (error) {
+      console.warn('⚠️ Could not get reply stats:', error);
+      // Return default stats if endpoint doesn't exist
+      return {
+        totalReplies: 0,
+        hasAnswers: false
+      };
+    }
+  }
 };
