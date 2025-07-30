@@ -43,7 +43,7 @@ export const forumService = {
     }
   },
 
-  // ✅ FIXED: Create forum post with proper validation
+  // ✅ FIXED: Create forum post with proper validation (ONLY for root posts)
   createPost: async (postData: {
     title: string;
     content: string;
@@ -52,28 +52,32 @@ export const forumService = {
     parentId?: string;
   }): Promise<ForumPost> => {
     try {
-      // ✅ CLIENT-SIDE VALIDATION
-      if (!postData.title?.trim()) {
-        throw new Error('Judul post wajib diisi');
-      }
-      if (!postData.content?.trim()) {
-        throw new Error('Konten post wajib diisi');
-      }
-      if (!postData.courseId?.trim()) {
-        throw new Error('Course ID wajib diisi');
+      // ✅ CLIENT-SIDE VALIDATION FOR ROOT POSTS ONLY
+      if (!postData.parentId) {
+        // This is a root post - require all fields
+        if (!postData.title?.trim()) {
+          throw new Error('Judul post wajib diisi');
+        }
+        if (!postData.courseId?.trim()) {
+          throw new Error('Course ID wajib diisi');
+        }
+        
+        // ✅ VALIDATE UUID FORMAT
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(postData.courseId.trim())) {
+          throw new Error('Course ID harus berupa UUID yang valid');
+        }
       }
 
-      // ✅ VALIDATE UUID FORMAT
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(postData.courseId.trim())) {
-        throw new Error('Course ID harus berupa UUID yang valid');
+      if (!postData.content?.trim()) {
+        throw new Error('Konten post wajib diisi');
       }
 
       // ✅ CLEAN DATA BEFORE SENDING
       const cleanData = {
-        title: postData.title.trim(),
+        ...(postData.title && { title: postData.title.trim() }),
         content: postData.content.trim(),
-        courseId: postData.courseId.trim(),
+        ...(postData.courseId && { courseId: postData.courseId.trim() }),
         type: postData.type || 'discussion',
         ...(postData.parentId && { parentId: postData.parentId.trim() })
       };
@@ -85,8 +89,52 @@ export const forumService = {
     }
   },
 
-  // ✅ LEGACY ALIAS: Keep backward compatibility
+  // ✅ COMPLETELY SEPARATE: Create reply (NO courseId validation)
+  createReply: async (postId: string, replyData: {
+    content: string;
+    parentId?: string;
+  }): Promise<ApiResponse<ForumReply>> => {
+    try {
+      console.log('🚀 Creating reply via dedicated endpoint for post:', postId);
+      console.log('📝 Reply data:', replyData);
+
+      // ✅ SIMPLE VALIDATION - No courseId required
+      if (!replyData.content?.trim()) {
+        throw new Error('Konten balasan wajib diisi');
+      }
+
+      const cleanData = {
+        content: replyData.content.trim(),
+        ...(replyData.parentId && { parentId: replyData.parentId })
+      };
+
+      console.log('📡 Sending to /forums/' + postId + '/replies with data:', cleanData);
+
+      // ✅ DIRECT API CALL - No additional validation
+      const response = await api.post(`/forums/${postId}/replies`, cleanData);
+      
+      console.log('✅ Reply created successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error in createReply:', error);
+      throw error;
+    }
+  },
+
+  // ✅ LEGACY ALIAS: Keep backward compatibility (but only for root posts)
   createForumPost: async (postData: any): Promise<ForumPost> => {
+    // For backward compatibility, but warn if used for replies
+    if (postData.parentId) {
+      console.warn('⚠️ DEPRECATED: Use createReply() for replies instead of createForumPost()');
+      // Extract postId from parentId for createReply
+      const postId = postData.parentId;
+      const replyData = {
+        content: postData.content,
+        parentId: postData.parentId
+      };
+      const result = await forumService.createReply(postId, replyData);
+      return result.data || result;
+    }
     return forumService.createPost(postData);
   },
 
@@ -104,25 +152,6 @@ export const forumService = {
   deleteForumPost: async (id: string): Promise<void> => {
     try {
       await api.delete(`/forums/${id}`);
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // ✅ CREATE: Reply
-  createReply: async (postId: string, replyData: any): Promise<ApiResponse<ForumReply>> => {
-    try {
-      if (!replyData.content?.trim()) {
-        throw new Error('Konten balasan wajib diisi');
-      }
-
-      const cleanData = {
-        content: replyData.content.trim(),
-        ...(replyData.parentId && { parentId: replyData.parentId })
-      };
-
-      const response = await api.post(`/forums/${postId}/replies`, cleanData);
-      return response.data;
     } catch (error) {
       throw error;
     }
@@ -247,13 +276,15 @@ export const forumService = {
       errors.push('Konten post wajib diisi');
     }
 
-    // CourseId validation
-    if (!data.courseId || !data.courseId.trim()) {
-      errors.push('Course ID wajib diisi');
-    } else {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(data.courseId.trim())) {
-        errors.push('Course ID harus berupa UUID yang valid');
+    // CourseId validation (only for root posts)
+    if (!data.parentId) {
+      if (!data.courseId || !data.courseId.trim()) {
+        errors.push('Course ID wajib diisi');
+      } else {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(data.courseId.trim())) {
+          errors.push('Course ID harus berupa UUID yang valid');
+        }
       }
     }
 
