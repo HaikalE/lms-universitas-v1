@@ -152,7 +152,7 @@ export enum ForumPostType {
   ANNOUNCEMENT = 'announcement',
 }
 
-// ENHANCED: ForumPost interface with student interaction features
+// ✅ ENHANCED: ForumPost interface with replies support and student interaction features
 export interface ForumPost {
   id: string;
   title: string;
@@ -169,11 +169,15 @@ export interface ForumPost {
   tags?: string[];
   authorId: string;
   courseId: string;
+  parentId?: string; // ✅ ADDED: For reply relationships
   userId?: string; // Keep for backward compatibility
   createdAt: string;
   updatedAt?: string;
   
-  // NEW: Enhanced student interaction features
+  // ✅ NEW: Replies array - this is what the backend now returns
+  replies?: ForumPost[];
+  
+  // Enhanced student interaction features
   quickReactions?: {
     thumbsUp: number;
     heart: number;
@@ -195,7 +199,7 @@ export interface ForumPost {
     role: UserRole;
   };
   
-  // Tree structure - children are also ForumPost objects
+  // Tree structure - children are also ForumPost objects (for nested replies)
   children?: ForumPost[];
   parent?: ForumPost;
   
@@ -205,14 +209,14 @@ export interface ForumPost {
     name: string;
   };
   
-  // NEW: Additional metadata for student features
+  // Additional metadata for student features
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   studyLevel?: string;
   estimatedReadTime?: number; // in minutes
   lastActivity?: string; // ISO string
 }
 
-// ENHANCED: ForumReply type alias with additional features
+// ✅ ENHANCED: ForumReply type alias with additional features
 export type ForumReply = ForumPost;
 
 // NEW: Student engagement interfaces
