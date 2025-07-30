@@ -140,9 +140,19 @@ const ForumDetailPage: React.FC = () => {
     try {
       console.log('💬 Creating reply for post:', post.id);
       
-      // Use createForumPost with parentId for replies
+      // FIXED: Generate proper title for replies
+      let replyTitle = null;
+      if (replyingTo) {
+        // If replying to a specific reply, find its title
+        const parentReply = replies.find(r => r.id === replyingTo);
+        replyTitle = parentReply?.title ? `Re: ${parentReply.title}` : `Re: ${post.title}`;
+      } else {
+        // If replying to the main post
+        replyTitle = `Re: ${post.title}`;
+      }
+      
       const replyData = {
-        title: '', // Replies don't need titles
+        title: replyTitle, // Fixed: Proper title instead of empty string
         content: replyContent.trim(),
         courseId: post.courseId,
         parentId: replyingTo || post.id // Use post.id if not replying to specific reply
@@ -466,17 +476,20 @@ const ForumDetailPage: React.FC = () => {
         <CardContent className="space-y-4">
           {/* Reply Editor */}
           <div className="bg-gray-50 p-4 rounded-lg" data-testid="reply-editor">
-            {replyingTo && (
-              <div className="mb-2 text-sm text-gray-600">
-                Membalas ke: {replies.find(r => r.id === replyingTo)?.author?.fullName || 'Unknown User'}
-                <button
-                  onClick={() => setReplyingTo(null)}
-                  className="ml-2 text-red-600 hover:underline"
-                >
-                  Batal
-                </button>
-              </div>
-            )}
+            {replyingTo && (() => {
+              const replyTarget = replies.find(r => r.id === replyingTo);
+              return (
+                <div className="mb-2 text-sm text-gray-600">
+                  Membalas ke: {replyTarget?.author?.fullName || 'Unknown User'}
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="ml-2 text-red-600 hover:underline"
+                  >
+                    Batal
+                  </button>
+                </div>
+              );
+            })()}
             
             <RichTextEditor
               value={replyContent}
