@@ -204,7 +204,7 @@ export class ForumsController {
     }
   }
 
-  // GET REPLIES FOR A FORUM POST
+  // ✅ FIXED: GET REPLIES FOR A FORUM POST - PROPER RESPONSE FORMAT
   @Get(':id/replies')
   async getPostReplies(
     @Param('id', ParseUUIDPipe) id: string,
@@ -212,14 +212,27 @@ export class ForumsController {
     @GetUser() user: User,
   ) {
     try {
-      const replies = await this.forumsService.getPostReplies(id, queryDto, user);
+      console.log('🔍 CONTROLLER: Getting replies for post:', id);
+      console.log('📝 CONTROLLER: Query params:', queryDto);
+
+      const result = await this.forumsService.getPostReplies(id, queryDto, user);
       
+      console.log('✅ CONTROLLER: Service returned:', {
+        dataLength: result.data?.length || 0,
+        hasData: !!result.data,
+        hasMeta: !!result.meta
+      });
+
+      // ✅ FIXED: Return consistent response format
       return {
         success: true,
         message: 'Replies berhasil diambil',
-        data: replies,
+        data: result.data || result, // Handle both data structures for backward compatibility
+        meta: result.meta || undefined, // Include pagination meta if available
       };
     } catch (error) {
+      console.error('❌ CONTROLLER: Error getting replies:', error);
+      
       if (error instanceof HttpException) {
         throw error;
       }
