@@ -56,7 +56,7 @@ export class ForumsController {
     }
   }
 
-  // ✅ FIXED: CREATE FORUM POST - Better validation and error handling
+  // ✅ FIXED: CREATE FORUM POST - Better validation with courseId inheritance for replies
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ValidationPipe({ 
@@ -70,8 +70,11 @@ export class ForumsController {
       // ✅ ENHANCED: Better validation with detailed error messages
       const validationErrors: string[] = [];
 
+      // Check if this is a reply or a new post
+      const isReply = !!createForumPostDto.parentId;
+
       // Validate title - required for root posts, optional for replies
-      if (!createForumPostDto.parentId) {
+      if (!isReply) {
         if (!createForumPostDto.title || !createForumPostDto.title.trim()) {
           validationErrors.push('Judul post wajib diisi untuk post utama');
         }
@@ -82,18 +85,29 @@ export class ForumsController {
         validationErrors.push('Konten post wajib diisi');
       }
 
-      // ✅ CRITICAL FIX: Validate courseId with better error messages
-      if (!createForumPostDto.courseId) {
-        validationErrors.push('Course ID wajib diisi');
-      } else if (typeof createForumPostDto.courseId !== 'string') {
-        validationErrors.push('Course ID harus berupa string');
-      } else if (!createForumPostDto.courseId.trim()) {
-        validationErrors.push('Course ID tidak boleh kosong');
+      // ✅ FIXED: CourseId validation - required for root posts, optional for replies
+      if (!isReply) {
+        // For root posts, courseId is required
+        if (!createForumPostDto.courseId) {
+          validationErrors.push('Course ID wajib diisi untuk post utama');
+        } else if (typeof createForumPostDto.courseId !== 'string') {
+          validationErrors.push('Course ID harus berupa string');
+        } else if (!createForumPostDto.courseId.trim()) {
+          validationErrors.push('Course ID tidak boleh kosong');
+        } else {
+          // Validate UUID format more thoroughly
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (!uuidRegex.test(createForumPostDto.courseId.trim())) {
+            validationErrors.push('Course ID harus berupa UUID yang valid');
+          }
+        }
       } else {
-        // Validate UUID format more thoroughly
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(createForumPostDto.courseId.trim())) {
-          validationErrors.push('Course ID harus berupa UUID yang valid');
+        // For replies, courseId can be provided but if not, it will inherit from parent
+        if (createForumPostDto.courseId) {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          if (!uuidRegex.test(createForumPostDto.courseId)) {
+            validationErrors.push('Course ID harus berupa UUID yang valid');
+          }
         }
       }
 
