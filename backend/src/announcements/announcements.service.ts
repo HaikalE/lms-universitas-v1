@@ -12,6 +12,7 @@ import { User, UserRole } from '../entities/user.entity';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from './dto/update-announcement.dto';
 import { QueryAnnouncementsDto } from './dto/query-announcements.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AnnouncementsService {
@@ -22,22 +23,29 @@ export class AnnouncementsService {
     private courseRepository: Repository<Course>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private notificationsService: NotificationsService, // 🔔 Inject notifications service
   ) {}
 
+  // ✅ ENHANCED: Create announcement with notification auto-triggers
   async create(createAnnouncementDto: CreateAnnouncementDto, currentUser: User) {
     const { courseId } = createAnnouncementDto;
+    let targetCourse = null;
 
     // If courseId is provided, verify access to course
     if (courseId) {
-      const course = await this.courseRepository.findOne({ where: { id: courseId } });
-      if (!course) {
+      targetCourse = await this.courseRepository.findOne({ 
+        where: { id: courseId },
+        relations: ['students'], // 🔔 Include students for notifications
+      });
+      
+      if (!targetCourse) {
         throw new NotFoundException('Mata kuliah tidak ditemukan');
       }
 
       // Only lecturer of the course or admin can create course announcements
       if (
         currentUser.role !== UserRole.ADMIN &&
-        course.lecturerId !== currentUser.id
+        targetCourse.lecturerId !== currentUser.id
       ) {
         throw new ForbiddenException('Anda tidak memiliki akses untuk membuat pengumuman di mata kuliah ini');
       }
@@ -53,7 +61,46 @@ export class AnnouncementsService {
       authorId: currentUser.id,
     });
 
-    return this.announcementRepository.save(announcement);
+    const savedAnnouncement = await this.announcementRepository.save(announcement);
+
+    // 🔔 NEW: Send notifications for new announcement
+    try {
+      console.log('🔔 Sending announcement notifications...');
+      
+      if (courseId && targetCourse) {
+        // Course-specific announcement - notify enrolled students
+        const studentIds = targetCourse.students.map(student => student.id);
+        console.log(`📢 Notifying ${studentIds.length} students in course ${targetCourse.name}`);
+        
+        await this.notificationsService.notifyNewAnnouncement(
+          studentIds,
+          savedAnnouncement.id,
+          savedAnnouncement.title,
+          currentUser.fullName,
+          targetCourse.name
+        );
+      } else {
+        // Global announcement - notify all users
+        console.log('🌍 Sending global announcement notification');
+        const allUsers = await this.userRepository.find({ select: ['id'] });
+        const allUserIds = allUsers.map(user => user.id).filter(id => id !== currentUser.id); // Exclude author
+        
+        await this.notificationsService.notifyNewAnnouncement(
+          allUserIds,
+          savedAnnouncement.id,
+          savedAnnouncement.title,
+          currentUser.fullName,
+          'Global' // No specific course
+        );
+      }
+      
+      console.log('✅ Announcement notifications sent successfully');
+    } catch (notificationError) {
+      console.error('❌ Error sending announcement notifications:', notificationError);
+      // Don't throw error - announcement creation should succeed even if notification fails
+    }
+
+    return savedAnnouncement;
   }
 
   async findAll(queryDto: QueryAnnouncementsDto, currentUser: User) {
