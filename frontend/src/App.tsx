@@ -21,7 +21,6 @@ import CreateAssignmentPage from './pages/assignments/CreateAssignmentPage';
 import ForumsPage from './pages/forums/ForumsPage';
 import ForumDetailPage from './pages/forums/ForumDetailPage';
 import CreateForumPostPage from './pages/forums/CreateForumPostPage';
-import AnnouncementsPage from './pages/announcements/AnnouncementsPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import AdminUsersPage from './pages/admin/UsersPage';
 import AdminCoursesPage from './pages/admin/CoursesPage';
@@ -78,7 +77,6 @@ function App() {
                         <Route path="/forums/create" element={<CreateForumPostPage />} />
                         <Route path="/forums/:id" element={<ForumDetailPage />} />
                         
-                        <Route path="/announcements" element={<AnnouncementsPage />} />
                         <Route path="/profile" element={<ProfilePage />} />
                         
                         {/* Admin Routes */}
