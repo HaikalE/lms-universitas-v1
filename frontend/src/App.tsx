@@ -22,6 +22,7 @@ import ForumsPage from './pages/forums/ForumsPage';
 import ForumDetailPage from './pages/forums/ForumDetailPage';
 import CreateForumPostPage from './pages/forums/CreateForumPostPage';
 import ProfilePage from './pages/profile/ProfilePage';
+import AdminDashboardPage from './pages/admin/DashboardPage';
 import AdminUsersPage from './pages/admin/UsersPage';
 import AdminCoursesPage from './pages/admin/CoursesPage';
 import Layout from './components/layout/Layout';
@@ -79,7 +80,9 @@ function App() {
                         
                         <Route path="/profile" element={<ProfilePage />} />
                         
-                        {/* Admin Routes */}
+                        {/* Admin Dashboard Route */}
+                        <Route path="/admin" element={<AdminDashboardPage />} />
+                        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                         <Route path="/admin/users" element={<AdminUsersPage />} />
                         <Route path="/admin/courses" element={<AdminCoursesPage />} />
                       </Routes>
