@@ -5,9 +5,13 @@ import { AnnouncementsController } from './announcements.controller';
 import { Announcement } from '../entities/announcement.entity';
 import { Course } from '../entities/course.entity';
 import { User } from '../entities/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Announcement, Course, User])],
+  imports: [
+    TypeOrmModule.forFeature([Announcement, Course, User]),
+    NotificationsModule, // 🔔 Add notifications for auto-triggers
+  ],
   controllers: [AnnouncementsController],
   providers: [AnnouncementsService],
   exports: [AnnouncementsService],
