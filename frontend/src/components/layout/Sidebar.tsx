@@ -6,7 +6,6 @@ import {
   BookOpenIcon,
   DocumentTextIcon,
   ChatBubbleLeftRightIcon,
-  SpeakerWaveIcon,
   UsersIcon,
   CogIcon,
   AcademicCapIcon,
@@ -48,12 +47,6 @@ const navigation: NavigationItem[] = [
     name: 'Forum Diskusi',
     href: '/forums',
     icon: ChatBubbleLeftRightIcon,
-    roles: [UserRole.STUDENT, UserRole.LECTURER], // Hidden from admin
-  },
-  {
-    name: 'Pengumuman',
-    href: '/announcements',
-    icon: SpeakerWaveIcon,
     roles: [UserRole.STUDENT, UserRole.LECTURER], // Hidden from admin
   },
 ];
