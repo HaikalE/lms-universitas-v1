@@ -1,574 +1,292 @@
-import React, { useState } from 'react';
-import { useQuery } from 'react-query';
-import { Link } from 'react-router-dom';
-import { 
-  UserGroupIcon,
-  AcademicCapIcon,
-  ServerIcon,
-  ChartBarIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  CogIcon,
-  DocumentTextIcon,
-  ShieldCheckIcon,
-  CurrencyDollarIcon,
-  PlusCircleIcon
-} from '@heroicons/react/24/outline';
-import { Card } from '../../components/ui/Card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { adminService, SystemStats } from '../../services';
-import { formatDate } from '../../utils/date';
-import { LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
-// Extended interface for dashboard-specific data
-interface DashboardStats extends SystemStats {
-  users?: {
-    total: number;
-    students: number;
-    lecturers: number;
-    admins: number;
-    activeToday: number;
-    newThisMonth: number;
-  };
-  courses?: {
-    total: number;
-    active: number;
-    archived: number;
-    avgStudentsPerCourse: number;
-  };
-  system?: {
-    status: 'healthy' | 'warning' | 'critical';
-    uptime: string;
-    diskUsage: number;
-    memoryUsage: number;
-    cpuUsage: number;
-    lastBackup: string;
-  };
-  activities?: {
-    totalAssignments: number;
-    totalSubmissions: number;
-    avgGradeScore: number;
-    forumPosts: number;
-  };
-  alerts?: Array<{
-    id: string;
-    type: 'warning' | 'error' | 'info';
-    message: string;
-    timestamp: string;
-  }>;
-  userGrowth?: Array<{
-    month: string;
-    students: number;
-    lecturers: number;
-  }>;
-  courseDistribution?: Array<{
-    department: string;
-    courses: number;
-    percentage: number;
-  }>;
-  recentActivities?: Array<{
-    id: string;
-    type: string;
-    user: string;
-    action: string;
-    timestamp: string;
-  }>;
-}
-
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+import { userService } from '../../services/userService';
+import { courseService } from '../../services/courseService';
+import { User, Course, UserRole } from '../../types';
+import {
+  Users, BookOpen, FileText, Activity,
+  RefreshCw, UserPlus, AlertTriangle
+} from 'lucide-react';
 
 const AdminDashboard: React.FC = () => {
-  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('week');
-  
-  const { data: stats, isLoading, error, refetch } = useQuery<DashboardStats>(
-    ['admin-dashboard-stats', timeRange],
-    async () => {
-      // Get basic stats from adminService
-      const systemStats = await adminService.getSystemStats();
-      
-      // Transform and extend with mock data for dashboard-specific features
-      const dashboardStats: DashboardStats = {
-        ...systemStats,
-        users: {
-          total: systemStats.totalUsers || 0,
-          students: systemStats.totalStudents || 0,
-          lecturers: systemStats.totalLecturers || 0,
-          admins: systemStats.totalAdmins || 0,
-          activeToday: Math.floor((systemStats.totalUsers || 0) * 0.1),
-          newThisMonth: Math.floor((systemStats.totalUsers || 0) * 0.05),
-        },
-        courses: {
-          total: systemStats.totalCourses || 0,
-          active: systemStats.activeCourses || 0,
-          archived: Math.max(0, (systemStats.totalCourses || 0) - (systemStats.activeCourses || 0)),
-          avgStudentsPerCourse: systemStats.totalCourses > 0 ? Math.floor((systemStats.totalStudents || 0) / systemStats.totalCourses) : 0,
-        },
-        system: {
-          status: systemStats.systemHealth?.status === 'healthy' ? 'healthy' : 'warning',
-          uptime: '99.9%',
-          diskUsage: systemStats.systemHealth?.diskUsage || 0,
-          memoryUsage: systemStats.systemHealth?.memoryUsage || 0,
-          cpuUsage: Math.floor(Math.random() * 30) + 20, // Mock CPU usage
-          lastBackup: systemStats.systemHealth?.lastBackup || new Date().toISOString(),
-        },
-        activities: {
-          totalAssignments: systemStats.totalAssignments || 0,
-          totalSubmissions: systemStats.totalSubmissions || 0,
-          avgGradeScore: 85.5, // Mock average grade
-          forumPosts: Math.floor(Math.random() * 50) + 100, // Mock forum posts
-        },
-        alerts: [
-          {
-            id: '1',
-            type: 'warning',
-            message: 'Disk usage mencapai 80%',
-            timestamp: new Date().toISOString(),
-          },
-          {
-            id: '2',
-            type: 'info',
-            message: 'Backup otomatis berhasil dilakukan',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-          }
-        ],
-        userGrowth: [
-          { month: 'Jan', students: 120, lecturers: 15 },
-          { month: 'Feb', students: 135, lecturers: 16 },
-          { month: 'Mar', students: 145, lecturers: 18 },
-          { month: 'Apr', students: 160, lecturers: 20 },
-          { month: 'May', students: 175, lecturers: 22 },
-        ],
-        courseDistribution: [
-          { department: 'Teknik Informatika', courses: 25, percentage: 40 },
-          { department: 'Sistem Informasi', courses: 20, percentage: 32 },
-          { department: 'Teknik Elektro', courses: 10, percentage: 16 },
-          { department: 'Matematika', courses: 8, percentage: 12 },
-        ],
-        recentActivities: [
-          {
-            id: '1',
-            type: 'User Registration',
-            user: 'John Doe',
-            action: 'mendaftar sebagai mahasiswa',
-            timestamp: new Date(Date.now() - 1800000).toISOString(),
-          },
-          {
-            id: '2',
-            type: 'Course Creation',
-            user: 'Prof. Smith',
-            action: 'membuat mata kuliah Algoritma',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-          },
-          {
-            id: '3',
-            type: 'Assignment Submission',
-            user: 'Jane Smith',
-            action: 'mengumpulkan tugas Pemrograman Web',
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-          },
-        ],
-      };
-      
-      return dashboardStats;
-    },
-    {
-      refetchInterval: 30000, // Refresh every 30 seconds
-    }
-  );
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalStudents: 0,
+    totalLecturers: 0,
+    totalAdmins: 0,
+    totalCourses: 0,
+    activeCourses: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [recentUsers, setRecentUsers] = useState<User[]>([]);
+  const [recentCourses, setRecentCourses] = useState<Course[]>([]);
 
-  if (isLoading) {
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch real data
+      const [usersResponse, coursesResponse] = await Promise.all([
+        userService.getUsers({ limit: 100 }),
+        courseService.getCourses({ limit: 100 }),
+      ]);
+
+      const users = usersResponse.data || [];
+      const courses = coursesResponse.data || [];
+
+      // Calculate real statistics
+      const totalStudents = users.filter(u => u.role === UserRole.STUDENT).length;
+      const totalLecturers = users.filter(u => u.role === UserRole.LECTURER).length;
+      const totalAdmins = users.filter(u => u.role === UserRole.ADMIN).length;
+      const activeCourses = courses.filter(c => c.isActive !== false).length;
+
+      setStats({
+        totalUsers: users.length,
+        totalStudents,
+        totalLecturers,
+        totalAdmins,
+        totalCourses: courses.length,
+        activeCourses,
+      });
+
+      // Recent data (last 5)
+      const sortedUsers = users
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5);
+
+      const sortedCourses = courses
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5);
+
+      setRecentUsers(sortedUsers);
+      setRecentCourses(sortedCourses);
+      setLastUpdated(new Date());
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchDashboardData();
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'Baru saja';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} menit lalu`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} jam lalu`;
+    return `${Math.floor(diffInSeconds / 86400)} hari lalu`;
+  };
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <LoadingSpinner size="lg" />
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Memuat data...</div>
       </div>
     );
   }
 
-  if (error) {
-    return <ErrorMessage message="Gagal memuat dashboard administrator. Silakan coba lagi." />;
-  }
-
-  const systemStatusColor = 
-    stats?.system?.status === 'healthy' ? 'text-green-600' :
-    stats?.system?.status === 'warning' ? 'text-yellow-600' : 'text-red-600';
-
-  const systemStatusBg = 
-    stats?.system?.status === 'healthy' ? 'bg-green-100' :
-    stats?.system?.status === 'warning' ? 'bg-yellow-100' : 'bg-red-100';
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard Administrator</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Pantau dan kelola seluruh sistem LMS Universitas
-            </p>
-          </div>
-          <div className="flex items-center space-x-4">
-            {/* Time Range Selector */}
-            <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setTimeRange('day')}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  timeRange === 'day' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Hari Ini
-              </button>
-              <button
-                onClick={() => setTimeRange('week')}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  timeRange === 'week' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Minggu Ini
-              </button>
-              <button
-                onClick={() => setTimeRange('month')}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  timeRange === 'month' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Bulan Ini
-              </button>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </Button>
-          </div>
+      {/* Simple Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard Admin</h1>
+          <p className="text-gray-600">Terakhir diperbarui: {lastUpdated.toLocaleTimeString()}</p>
         </div>
+        <Button onClick={handleRefresh} className="flex items-center gap-2">
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </Button>
       </div>
 
-      {/* System Status Alert */}
-      {stats?.system?.status !== 'healthy' && (
-        <div className={`rounded-lg p-4 ${systemStatusBg} border ${
-          stats?.system?.status === 'warning' ? 'border-yellow-200' : 'border-red-200'
-        }`}>
-          <div className="flex">
-            <ExclamationTriangleIcon className={`h-5 w-5 ${systemStatusColor}`} />
-            <div className="ml-3">
-              <h3 className={`text-sm font-medium ${systemStatusColor}`}>
-                System {stats?.system?.status === 'warning' ? 'Warning' : 'Critical'}
-              </h3>
-              <div className="mt-2 text-sm">
-                {stats?.alerts?.slice(0, 3).map(alert => (
-                  <p key={alert.id} className={systemStatusColor}>{alert.message}</p>
-                ))}
+      {/* Simple Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">{stats.totalUsers}</p>
+                <p className="text-sm text-gray-600">Total Pengguna</p>
+              </div>
+              <Users className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">{stats.totalStudents}</p>
+                <p className="text-sm text-gray-600">Mahasiswa</p>
+              </div>
+              <Users className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">{stats.totalLecturers}</p>
+                <p className="text-sm text-gray-600">Dosen</p>
+              </div>
+              <Users className="w-8 h-8 text-purple-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-bold">{stats.totalCourses}</p>
+                <p className="text-sm text-gray-600">Mata Kuliah</p>
+                <p className="text-xs text-gray-500">{stats.activeCourses} aktif</p>
+              </div>
+              <BookOpen className="w-8 h-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* System Status */}
+      {stats.totalUsers === 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3 text-amber-600">
+              <AlertTriangle className="w-5 h-5" />
+              <div>
+                <p className="font-medium">Sistem Kosong</p>
+                <p className="text-sm">Belum ada pengguna yang terdaftar dalam sistem.</p>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Pengguna</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.users?.total || 0}</p>
-              <p className="text-xs text-green-600 mt-1">
-                +{stats?.users?.newThisMonth || 0} bulan ini
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <UserGroupIcon className="h-8 w-8 text-blue-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between text-xs">
-            <span className="text-gray-500">Aktif hari ini:</span>
-            <span className="font-medium text-gray-900">{stats?.users?.activeToday || 0}</span>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Mata Kuliah</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.courses?.total || 0}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {stats?.courses?.active || 0} aktif
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <AcademicCapIcon className="h-8 w-8 text-green-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between text-xs">
-            <span className="text-gray-500">Rata-rata mahasiswa:</span>
-            <span className="font-medium text-gray-900">{stats?.courses?.avgStudentsPerCourse || 0}</span>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">System Health</p>
-              <p className={`text-2xl font-bold capitalize ${systemStatusColor}`}>
-                {stats?.system?.status || 'Unknown'}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Uptime: {stats?.system?.uptime || 'N/A'}
-              </p>
-            </div>
-            <div className={`p-3 ${systemStatusBg} rounded-lg`}>
-              <ServerIcon className={`h-8 w-8 ${systemStatusColor}`} />
-            </div>
-          </div>
-          <div className="mt-4 space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-500">CPU:</span>
-              <span className="font-medium">{stats?.system?.cpuUsage || 0}%</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-500">Memory:</span>
-              <span className="font-medium">{stats?.system?.memoryUsage || 0}%</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Aktivitas</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.activities?.totalSubmissions || 0}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Pengumpulan tugas
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <ChartBarIcon className="h-8 w-8 text-purple-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between text-xs">
-            <span className="text-gray-500">Rata-rata nilai:</span>
-            <span className="font-medium text-gray-900">{stats?.activities?.avgGradeScore || 0}</span>
-          </div>
-        </Card>
-      </div>
-
-      {/* Charts Row */}
+      {/* Data Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Growth Chart */}
+        {/* Recent Users */}
         <Card>
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Pertumbuhan Pengguna</h2>
-          </div>
-          <div className="p-6">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats?.userGrowth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area type="monotone" dataKey="students" stackId="1" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} name="Mahasiswa" />
-                  <Area type="monotone" dataKey="lecturers" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.6} name="Dosen" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <CardHeader>
+            <CardTitle>Pengguna Terbaru</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentUsers.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Belum ada pengguna</p>
+            ) : (
+              <div className="space-y-3">
+                {recentUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{user.fullName}</p>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        user.role === UserRole.ADMIN ? 'bg-red-100 text-red-800' :
+                        user.role === UserRole.LECTURER ? 'bg-blue-100 text-blue-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {user.role === UserRole.ADMIN ? 'Admin' :
+                         user.role === UserRole.LECTURER ? 'Dosen' : 'Mahasiswa'}
+                      </span>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {formatTimeAgo(user.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
 
-        {/* Course Distribution */}
+        {/* Recent Courses */}
         <Card>
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Distribusi Mata Kuliah</h2>
-          </div>
-          <div className="p-6">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats?.courseDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(entry) => `${entry.department}: ${entry.percentage}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="courses"
-                  >
-                    {stats?.courseDistribution?.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <CardHeader>
+            <CardTitle>Mata Kuliah Terbaru</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentCourses.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Belum ada mata kuliah</p>
+            ) : (
+              <div className="space-y-3">
+                {recentCourses.map((course) => (
+                  <div key={course.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{course.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {course.code} • {course.credits} SKS
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        course.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {course.isActive !== false ? 'Aktif' : 'Nonaktif'}
+                      </span>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {formatTimeAgo(course.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      {/* System Resources */}
+      {/* Quick Actions */}
       <Card>
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">System Resources</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">CPU Usage</span>
-                <span className="text-sm font-bold text-gray-900">{stats?.system?.cpuUsage || 0}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full ${
-                    (stats?.system?.cpuUsage || 0) > 80 ? 'bg-red-600' : 
-                    (stats?.system?.cpuUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                  }`}
-                  style={{ width: `${stats?.system?.cpuUsage || 0}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Memory Usage</span>
-                <span className="text-sm font-bold text-gray-900">{stats?.system?.memoryUsage || 0}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full ${
-                    (stats?.system?.memoryUsage || 0) > 80 ? 'bg-red-600' : 
-                    (stats?.system?.memoryUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                  }`}
-                  style={{ width: `${stats?.system?.memoryUsage || 0}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Disk Usage</span>
-                <span className="text-sm font-bold text-gray-900">{stats?.system?.diskUsage || 0}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full ${
-                    (stats?.system?.diskUsage || 0) > 80 ? 'bg-red-600' : 
-                    (stats?.system?.diskUsage || 0) > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                  }`}
-                  style={{ width: `${stats?.system?.diskUsage || 0}%` }}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="mt-6 flex items-center justify-between text-sm">
-            <span className="text-gray-500">Last Backup: {formatDate(stats?.system?.lastBackup || new Date(), 'full')}</span>
-            <Button size="sm" variant="outline">
-              <ShieldCheckIcon className="h-4 w-4 mr-2" />
-              Backup Now
+        <CardHeader>
+          <CardTitle>Aksi Cepat</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <Button 
+              className="h-16 flex flex-col gap-1" 
+              variant="outline"
+              onClick={() => window.location.href = '/admin/users'}
+            >
+              <Users className="w-5 h-5" />
+              <span className="text-xs">Kelola Pengguna</span>
+            </Button>
+            <Button 
+              className="h-16 flex flex-col gap-1" 
+              variant="outline"
+              onClick={() => window.location.href = '/admin/courses'}
+            >
+              <BookOpen className="w-5 h-5" />
+              <span className="text-xs">Kelola Mata Kuliah</span>
+            </Button>
+            <Button 
+              className="h-16 flex flex-col gap-1" 
+              variant="outline"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="w-5 h-5" />
+              <span className="text-xs">Refresh Data</span>
             </Button>
           </div>
-        </div>
+        </CardContent>
       </Card>
-
-      {/* Quick Actions & Recent Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick Actions */}
-        <div>
-          <Card>
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-            </div>
-            <div className="p-6 space-y-3">
-              <Link to="/admin/users/create">
-                <Button variant="outline" className="w-full justify-start">
-                  <PlusCircleIcon className="h-4 w-4 mr-2" />
-                  Tambah Pengguna Baru
-                </Button>
-              </Link>
-              <Link to="/admin/courses/create">
-                <Button variant="outline" className="w-full justify-start">
-                  <PlusCircleIcon className="h-4 w-4 mr-2" />
-                  Buat Mata Kuliah
-                </Button>
-              </Link>
-              <Link to="/admin/announcements/create">
-                <Button variant="outline" className="w-full justify-start">
-                  <PlusCircleIcon className="h-4 w-4 mr-2" />
-                  Buat Pengumuman
-                </Button>
-              </Link>
-              <Link to="/admin/reports">
-                <Button variant="outline" className="w-full justify-start">
-                  <DocumentTextIcon className="h-4 w-4 mr-2" />
-                  Generate Report
-                </Button>
-              </Link>
-              <Link to="/admin/settings">
-                <Button variant="outline" className="w-full justify-start">
-                  <CogIcon className="h-4 w-4 mr-2" />
-                  System Settings
-                </Button>
-              </Link>
-            </div>
-          </Card>
-        </div>
-
-        {/* Recent Activities */}
-        <div className="lg:col-span-2">
-          <Card>
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Aktivitas Terbaru</h2>
-            </div>
-            <div className="p-6">
-              <div className="flow-root">
-                <ul className="-mb-8">
-                  {stats?.recentActivities?.map((activity, activityIdx) => (
-                    <li key={activity.id}>
-                      <div className="relative pb-8">
-                        {activityIdx !== (stats?.recentActivities?.length || 0) - 1 ? (
-                          <span
-                            className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                        <div className="relative flex space-x-3">
-                          <div>
-                            <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center ring-8 ring-white">
-                              <UserGroupIcon className="h-4 w-4 text-gray-500" />
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div>
-                              <p className="text-sm text-gray-900">
-                                <span className="font-medium">{activity.user}</span>{' '}
-                                {activity.action}
-                              </p>
-                              <p className="text-xs text-gray-500">{activity.type}</p>
-                            </div>
-                            <div className="mt-1 text-xs text-gray-500">
-                              {formatDate(activity.timestamp, 'relative')}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 };
