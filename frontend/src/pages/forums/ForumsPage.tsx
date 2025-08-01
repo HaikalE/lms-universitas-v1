@@ -27,15 +27,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { forumService, courseService } from '../../services';
 import { Course, ForumPost } from '../../types';
 
-interface ForumStats {
-  totalPosts: number;
-  totalReplies: number;
-  activeUsers: number;
-  todayPosts: number;
-  weeklyGrowth: number;
-  avgResponseTime: string;
-}
-
 const ForumsPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -47,14 +38,6 @@ const ForumsPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'unanswered' | 'trending'>('latest');
   const [filterType, setFilterType] = useState<'all' | 'questions' | 'discussions' | 'answered' | 'unanswered'>('all');
   const [quickFilter, setQuickFilter] = useState<'all' | 'my-courses' | 'trending' | 'need-help'>('all');
-  const [stats, setStats] = useState<ForumStats>({
-    totalPosts: 0,
-    totalReplies: 0,
-    activeUsers: 0,
-    todayPosts: 0,
-    weeklyGrowth: 0,
-    avgResponseTime: '2 jam'
-  });
 
   const isLecturer = user?.role === 'lecturer';
   const isAdmin = user?.role === 'admin';
@@ -135,26 +118,6 @@ const ForumsPage: React.FC = () => {
       }
 
       setForumPosts(allPosts);
-
-      // Calculate stats
-      const totalPosts = allPosts.length;
-      const totalReplies = allPosts.reduce((sum: number, post: ForumPost) => 
-        sum + (post.children?.length || 0), 0
-      );
-      const uniqueUsers = new Set(allPosts.map((post: ForumPost) => post.authorId));
-      const today = new Date().toDateString();
-      const todayPosts = allPosts.filter((post: ForumPost) => 
-        new Date(post.createdAt).toDateString() === today
-      ).length;
-
-      setStats({
-        totalPosts,
-        totalReplies,
-        activeUsers: uniqueUsers.size,
-        todayPosts,
-        weeklyGrowth: Math.floor(Math.random() * 20) + 5,
-        avgResponseTime: '2 jam'
-      });
     } catch (error) {
       console.error('Error fetching forum data:', error);
     } finally {
@@ -209,110 +172,34 @@ const ForumsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Enhanced Header with Stats */}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-xl p-6 text-white relative overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -translate-y-48 translate-x-48"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-32 -translate-x-32"></div>
+      {/* Minimalist Header */}
+      <div className="text-center py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Forum Diskusi</h1>
+        <p className="text-gray-600 mb-6">Tempat belajar bersama dan berbagi pengetahuan</p>
         
-        <div className="relative z-10">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
-            <div>
-              <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-                <Sparkles className="w-8 h-8" />
-                Forum Diskusi
-              </h1>
-              <p className="text-blue-100 text-lg">Tempat belajar bersama dan berbagi pengetahuan</p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3 mt-4 lg:mt-0">
-              {isStudent && (
-                <button
-                  onClick={() => navigate('/forums/dashboard')}
-                  className="bg-white/20 backdrop-blur text-white px-4 py-2 rounded-lg font-medium hover:bg-white/30 transition-colors flex items-center gap-2"
-                >
-                  <User className="w-5 h-5" />
-                  Dashboard Saya
-                </button>
-              )}
-              
-              <button
-                onClick={() => navigate('/forums/create')}
-                className="bg-white text-blue-600 px-6 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Buat Diskusi Baru
-              </button>
-            </div>
-          </div>
+        <div className="flex justify-center gap-3">
+          {isStudent && (
+            <button
+              onClick={() => navigate('/forums/dashboard')}
+              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+            >
+              <User className="w-5 h-5" />
+              Dashboard Saya
+            </button>
+          )}
           
-          {/* Enhanced Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-6 h-6 text-white/80" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalPosts}</p>
-                  <p className="text-xs text-blue-100">Total Diskusi</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <MessageCircle className="w-6 h-6 text-white/80" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalReplies}</p>
-                  <p className="text-xs text-blue-100">Total Balasan</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <Users className="w-6 h-6 text-white/80" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.activeUsers}</p>
-                  <p className="text-xs text-blue-100">Pengguna Aktif</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <Zap className="w-6 h-6 text-white/80" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.todayPosts}</p>
-                  <p className="text-xs text-blue-100">Hari Ini</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="w-6 h-6 text-white/80" />
-                <div>
-                  <p className="text-2xl font-bold">+{stats.weeklyGrowth}%</p>
-                  <p className="text-xs text-blue-100">Minggu Ini</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <Clock className="w-6 h-6 text-white/80" />
-                <div>
-                  <p className="text-lg font-bold">{stats.avgResponseTime}</p>
-                  <p className="text-xs text-blue-100">Respon Rata-rata</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <button
+            onClick={() => navigate('/forums/create')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Buat Diskusi Baru
+          </button>
         </div>
       </div>
 
       {/* Quick Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 justify-center">
         {quickFilters.map((filter) => (
           <button
             key={filter.id}
