@@ -20,6 +20,7 @@ import { QueryAssignmentsDto } from './dto/query-assignments.dto';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionDto } from './dto/update-submission.dto';
 import { CreateGradeDto } from './dto/create-grade.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AssignmentsService {
@@ -34,12 +35,18 @@ export class AssignmentsService {
     private gradeRepository: Repository<Grade>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    // 🔔 Inject NotificationsService for auto-triggers
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(createAssignmentDto: CreateAssignmentDto, currentUser: User) {
     const { courseId } = createAssignmentDto;
 
-    const course = await this.courseRepository.findOne({ where: { id: courseId } });
+    const course = await this.courseRepository.findOne({ 
+      where: { id: courseId },
+      relations: ['students'], // 🔔 Load students for notifications
+    });
+    
     if (!course) {
       throw new NotFoundException('Mata kuliah tidak ditemukan');
     }
@@ -57,7 +64,29 @@ export class AssignmentsService {
       lecturerId: currentUser.id,
     });
 
-    return this.assignmentRepository.save(assignment);
+    const savedAssignment = await this.assignmentRepository.save(assignment);
+
+    // 🔔 AUTO-TRIGGER: Notify all enrolled students about new assignment
+    try {
+      if (course.students && course.students.length > 0) {
+        const studentIds = course.students.map(student => student.id);
+        
+        await this.notificationsService.notifyAssignmentCreated(
+          studentIds,
+          savedAssignment.title,
+          course.name,
+          savedAssignment.id,
+          savedAssignment.dueDate,
+        );
+        
+        console.log(`🔔 Notified ${studentIds.length} students about new assignment: ${savedAssignment.title}`);
+      }
+    } catch (error) {
+      console.error('Failed to send assignment creation notifications:', error);
+      // Don't fail the assignment creation if notification fails
+    }
+
+    return savedAssignment;
   }
 
   async findAll(queryDto: QueryAssignmentsDto, currentUser: User) {
@@ -482,7 +511,26 @@ export class AssignmentsService {
     submission.status = SubmissionStatus.GRADED;
     await this.submissionRepository.save(submission);
 
-    return this.gradeRepository.save(grade);
+    const savedGrade = await this.gradeRepository.save(grade);
+
+    // 🔔 AUTO-TRIGGER: Notify student about graded assignment
+    try {
+      await this.notificationsService.notifyAssignmentGraded(
+        submission.studentId,
+        submission.assignment.title,
+        submission.assignment.course.name,
+        submission.assignment.id,
+        savedGrade.score,
+        savedGrade.maxScore,
+      );
+      
+      console.log(`🔔 Notified student ${submission.student.fullName} about graded assignment: ${submission.assignment.title}`);
+    } catch (error) {
+      console.error('Failed to send assignment graded notification:', error);
+      // Don't fail the grading if notification fails
+    }
+
+    return savedGrade;
   }
 
   async getStudentGrades(studentId: string, currentUser: User) {
