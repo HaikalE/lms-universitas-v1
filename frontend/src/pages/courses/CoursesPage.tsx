@@ -336,16 +336,6 @@ const CoursesPage: React.FC = () => {
             {filteredAndSortedCourses.length} mata kuliah tersedia
           </p>
         </div>
-        
-        {(isAdmin || isLecturer) && (
-          <Button 
-            onClick={() => navigate('/courses/create')}
-            className="flex items-center"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Tambah Mata Kuliah
-          </Button>
-        )}
       </div>
 
       {/* Search and Filter Bar */}
