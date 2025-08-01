@@ -668,35 +668,6 @@ const ForumDetailPage: React.FC = () => {
                     />
                   )}
 
-                  {/* Reply Actions */}
-                  <div className="flex items-center gap-4 mt-3">
-                    <button
-                      onClick={() => handleLikeReply(reply.id)}
-                      className={`flex items-center gap-1 text-sm ${
-                        reply.isLiked 
-                          ? 'text-blue-600' 
-                          : 'text-gray-600 hover:text-gray-900'
-                      } transition-colors`}
-                    >
-                      <ThumbsUp className={`w-4 h-4 ${reply.isLiked ? 'fill-current' : ''}`} />
-                      <span>{reply.likesCount || 0}</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setReplyingTo(reply.id);
-                        const editorElement = document.querySelector('[data-testid="reply-editor"]');
-                        if (editorElement) {
-                          editorElement.scrollIntoView({ behavior: 'smooth' });
-                        }
-                      }}
-                      className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                    >
-                      <Reply className="w-4 h-4" />
-                      Balas
-                    </button>
-                  </div>
-
                   {/* Nested Replies */}
                   {reply.children && reply.children.length > 0 && (
                     <div className="mt-4 ml-8 space-y-3">
