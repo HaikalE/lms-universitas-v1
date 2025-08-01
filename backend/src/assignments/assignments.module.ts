@@ -7,6 +7,7 @@ import { Course } from '../entities/course.entity';
 import { Submission } from '../entities/submission.entity';
 import { Grade } from '../entities/grade.entity';
 import { User } from '../entities/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { User } from '../entities/user.entity';
       Grade,
       User,
     ]),
+    NotificationsModule, // 🔔 Import for notification triggers
   ],
   controllers: [AssignmentsController],
   providers: [AssignmentsService],
