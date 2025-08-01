@@ -20,6 +20,9 @@ import { AdminModule } from './admin/admin.module';
 import { VideoProgressModule } from './video-progress/video-progress.module';
 import { AttendanceModule } from './attendance/attendance.module';
 
+// 🔔 NEW: Real-time notification module
+import { WebSocketModule } from './websocket/websocket.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -45,6 +48,9 @@ import { AttendanceModule } from './attendance/attendance.module';
     // ✨ NEW: Video progress tracking and attendance modules
     AttendanceModule,      // Register first (no dependencies)
     VideoProgressModule,   // Register second (depends on AttendanceModule)
+    
+    // 🔔 NEW: Real-time notifications via WebSocket
+    WebSocketModule,       // Register WebSocket for real-time notifications
   ],
 })
 export class AppModule {}
