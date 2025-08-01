@@ -15,6 +15,7 @@ import { Course } from '../entities/course.entity';
 import { CreateForumPostDto } from './dto/create-forum-post.dto';
 import { UpdateForumPostDto } from './dto/update-forum-post.dto';
 import { QueryForumPostsDto } from './dto/query-forum-posts.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ForumsService {
@@ -25,6 +26,7 @@ export class ForumsService {
     private userRepository: Repository<User>,
     @InjectRepository(Course)
     private courseRepository: Repository<Course>,
+    private notificationsService: NotificationsService, // 🔔 Inject notifications service
   ) {}
 
   // Get user's own discussions
@@ -103,7 +105,7 @@ export class ForumsService {
     }
   }
 
-  // ✅ FIXED: Create forum post or reply with courseId inheritance
+  // ✅ ENHANCED: Create forum post or reply with notification auto-triggers
   async create(createForumPostDto: CreateForumPostDto, currentUser: User) {
     try {
       let { courseId, parentId, type = ForumPostType.DISCUSSION } = createForumPostDto;
@@ -114,7 +116,7 @@ export class ForumsService {
         // This is a reply - find parent post and inherit courseId if not provided
         parentPost = await this.forumPostRepository.findOne({
           where: { id: parentId },
-          relations: ['course'],
+          relations: ['course', 'author'], // 🔔 Include author for notifications
         });
         
         if (!parentPost) {
@@ -181,6 +183,22 @@ export class ForumsService {
           'repliesCount',
           1
         );
+
+        // 🔔 NEW: Send notification for forum reply
+        try {
+          console.log('🔔 Sending forum reply notification...');
+          await this.notificationsService.notifyForumReply(
+            parentPost.authorId, // Notify the original post author
+            savedPost.id,
+            savedPost.title,
+            currentUser.fullName,
+            parentPost.title
+          );
+          console.log('✅ Forum reply notification sent successfully');
+        } catch (notificationError) {
+          console.error('❌ Error sending forum reply notification:', notificationError);
+          // Don't throw error - post creation should succeed even if notification fails
+        }
       }
 
       return await this.findOne(savedPost.id, currentUser);
