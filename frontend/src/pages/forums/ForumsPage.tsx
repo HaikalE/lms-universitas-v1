@@ -35,9 +35,7 @@ const ForumsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'unanswered' | 'trending'>('latest');
-  const [filterType, setFilterType] = useState<'all' | 'questions' | 'discussions' | 'answered' | 'unanswered'>('all');
-  const [quickFilter, setQuickFilter] = useState<'all' | 'my-courses' | 'trending' | 'need-help'>('all');
+  const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'oldest'>('latest');
 
   const isLecturer = user?.role === 'lecturer';
   const isAdmin = user?.role === 'admin';
@@ -45,7 +43,7 @@ const ForumsPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCourse, sortBy, filterType, quickFilter]);
+  }, [selectedCourse, sortBy]);
 
   const fetchData = async () => {
     try {
@@ -76,45 +74,15 @@ const ForumsPage: React.FC = () => {
         
         const postsResponses = await Promise.all(postPromises);
         allPosts = postsResponses.flatMap(response => response.data || []);
-        
-        // Sort all posts by creation date if getting from multiple courses
-        if (sortBy === 'latest') {
-          allPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        } else if (sortBy === 'popular') {
-          allPosts.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
-        } else if (sortBy === 'trending') {
-          // Sort by recent activity and likes
-          allPosts.sort((a, b) => {
-            const aScore = (a.likesCount || 0) + (a.children?.length || 0) + (a.viewsCount || 0) * 0.1;
-            const bScore = (b.likesCount || 0) + (b.children?.length || 0) + (b.viewsCount || 0) * 0.1;
-            return bScore - aScore;
-          });
-        }
       }
 
-      // Apply type filter
-      if (filterType !== 'all') {
-        allPosts = allPosts.filter(post => {
-          switch (filterType) {
-            case 'questions': return post.type === 'question';
-            case 'discussions': return post.type === 'discussion';
-            case 'answered': return post.isAnswered === true;
-            case 'unanswered': return post.type === 'question' && !post.isAnswered;
-            default: return true;
-          }
-        });
-      }
-
-      // Apply quick filter
-      if (quickFilter !== 'all') {
-        allPosts = allPosts.filter(post => {
-          switch (quickFilter) {
-            case 'my-courses': return coursesResponse?.some(c => c.id === post.courseId);
-            case 'trending': return (post.likesCount || 0) > 5 || (post.viewsCount || 0) > 50;
-            case 'need-help': return post.type === 'question' && !post.isAnswered;
-            default: return true;
-          }
-        });
+      // Apply client-side sorting to ensure consistency
+      if (sortBy === 'latest') {
+        allPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      } else if (sortBy === 'popular') {
+        allPosts.sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0));
+      } else if (sortBy === 'oldest') {
+        allPosts.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       }
 
       setForumPosts(allPosts);
@@ -155,13 +123,6 @@ const ForumsPage: React.FC = () => {
     }
   };
 
-  const quickFilters = [
-    { id: 'all', label: 'Semua', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'my-courses', label: 'Mata Kuliah Saya', icon: <BookOpen className="w-4 h-4" /> },
-    { id: 'trending', label: 'Trending', icon: <TrendingUp className="w-4 h-4" /> },
-    { id: 'need-help', label: 'Butuh Bantuan', icon: <Target className="w-4 h-4" /> }
-  ];
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -198,27 +159,7 @@ const ForumsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Filters */}
-      <div className="flex flex-wrap gap-2 justify-center">
-        {quickFilters.map((filter) => (
-          <button
-            key={filter.id}
-            onClick={() => setQuickFilter(filter.id as any)}
-            className={`
-              flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all
-              ${quickFilter === filter.id
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }
-            `}
-          >
-            {filter.icon}
-            {filter.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Enhanced Filters and Search */}
+      {/* Simple Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -242,25 +183,6 @@ const ForumsPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Type Filter */}
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Filter className="w-4 h-4 inline mr-1" />
-                Jenis
-              </label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as any)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Semua Jenis</option>
-                <option value="questions">Pertanyaan</option>
-                <option value="discussions">Diskusi</option>
-                <option value="answered">Sudah Dijawab</option>
-                <option value="unanswered">Belum Dijawab</option>
-              </select>
-            </div>
-
             {/* Sort Options */}
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -274,8 +196,7 @@ const ForumsPage: React.FC = () => {
               >
                 <option value="latest">Terbaru</option>
                 <option value="popular">Terpopuler</option>
-                <option value="trending">Trending</option>
-                <option value="unanswered">Belum Terjawab</option>
+                <option value="oldest">Terlama</option>
               </select>
             </div>
 
@@ -314,15 +235,15 @@ const ForumsPage: React.FC = () => {
                 <MessageSquare className="w-12 h-12 text-blue-500" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {quickFilter === 'need-help' ? 'Tidak ada yang membutuhkan bantuan' : 'Belum ada diskusi'}
+                {searchQuery ? 'Tidak ada diskusi yang ditemukan' : 'Belum ada diskusi'}
               </h3>
               <p className="text-gray-500 mb-4">
-                {quickFilter === 'need-help' 
-                  ? 'Semua pertanyaan sudah terjawab! 🎉'
+                {searchQuery 
+                  ? 'Coba ubah kata kunci pencarian Anda'
                   : 'Jadilah yang pertama memulai diskusi!'
                 }
               </p>
-              {quickFilter !== 'need-help' && (
+              {!searchQuery && (
                 <button
                   onClick={() => navigate('/forums/create')}
                   className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
