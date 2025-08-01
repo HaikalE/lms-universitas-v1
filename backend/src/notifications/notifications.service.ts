@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,12 +15,19 @@ import { QueryNotificationsDto } from './dto/query-notifications.dto';
 
 @Injectable()
 export class NotificationsService {
+  private notificationGateway: any; // Will be injected via setter to avoid circular dependency
+
   constructor(
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+
+  // Setter injection to avoid circular dependency
+  setNotificationGateway(gateway: any) {
+    this.notificationGateway = gateway;
+  }
 
   async create(createNotificationDto: CreateNotificationDto, currentUser?: User) {
     // Only admin can create notifications manually
@@ -27,7 +36,26 @@ export class NotificationsService {
     }
 
     const notification = this.notificationRepository.create(createNotificationDto);
-    return this.notificationRepository.save(notification);
+    const savedNotification = await this.notificationRepository.save(notification);
+
+    // Send real-time notification if gateway is available
+    if (this.notificationGateway && savedNotification.userId) {
+      await this.notificationGateway.sendToUser(
+        savedNotification.userId,
+        'new_notification',
+        savedNotification,
+      );
+      
+      // Update unread count
+      const unreadCount = await this.getUnreadCount(savedNotification.userId);
+      await this.notificationGateway.sendToUser(
+        savedNotification.userId,
+        'unread_count',
+        unreadCount,
+      );
+    }
+
+    return savedNotification;
   }
 
   async createSystemNotification(
@@ -45,7 +73,25 @@ export class NotificationsService {
       metadata,
     });
 
-    return this.notificationRepository.save(notification);
+    const savedNotification = await this.notificationRepository.save(notification);
+
+    // Send real-time notification if gateway is available
+    if (this.notificationGateway) {
+      await this.notificationGateway.sendToUser(
+        userId,
+        'new_notification',
+        {
+          ...savedNotification,
+          timestamp: new Date().toISOString(),
+        },
+      );
+      
+      // Update unread count
+      const unreadCount = await this.getUnreadCount(userId);
+      await this.notificationGateway.sendToUser(userId, 'unread_count', unreadCount);
+    }
+
+    return savedNotification;
   }
 
   async createBulkNotifications(
@@ -65,7 +111,31 @@ export class NotificationsService {
       }),
     );
 
-    return this.notificationRepository.save(notifications);
+    const savedNotifications = await this.notificationRepository.save(notifications);
+
+    // Send real-time notifications if gateway is available
+    if (this.notificationGateway) {
+      for (const notification of savedNotifications) {
+        await this.notificationGateway.sendToUser(
+          notification.userId,
+          'new_notification',
+          {
+            ...notification,
+            timestamp: new Date().toISOString(),
+          },
+        );
+        
+        // Update unread count for each user
+        const unreadCount = await this.getUnreadCount(notification.userId);
+        await this.notificationGateway.sendToUser(
+          notification.userId,
+          'unread_count',
+          unreadCount,
+        );
+      }
+    }
+
+    return savedNotifications;
   }
 
   async findUserNotifications(userId: string, queryDto: QueryNotificationsDto) {
@@ -141,6 +211,16 @@ export class NotificationsService {
     notification.isRead = true;
     await this.notificationRepository.save(notification);
 
+    // Send updated unread count via WebSocket
+    if (this.notificationGateway) {
+      const unreadCount = await this.getUnreadCount(currentUser.id);
+      await this.notificationGateway.sendToUser(
+        currentUser.id,
+        'unread_count',
+        unreadCount,
+      );
+    }
+
     return { message: 'Notifikasi berhasil ditandai sebagai dibaca' };
   }
 
@@ -149,6 +229,16 @@ export class NotificationsService {
       { userId: currentUser.id, isRead: false },
       { isRead: true },
     );
+
+    // Send updated unread count via WebSocket
+    if (this.notificationGateway) {
+      const unreadCount = await this.getUnreadCount(currentUser.id);
+      await this.notificationGateway.sendToUser(
+        currentUser.id,
+        'unread_count',
+        unreadCount,
+      );
+    }
 
     return { message: 'Semua notifikasi berhasil ditandai sebagai dibaca' };
   }
@@ -183,6 +273,17 @@ export class NotificationsService {
     }
 
     await this.notificationRepository.remove(notification);
+
+    // Send updated unread count via WebSocket
+    if (this.notificationGateway && !notification.isRead) {
+      const unreadCount = await this.getUnreadCount(notification.userId);
+      await this.notificationGateway.sendToUser(
+        notification.userId,
+        'unread_count',
+        unreadCount,
+      );
+    }
+
     return { message: 'Notifikasi berhasil dihapus' };
   }
 
@@ -204,7 +305,7 @@ export class NotificationsService {
     };
   }
 
-  // Helper methods for creating specific types of notifications
+  // ✨ ENHANCED: Helper methods with WebSocket integration
   async notifyAssignmentCreated(
     studentIds: string[],
     assignmentTitle: string,
@@ -215,13 +316,25 @@ export class NotificationsService {
     const title = 'Tugas Baru Tersedia';
     const message = `Tugas baru "${assignmentTitle}" telah dibuat untuk mata kuliah ${courseName}. Deadline: ${dueDate.toLocaleDateString('id-ID')}`;
     
-    return this.createBulkNotifications(
+    const notifications = await this.createBulkNotifications(
       studentIds,
       NotificationType.ASSIGNMENT_NEW,
       title,
       message,
       { assignmentId, courseName, dueDate },
     );
+
+    // Additional WebSocket notification for real-time alerts
+    if (this.notificationGateway) {
+      await this.notificationGateway.notifyAssignmentCreated(studentIds, {
+        title: assignmentTitle,
+        courseName,
+        assignmentId,
+        dueDate,
+      });
+    }
+
+    return notifications;
   }
 
   async notifyAssignmentDue(
@@ -234,13 +347,25 @@ export class NotificationsService {
     const title = 'Reminder: Tugas Akan Berakhir';
     const message = `Tugas "${assignmentTitle}" untuk mata kuliah ${courseName} akan berakhir dalam ${hoursUntilDue} jam.`;
     
-    return this.createBulkNotifications(
+    const notifications = await this.createBulkNotifications(
       studentIds,
       NotificationType.ASSIGNMENT_DUE,
       title,
       message,
       { assignmentId, courseName, hoursUntilDue },
     );
+
+    // Additional WebSocket notification for urgent alerts
+    if (this.notificationGateway) {
+      await this.notificationGateway.notifyAssignmentDue(studentIds, {
+        title: assignmentTitle,
+        courseName,
+        assignmentId,
+        hoursUntilDue,
+      });
+    }
+
+    return notifications;
   }
 
   async notifyAssignmentGraded(
@@ -254,13 +379,26 @@ export class NotificationsService {
     const title = 'Tugas Telah Dinilai';
     const message = `Tugas "${assignmentTitle}" untuk mata kuliah ${courseName} telah dinilai. Nilai: ${score}/${maxScore}`;
     
-    return this.createSystemNotification(
+    const notification = await this.createSystemNotification(
       studentId,
       NotificationType.ASSIGNMENT_GRADED,
       title,
       message,
       { assignmentId, courseName, score, maxScore },
     );
+
+    // Additional WebSocket notification for grade alerts
+    if (this.notificationGateway) {
+      await this.notificationGateway.notifyAssignmentGraded(studentId, {
+        title: assignmentTitle,
+        courseName,
+        assignmentId,
+        score,
+        maxScore,
+      });
+    }
+
+    return notification;
   }
 
   async notifyNewAnnouncement(
@@ -274,13 +412,24 @@ export class NotificationsService {
       ? `Pengumuman baru "${announcementTitle}" untuk mata kuliah ${courseName}`
       : `Pengumuman global baru "${announcementTitle}"`;
     
-    return this.createBulkNotifications(
+    const notifications = await this.createBulkNotifications(
       userIds,
       NotificationType.ANNOUNCEMENT,
       title,
       message,
       { announcementId, courseName },
     );
+
+    // Additional WebSocket notification for announcements
+    if (this.notificationGateway) {
+      await this.notificationGateway.notifyNewAnnouncement(userIds, {
+        title: announcementTitle,
+        courseName,
+        announcementId,
+      });
+    }
+
+    return notifications;
   }
 
   async notifyCourseEnrollment(
@@ -292,13 +441,24 @@ export class NotificationsService {
     const title = 'Pendaftaran Mata Kuliah Berhasil';
     const message = `Anda telah berhasil didaftarkan ke mata kuliah ${courseCode} - ${courseName}`;
     
-    return this.createSystemNotification(
+    const notification = await this.createSystemNotification(
       studentId,
       NotificationType.COURSE_ENROLLMENT,
       title,
       message,
       { courseId, courseName, courseCode },
     );
+
+    // Additional WebSocket notification for enrollment success
+    if (this.notificationGateway) {
+      await this.notificationGateway.notifyCourseEnrollment(studentId, {
+        courseName,
+        courseCode,
+        courseId,
+      });
+    }
+
+    return notification;
   }
 
   async notifyForumReply(
@@ -311,12 +471,24 @@ export class NotificationsService {
     const title = 'Balasan Forum Baru';
     const message = `${replyAuthor} telah membalas post "${postTitle}" di forum mata kuliah ${courseName}`;
     
-    return this.createSystemNotification(
+    const notification = await this.createSystemNotification(
       userId,
       NotificationType.FORUM_REPLY,
       title,
       message,
       { postId, courseName, replyAuthor },
     );
+
+    // Additional WebSocket notification for forum interactions
+    if (this.notificationGateway) {
+      await this.notificationGateway.notifyForumReply(userId, {
+        postTitle,
+        courseName,
+        postId,
+        replyAuthor,
+      });
+    }
+
+    return notification;
   }
 }
