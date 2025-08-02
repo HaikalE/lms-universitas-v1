@@ -3,6 +3,15 @@ import { notificationService, NotificationEventHandlers } from '../services/noti
 import { Notification, NotificationType } from '../types';
 import { useAuth } from './AuthContext';
 
+// 🎛️ Notification Settings Interface
+interface NotificationSettings {
+  browserNotifications: boolean;
+  soundAlerts: boolean;
+  notificationTypes: {
+    [key: string]: boolean;
+  };
+}
+
 interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
@@ -41,6 +50,21 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 interface NotificationProviderProps {
   children: ReactNode;
 }
+
+// 🎛️ Default settings
+const defaultSettings: NotificationSettings = {
+  browserNotifications: true,
+  soundAlerts: true,
+  notificationTypes: {
+    assignment_new: true,
+    assignment_due: true,
+    assignment_graded: true,
+    announcement: true,
+    forum_reply: true,
+    course_enrollment: true,
+    general: true,
+  }
+};
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
@@ -321,6 +345,7 @@ export const useNotificationConnection = () => {
   return { connectionStatus, connect: connectNotifications, disconnect: disconnectNotifications };
 };
 
+// 🎛️ Settings Hook with proper implementation
 export const useNotificationSettings = () => {
   const {
     enableSounds,
@@ -330,7 +355,40 @@ export const useNotificationSettings = () => {
     requestNotificationPermission,
   } = useNotifications();
   
+  // Load settings from localStorage
+  const [settings, setSettings] = useState<NotificationSettings>(() => {
+    const saved = localStorage.getItem('notificationSettings');
+    if (saved) {
+      try {
+        return { ...defaultSettings, ...JSON.parse(saved) };
+      } catch {
+        return defaultSettings;
+      }
+    }
+    return defaultSettings;
+  });
+
+  // Update settings function
+  const updateSettings = useCallback((newSettings: Partial<NotificationSettings>) => {
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      localStorage.setItem('notificationSettings', JSON.stringify(updated));
+      
+      // Update individual flags
+      if (newSettings.browserNotifications !== undefined) {
+        setEnableBrowserNotifications(newSettings.browserNotifications);
+      }
+      if (newSettings.soundAlerts !== undefined) {
+        setEnableSounds(newSettings.soundAlerts);
+      }
+      
+      return updated;
+    });
+  }, [setEnableBrowserNotifications, setEnableSounds]);
+  
   return {
+    settings,
+    updateSettings,
     enableSounds,
     setEnableSounds,
     enableBrowserNotifications,
