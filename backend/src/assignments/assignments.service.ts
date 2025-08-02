@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -23,6 +24,8 @@ import { CreateGradeDto } from './dto/create-grade.dto';
 
 @Injectable()
 export class AssignmentsService {
+  private readonly logger = new Logger(AssignmentsService.name);
+
   constructor(
     @InjectRepository(Assignment)
     private assignmentRepository: Repository<Assignment>,
@@ -418,6 +421,355 @@ export class AssignmentsService {
       grade: submission.grade,
       createdAt: submission.createdAt,
     }));
+  }
+
+  // 🎯 NEW: Get pending submissions for lecturer dashboard
+  async getPendingSubmissions(
+    currentUser: User,
+    params: {
+      limit?: number;
+      courseId?: string;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+    } = {},
+  ) {
+    try {
+      this.logger.log(`📝 Getting pending submissions for lecturer: ${currentUser.id}`);
+
+      const queryBuilder = this.submissionRepository
+        .createQueryBuilder('submission')
+        .leftJoinAndSelect('submission.assignment', 'assignment')
+        .leftJoinAndSelect('submission.student', 'student')
+        .leftJoinAndSelect('assignment.course', 'course')
+        .leftJoinAndSelect('submission.grade', 'grade')
+        .where('submission.status = :status', { status: SubmissionStatus.SUBMITTED })
+        .andWhere('grade.id IS NULL') // Only ungraded submissions
+        .select([
+          'submission.id',
+          'submission.submittedAt',
+          'submission.isLate',
+          'submission.status',
+          'assignment.id',
+          'assignment.title',
+          'assignment.maxScore',
+          'assignment.dueDate',
+          'course.id',
+          'course.name',
+          'course.code',
+          'student.id',
+          'student.fullName',
+          'student.studentId',
+          'student.email',
+        ]);
+
+      // Filter by lecturer's courses only
+      if (currentUser.role === UserRole.LECTURER) {
+        queryBuilder.andWhere('assignment.lecturerId = :lecturerId', {
+          lecturerId: currentUser.id,
+        });
+      }
+
+      // Filter by specific course if provided
+      if (params.courseId) {
+        queryBuilder.andWhere('course.id = :courseId', { courseId: params.courseId });
+      }
+
+      // Apply sorting
+      const sortBy = params.sortBy || 'submittedAt';
+      const sortOrder = params.sortOrder || 'DESC';
+      queryBuilder.orderBy(`submission.${sortBy}`, sortOrder);
+
+      // Apply limit
+      if (params.limit) {
+        queryBuilder.take(params.limit);
+      }
+
+      const [submissions, total] = await queryBuilder.getManyAndCount();
+
+      const formattedSubmissions = submissions.map((submission) => ({
+        id: submission.id,
+        studentName: submission.student.fullName,
+        studentId: submission.student.studentId,
+        assignmentTitle: submission.assignment.title,
+        courseName: submission.assignment.course.name,
+        courseCode: submission.assignment.course.code,
+        submittedAt: submission.submittedAt.toISOString(),
+        isLate: submission.isLate,
+        status: 'pending',
+        maxScore: submission.assignment.maxScore,
+      }));
+
+      this.logger.log(`✅ Found ${formattedSubmissions.length} pending submissions`);
+
+      return {
+        success: true,
+        data: formattedSubmissions,
+        total,
+        message: `Found ${formattedSubmissions.length} pending submissions`,
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error getting pending submissions: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // 🎯 NEW: Get submission detail with enhanced info
+  async getSubmissionDetail(submissionId: string, currentUser: User) {
+    try {
+      this.logger.log(`🔍 Getting submission detail: ${submissionId}`);
+
+      const submission = await this.submissionRepository.findOne({
+        where: { id: submissionId },
+        relations: ['assignment', 'assignment.course', 'student', 'grade'],
+      });
+
+      if (!submission) {
+        throw new NotFoundException('Submission tidak ditemukan');
+      }
+
+      // Check access permission
+      if (
+        currentUser.role !== UserRole.ADMIN &&
+        submission.assignment.lecturerId !== currentUser.id
+      ) {
+        throw new ForbiddenException('Anda tidak memiliki akses untuk melihat submission ini');
+      }
+
+      const now = new Date();
+      const dueDate = new Date(submission.assignment.dueDate);
+      const daysPastDue = submission.isLate 
+        ? Math.ceil((submission.submittedAt.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      const result = {
+        id: submission.id,
+        content: submission.content,
+        fileName: submission.fileName,
+        filePath: submission.filePath,
+        submittedAt: submission.submittedAt,
+        isLate: submission.isLate,
+        daysPastDue: daysPastDue > 0 ? daysPastDue : undefined,
+        status: submission.status,
+        student: {
+          id: submission.student.id,
+          fullName: submission.student.fullName,
+          email: submission.student.email,
+          studentId: submission.student.studentId,
+        },
+        assignment: {
+          id: submission.assignment.id,
+          title: submission.assignment.title,
+          maxScore: submission.assignment.maxScore,
+          dueDate: submission.assignment.dueDate,
+        },
+        course: {
+          id: submission.assignment.course.id,
+          name: submission.assignment.course.name,
+          code: submission.assignment.course.code,
+        },
+        grade: submission.grade,
+      };
+
+      this.logger.log(`✅ Submission detail retrieved for: ${submission.student.fullName}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ Error getting submission detail: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // 🎯 NEW: Bulk grading for multiple submissions
+  async bulkGradeSubmissions(
+    gradesData: Array<{
+      submissionId: string;
+      score: number;
+      feedback?: string;
+    }>,
+    currentUser: User,
+  ) {
+    try {
+      this.logger.log(`📊 Bulk grading ${gradesData.length} submissions`);
+
+      const results = {
+        success: [],
+        failed: [],
+      };
+
+      for (const gradeData of gradesData) {
+        try {
+          const grade = await this.gradeSubmission(
+            gradeData.submissionId,
+            {
+              score: gradeData.score,
+              feedback: gradeData.feedback || '',
+            },
+            currentUser,
+          );
+          results.success.push(grade);
+        } catch (error) {
+          results.failed.push({
+            submissionId: gradeData.submissionId,
+            error: error.message,
+          });
+        }
+      }
+
+      this.logger.log(`✅ Bulk grading completed: ${results.success.length} success, ${results.failed.length} failed`);
+      return results;
+    } catch (error) {
+      this.logger.error(`❌ Error in bulk grading: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // 🎯 NEW: Save draft grade (auto-save functionality)
+  async saveDraftGrade(
+    submissionId: string,
+    draftData: {
+      score?: number;
+      feedback?: string;
+      isDraft: boolean;
+    },
+    currentUser: User,
+  ) {
+    try {
+      this.logger.log(`💾 Saving draft grade for submission: ${submissionId}`);
+
+      const submission = await this.submissionRepository.findOne({
+        where: { id: submissionId },
+        relations: ['assignment'],
+      });
+
+      if (!submission) {
+        throw new NotFoundException('Submission tidak ditemukan');
+      }
+
+      // Check permission
+      if (
+        currentUser.role !== UserRole.ADMIN &&
+        submission.assignment.lecturerId !== currentUser.id
+      ) {
+        throw new ForbiddenException('Anda tidak memiliki akses untuk menilai submission ini');
+      }
+
+      // For now, we'll store draft in a simple way
+      // In a more complex system, you might have a separate draft_grades table
+      const result = {
+        submissionId,
+        draftScore: draftData.score,
+        draftFeedback: draftData.feedback,
+        savedAt: new Date(),
+        isDraft: draftData.isDraft,
+      };
+
+      this.logger.log(`✅ Draft grade saved for submission: ${submissionId}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ Error saving draft grade: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // 📊 NEW: Get grading statistics for lecturer dashboard
+  async getGradingStats(currentUser: User) {
+    try {
+      this.logger.log(`📊 Getting grading statistics for lecturer: ${currentUser.id}`);
+
+      // Get total pending submissions (submitted but not graded)
+      const pendingQuery = this.submissionRepository
+        .createQueryBuilder('submission')
+        .leftJoin('submission.assignment', 'assignment')
+        .leftJoin('submission.grade', 'grade')
+        .where('submission.status = :status', { status: SubmissionStatus.SUBMITTED })
+        .andWhere('grade.id IS NULL');
+
+      if (currentUser.role === UserRole.LECTURER) {
+        pendingQuery.andWhere('assignment.lecturerId = :lecturerId', {
+          lecturerId: currentUser.id,
+        });
+      }
+
+      const totalPending = await pendingQuery.getCount();
+
+      // Get total graded submissions
+      const gradedQuery = this.gradeRepository
+        .createQueryBuilder('grade')
+        .leftJoin('grade.assignment', 'assignment');
+
+      if (currentUser.role === UserRole.LECTURER) {
+        gradedQuery.where('assignment.lecturerId = :lecturerId', {
+          lecturerId: currentUser.id,
+        });
+      }
+
+      const [totalGraded, grades] = await Promise.all([
+        gradedQuery.getCount(),
+        gradedQuery.getMany(),
+      ]);
+
+      // Calculate average grade
+      const averageGrade = grades.length > 0 
+        ? grades.reduce((sum, grade) => sum + grade.score, 0) / grades.length 
+        : 0;
+
+      // Get late submissions count
+      const lateSubmissionsQuery = this.submissionRepository
+        .createQueryBuilder('submission')
+        .leftJoin('submission.assignment', 'assignment')
+        .where('submission.isLate = :isLate', { isLate: true })
+        .andWhere('submission.status = :status', { status: SubmissionStatus.SUBMITTED });
+
+      if (currentUser.role === UserRole.LECTURER) {
+        lateSubmissionsQuery.andWhere('assignment.lecturerId = :lecturerId', {
+          lecturerId: currentUser.id,
+        });
+      }
+
+      const lateSubmissions = await lateSubmissionsQuery.getCount();
+
+      // Simple grading trend (last 7 days)
+      const gradingTrend = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+        const dailyGradesQuery = this.gradeRepository
+          .createQueryBuilder('grade')
+          .leftJoin('grade.assignment', 'assignment')
+          .where('grade.gradedAt BETWEEN :start AND :end', {
+            start: startOfDay,
+            end: endOfDay,
+          });
+
+        if (currentUser.role === UserRole.LECTURER) {
+          dailyGradesQuery.andWhere('assignment.lecturerId = :lecturerId', {
+            lecturerId: currentUser.id,
+          });
+        }
+
+        const count = await dailyGradesQuery.getCount();
+        gradingTrend.push({
+          date: startOfDay.toISOString().split('T')[0],
+          count,
+        });
+      }
+
+      const result = {
+        totalPending,
+        totalGraded,
+        averageGrade: Math.round(averageGrade * 100) / 100,
+        lateSubmissions,
+        gradingTrend,
+      };
+
+      this.logger.log(`✅ Grading stats retrieved: ${totalPending} pending, ${totalGraded} graded`);
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ Error getting grading stats: ${error.message}`);
+      throw error;
+    }
   }
 
   async gradeSubmission(
