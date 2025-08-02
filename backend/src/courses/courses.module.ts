@@ -8,6 +8,7 @@ import { CourseMaterial } from '../entities/course-material.entity';
 import { Assignment } from '../entities/assignment.entity';
 import { Announcement } from '../entities/announcement.entity';
 import { ForumPost } from '../entities/forum-post.entity';
+import { Submission } from '../entities/submission.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ForumPost } from '../entities/forum-post.entity';
       Assignment,
       Announcement,
       ForumPost,
+      Submission,
     ]),
   ],
   controllers: [CoursesController],
