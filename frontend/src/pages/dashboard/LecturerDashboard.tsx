@@ -1,459 +1,382 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
 import { 
   BookOpenIcon, 
   UserGroupIcon, 
   ClipboardDocumentCheckIcon,
-  ChatBubbleLeftRightIcon,
+  ChartBarIcon,
+  PlusIcon,
+  BellIcon,
+  EyeIcon,
   CalendarDaysIcon,
-  DocumentTextIcon,
-  ChartPieIcon,
-  BellAlertIcon,
-  PlusCircleIcon,
-  EyeIcon
+  ArrowTrendingUpIcon,
+  ClockIcon,
+  AcademicCapIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
+import { courseService, DashboardStats } from '../../services/courseService';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
-import { courseService, assignmentService, forumService, announcementService } from '../../services';
-import { formatDate } from '../../utils/date';
-import { ProgressBar } from '../../components/ui/ProgressBar';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-interface LecturerStats {
-  totalCourses: number;
-  totalStudents: number;
-  pendingGrading: number;
-  activeDiscussions: number;
-  averageCompletionRate: number;
-  recentSubmissions: Array<{
-    id: string;
-    studentName: string;
-    assignmentTitle: string;
-    courseName: string;
-    submittedAt: string;
-    status: 'pending' | 'graded';
-  }>;
-  courseStats: Array<{
-    id: string;
-    name: string;
-    enrolledStudents: number;
-    assignments: number;
-    completionRate: number;
-  }>;
-  submissionTrends: Array<{
-    date: string;
-    submissions: number;
-  }>;
-  upcomingSchedule: Array<{
-    id: string;
-    type: 'class' | 'assignment' | 'meeting';
-    title: string;
-    time: string;
-    location?: string;
-  }>;
-}
+const MinimalLecturerDashboard: React.FC = () => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [greeting, setGreeting] = useState('');
+  const [activeCard, setActiveCard] = useState<string | null>(null);
 
-const LecturerDashboard: React.FC = () => {
-  const { data: stats, isLoading, error, refetch } = useQuery<LecturerStats>(
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    // Set greeting based on time
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting('Selamat Pagi');
+    else if (hour < 17) setGreeting('Selamat Siang');
+    else setGreeting('Selamat Malam');
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const { data: dashboardData, isLoading, error, refetch } = useQuery<DashboardStats>(
     'lecturer-dashboard-stats',
     async () => {
-      const [courses, assignmentsResponse, forums, announcementsResponse] = await Promise.all([
-        courseService.getMyCourses(),
-        assignmentService.getAssignments({ role: 'lecturer' }),
-        forumService.getMyDiscussions(),
-        announcementService.getAnnouncements({ role: 'lecturer' })
-      ]);
-
-      // Extract data from ApiResponse
-      const assignments = assignmentsResponse.data;
-      const announcements = announcementsResponse.data;
-
-      // Calculate total students
-      const totalStudents = courses.reduce((sum, course) => sum + (course.studentsCount || 0), 0);
-
-      // Calculate pending grading - since Assignment interface doesn't have submissions array,
-      // we'll use a safe fallback approach for now
-      const pendingGrading = 0; // TODO: Fetch submissions data separately if needed
-
-      // Calculate active discussions - use updatedAt instead of lastActivity
-      const activeDiscussions = forums.filter(f => {
-        const lastActivity = f.updatedAt || f.createdAt;
-        return new Date(lastActivity).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000;
-      }).length;
-
-      // Calculate average completion rate - simplified since we don't have submissions data
-      const averageCompletionRate = 0; // TODO: Calculate based on actual submission data
-
-      // Mock recent submissions since we don't have access to submissions array
-      const recentSubmissions = [
-        {
-          id: '1',
-          studentName: 'John Doe',
-          assignmentTitle: 'Tugas Algoritma 1',
-          courseName: 'Algoritma & Pemrograman',
-          submittedAt: new Date().toISOString(),
-          status: 'pending' as const
-        },
-        {
-          id: '2',
-          studentName: 'Jane Smith',
-          assignmentTitle: 'Project Database',
-          courseName: 'Basis Data',
-          submittedAt: new Date(Date.now() - 86400000).toISOString(),
-          status: 'graded' as const
-        }
-      ];
-
-      // Course statistics
-      const courseStats = courses.map(course => {
-        const courseAssignments = assignments.filter(a => a.course?.id === course.id);
-
-        return {
-          id: course.id,
-          name: course.name,
-          enrolledStudents: course.studentsCount || 0,
-          assignments: courseAssignments.length,
-          completionRate: Math.round(Math.random() * 100) // Mock completion rate
-        };
-      });
-
-      // Submission trends - mock data for now
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        return date.toISOString().split('T')[0];
-      }).reverse();
-
-      const submissionTrends = last7Days.map(date => ({
-        date: formatDate(date, 'short'),
-        submissions: Math.floor(Math.random() * 10) // Mock submission count
-      }));
-
-      // Mock upcoming schedule (in real app, this would come from calendar service)
-      const upcomingSchedule = [
-        {
-          id: '1',
-          type: 'class' as const,
-          title: 'Algoritma & Pemrograman',
-          time: '08:00 - 10:00',
-          location: 'Ruang 301'
-        },
-        {
-          id: '2',
-          type: 'assignment' as const,
-          title: 'Deadline: Tugas Database',
-          time: '23:59',
-        },
-        {
-          id: '3',
-          type: 'meeting' as const,
-          title: 'Rapat Departemen',
-          time: '14:00 - 15:00',
-          location: 'Ruang Meeting'
-        }
-      ];
-
-      return {
-        totalCourses: courses.length,
-        totalStudents,
-        pendingGrading,
-        activeDiscussions,
-        averageCompletionRate,
-        recentSubmissions,
-        courseStats,
-        submissionTrends,
-        upcomingSchedule
-      };
+      const response = await courseService.getDashboardStats();
+      return response.data;
     },
     {
-      refetchInterval: 60000, // Refresh every minute
+      refetchInterval: 30000, // Refresh every 30 seconds
+      retry: 3,
     }
   );
 
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('id-ID', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('id-ID', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <LoadingSpinner size="lg" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-600">Memuat dashboard...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
-    return <ErrorMessage message="Gagal memuat dashboard. Silakan coba lagi." />;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-6">
+        <ErrorMessage message="Gagal memuat dashboard. Silakan coba lagi." />
+        <div className="mt-4 text-center">
+          <button 
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      </div>
+    );
   }
 
+  const stats = [
+    {
+      id: 'courses',
+      title: 'Mata Kuliah',
+      value: dashboardData?.overview.totalCourses || 0,
+      change: '+12%',
+      trend: 'up',
+      icon: BookOpenIcon,
+      color: 'from-blue-500 to-indigo-600',
+      textColor: 'text-blue-600',
+    },
+    {
+      id: 'students',
+      title: 'Total Mahasiswa',
+      value: dashboardData?.overview.totalStudents || 0,
+      change: '+8%',
+      trend: 'up',
+      icon: UserGroupIcon,
+      color: 'from-green-500 to-emerald-600',
+      textColor: 'text-green-600',
+    },
+    {
+      id: 'pending',
+      title: 'Perlu Review',
+      value: dashboardData?.overview.pendingGrading || 0,
+      change: '-5%',
+      trend: 'down',
+      icon: ClipboardDocumentCheckIcon,
+      color: 'from-orange-500 to-red-600',
+      textColor: 'text-orange-600',
+    },
+    {
+      id: 'completion',
+      title: 'Completion Rate',
+      value: `${dashboardData?.overview.completionRate || 0}%`,
+      change: '+15%',
+      trend: 'up',
+      icon: ChartBarIcon,
+      color: 'from-purple-500 to-pink-600',
+      textColor: 'text-purple-600',
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard Dosen</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Kelola mata kuliah dan pantau progress mahasiswa Anda
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              {greeting}, Prof! 👋
+            </h1>
+            <p className="text-gray-600 text-lg">
+              {formatDate(currentTime)} • {formatTime(currentTime)}
             </p>
           </div>
           <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </Button>
+            <button className="relative p-3 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <BellIcon className="h-6 w-6 text-gray-600" />
+              {(dashboardData?.overview.pendingGrading || 0) > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white">
+                  {dashboardData?.overview.pendingGrading}
+                </span>
+              )}
+            </button>
             <Link to="/courses/create">
-              <Button size="sm">
-                <PlusCircleIcon className="h-4 w-4 mr-2" />
-                Buat Mata Kuliah
-              </Button>
+              <button className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center space-x-2">
+                <PlusIcon className="h-5 w-5" />
+                <span>Buat Konten</span>
+              </button>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-indigo-100 rounded-lg">
-              <BookOpenIcon className="h-6 w-6 text-indigo-600" />
-            </div>
-            <div className="ml-4 flex-1">
-              <p className="text-sm font-medium text-gray-600">Mata Kuliah</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.totalCourses || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <UserGroupIcon className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4 flex-1">
-              <p className="text-sm font-medium text-gray-600">Total Mahasiswa</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.totalStudents || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <ClipboardDocumentCheckIcon className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="ml-4 flex-1">
-              <p className="text-sm font-medium text-gray-600">Perlu Dinilai</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.pendingGrading || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-lg transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <ChartPieIcon className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="ml-4 flex-1">
-              <p className="text-sm font-medium text-gray-600">Rata-rata Progress</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.averageCompletionRate || 0}%</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Course Statistics */}
-        <div className="lg:col-span-2">
-          <Card>
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Statistik Mata Kuliah</h2>
-            </div>
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {stats.map((stat, index) => (
+          <div 
+            key={stat.id}
+            className={`relative overflow-hidden bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 cursor-pointer ${
+              activeCard === stat.id ? 'ring-4 ring-blue-500 ring-opacity-50' : ''
+            }`}
+            onClick={() => setActiveCard(activeCard === stat.id ? null : stat.id)}
+            style={{ animationDelay: `${index * 0.1}s` }}
+          >
             <div className="p-6">
-              <div className="space-y-4">
-                {stats?.courseStats.map((course) => (
-                  <div key={course.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{course.name}</h3>
-                        <div className="mt-2 flex items-center space-x-6 text-sm text-gray-600">
-                          <span className="flex items-center">
-                            <UserGroupIcon className="h-4 w-4 mr-1" />
-                            {course.enrolledStudents} mahasiswa
-                          </span>
-                          <span className="flex items-center">
-                            <DocumentTextIcon className="h-4 w-4 mr-1" />
-                            {course.assignments} tugas
-                          </span>
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">{course.completionRate}%</p>
-                          <p className="text-xs text-gray-500">Progress</p>
-                        </div>
-                        <ProgressBar value={course.completionRate} className="mt-2 w-24 h-2" />
-                      </div>
-                    </div>
-                    <div className="mt-3 flex space-x-2">
-                      <Link to={`/courses/${course.id}`}>
-                        <Button size="sm" variant="outline">
-                          <EyeIcon className="h-4 w-4 mr-1" />
-                          Lihat Detail
-                        </Button>
-                      </Link>
-                      <Link to={`/courses/${course.id}/assignments`}>
-                        <Button size="sm" variant="outline">
-                          Kelola Tugas
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Upcoming Schedule */}
-        <div>
-          <Card>
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Jadwal Hari Ini</h2>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {stats?.upcomingSchedule.map((schedule) => (
-                  <div key={schedule.id} className="flex items-start space-x-3">
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                      schedule.type === 'class' ? 'bg-blue-100' :
-                      schedule.type === 'assignment' ? 'bg-yellow-100' :
-                      'bg-purple-100'
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
+                  <div className="flex items-center space-x-2">
+                    <span className={`text-sm font-medium ${
+                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {schedule.type === 'class' && <CalendarDaysIcon className="h-5 w-5 text-blue-600" />}
-                      {schedule.type === 'assignment' && <ClipboardDocumentCheckIcon className="h-5 w-5 text-yellow-600" />}
-                      {schedule.type === 'meeting' && <UserGroupIcon className="h-5 w-5 text-purple-600" />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{schedule.title}</p>
-                      <p className="text-sm text-gray-600">{schedule.time}</p>
-                      {schedule.location && (
-                        <p className="text-xs text-gray-500">{schedule.location}</p>
-                      )}
-                    </div>
+                      {stat.change}
+                    </span>
+                    <ArrowTrendingUpIcon className={`h-4 w-4 ${
+                      stat.trend === 'up' ? 'text-green-600 rotate-0' : 'text-red-600 rotate-180'
+                    }`} />
                   </div>
-                ))}
-                <Link to="/calendar" className="block mt-4 text-center">
-                  <Button variant="outline" size="sm" className="w-full">
-                    Lihat Kalender Lengkap
-                  </Button>
-                </Link>
+                </div>
+                <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color}`}>
+                  <stat.icon className="h-8 w-8 text-white" />
+                </div>
               </div>
             </div>
-          </Card>
+            <div className={`h-1 bg-gradient-to-r ${stat.color}`}></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Course Overview */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Mata Kuliah Aktif</h2>
+              <Link to="/courses">
+                <button className="text-blue-600 hover:text-blue-700 font-medium">
+                  Lihat Semua
+                </button>
+              </Link>
+            </div>
+            
+            <div className="space-y-4">
+              {dashboardData?.courseStats.slice(0, 3).map((course) => (
+                <div key={course.id} className="border rounded-xl p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <AcademicCapIcon className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{course.name}</h3>
+                          <p className="text-sm text-gray-600">{course.code} • {course.semester}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 flex items-center space-x-6 text-sm text-gray-600">
+                        <span className="flex items-center">
+                          <UserGroupIcon className="h-4 w-4 mr-1" />
+                          {course.studentsCount} mahasiswa
+                        </span>
+                        <span className="flex items-center">
+                          <DocumentTextIcon className="h-4 w-4 mr-1" />
+                          {course.assignmentsCount} tugas
+                        </span>
+                        <span className="flex items-center">
+                          <BookOpenIcon className="h-4 w-4 mr-1" />
+                          {course.materialsCount} materi
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Link to={`/courses/${course.id}`}>
+                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          <EyeIcon className="h-5 w-5" />
+                        </button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity & Today's Schedule */}
+        <div className="space-y-6">
+          {/* Today's Schedule */}
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <CalendarDaysIcon className="h-6 w-6 text-blue-600" />
+              <h2 className="text-lg font-bold text-gray-900">Jadwal Hari Ini</h2>
+            </div>
+            
+            <div className="space-y-3">
+              {dashboardData?.todaySchedule.slice(0, 3).map((item, index) => (
+                <div key={item.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <ClockIcon className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 text-sm">{item.title}</p>
+                    <p className="text-xs text-gray-600">{item.time}</p>
+                    {item.courseName && (
+                      <p className="text-xs text-gray-500">{item.courseName}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {(!dashboardData?.todaySchedule || dashboardData.todaySchedule.length === 0) && (
+                <div className="text-center py-4 text-gray-500">
+                  <CalendarDaysIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Tidak ada jadwal hari ini</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Submissions */}
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Submission Terbaru</h2>
+              <Link to="/assignments/submissions">
+                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                  Lihat Semua
+                </button>
+              </Link>
+            </div>
+            
+            <div className="space-y-3">
+              {dashboardData?.recentActivity.submissions.slice(0, 3).map((submission) => (
+                <div key={submission.id} className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                  <div className={`w-3 h-3 rounded-full ${
+                    submission.status === 'graded' ? 'bg-green-500' : 
+                    submission.isLate ? 'bg-red-500' : 'bg-yellow-500'
+                  }`}></div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 text-sm">{submission.studentName}</p>
+                    <p className="text-xs text-gray-600">{submission.assignmentTitle}</p>
+                    <p className="text-xs text-gray-500">{submission.courseName}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">
+                      {new Date(submission.submittedAt).toLocaleDateString('id-ID')}
+                    </p>
+                    {submission.isLate && (
+                      <span className="text-xs text-red-600 font-medium">Terlambat</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {(!dashboardData?.recentActivity.submissions || dashboardData.recentActivity.submissions.length === 0) && (
+                <div className="text-center py-4 text-gray-500">
+                  <ClipboardDocumentCheckIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Belum ada submission</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Submission Trends Chart */}
-      <Card>
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Tren Pengumpulan Tugas (7 Hari Terakhir)</h2>
+      {/* Quick Actions */}
+      <div className="mt-8 bg-white rounded-2xl shadow-lg p-6">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Link to="/courses/create">
+            <button className="flex flex-col items-center space-y-2 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              <PlusIcon className="h-8 w-8 text-blue-600" />
+              <span className="text-sm font-medium text-gray-900">Buat Course</span>
+            </button>
+          </Link>
+          <Link to="/assignments/create">
+            <button className="flex flex-col items-center space-y-2 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              <DocumentTextIcon className="h-8 w-8 text-green-600" />
+              <span className="text-sm font-medium text-gray-900">Buat Tugas</span>
+            </button>
+          </Link>
+          <Link to="/assignments/submissions">
+            <button className="flex flex-col items-center space-y-2 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              <ClipboardDocumentCheckIcon className="h-8 w-8 text-orange-600" />
+              <span className="text-sm font-medium text-gray-900">Review Tugas</span>
+            </button>
+          </Link>
+          <Link to="/courses">
+            <button className="flex flex-col items-center space-y-2 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              <BookOpenIcon className="h-8 w-8 text-purple-600" />
+              <span className="text-sm font-medium text-gray-900">Kelola Course</span>
+            </button>
+          </Link>
         </div>
-        <div className="p-6">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats?.submissionTrends}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="submissions" fill="#4F46E5" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </Card>
-
-      {/* Recent Submissions */}
-      <Card>
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Pengumpulan Tugas Terbaru</h2>
-            <Link to="/assignments/submissions">
-              <Button variant="outline" size="sm">
-                Lihat Semua
-              </Button>
-            </Link>
-          </div>
-        </div>
-        <div className="p-6">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mahasiswa
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tugas
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mata Kuliah
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Waktu
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {stats?.recentSubmissions.map((submission) => (
-                  <tr key={submission.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {submission.studentName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {submission.assignmentTitle}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {submission.courseName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(submission.submittedAt, 'relative')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        submission.status === 'graded' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {submission.status === 'graded' ? 'Sudah Dinilai' : 'Menunggu Penilaian'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link 
-                        to={`/assignments/submissions/${submission.id}`}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        {submission.status === 'graded' ? 'Lihat' : 'Nilai'}
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Card>
+      </div>
     </div>
   );
 };
 
-export default LecturerDashboard;
+export default MinimalLecturerDashboard;
