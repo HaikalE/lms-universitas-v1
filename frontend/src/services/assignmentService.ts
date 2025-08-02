@@ -41,7 +41,7 @@ export const assignmentService = {
     return response.data;
   },
 
-  // 🎯 ENHANCED: Quick grading dengan error handling dan logging
+  // 🎯 FIXED: Quick grading dengan proper DTO structure
   gradeSubmission: async (submissionId: string, gradeData: {
     score: number;
     feedback?: string;
@@ -58,11 +58,16 @@ export const assignmentService = {
         throw new Error('Score must be a number between 0 and 100');
       }
 
-      const response = await api.post(`/assignments/submissions/${submissionId}/grade`, {
+      // 🔧 FIXED: Only send properties that are in CreateGradeDto
+      const requestData = {
         score: gradeData.score,
-        feedback: gradeData.feedback || '',
-        gradedAt: new Date().toISOString()
-      });
+        feedback: gradeData.feedback || ''
+        // ❌ REMOVED: gradedAt - backend will set this automatically
+      };
+
+      console.log('✅ Sending grade request:', requestData);
+      
+      const response = await api.post(`/assignments/submissions/${submissionId}/grade`, requestData);
       
       console.log('✅ Submission graded successfully:', response.data);
       return response.data;
@@ -74,7 +79,9 @@ export const assignmentService = {
       } else if (error.response?.status === 403) {
         throw new Error('Anda tidak memiliki permission untuk menilai submission ini');
       } else if (error.response?.status === 400) {
-        throw new Error(error.response.data?.message || 'Data yang dikirim tidak valid');
+        const errorMessage = error.response.data?.message || 'Data yang dikirim tidak valid';
+        console.error('🔍 Detailed 400 error:', error.response.data);
+        throw new Error(errorMessage);
       }
       
       throw error;
@@ -99,7 +106,7 @@ export const assignmentService = {
     }
   },
 
-  // 🎯 NEW: Bulk grading for multiple submissions
+  // 🎯 FIXED: Bulk grading dengan proper DTO structure
   bulkGradeSubmissions: async (gradesData: Array<{
     submissionId: string;
     score: number;
@@ -107,7 +114,18 @@ export const assignmentService = {
   }>): Promise<{ success: Grade[], failed: Array<{submissionId: string, error: string}> }> => {
     try {
       console.log('📊 Bulk grading', gradesData.length, 'submissions');
-      const response = await api.post('/assignments/submissions/bulk-grade', { grades: gradesData });
+      
+      // 🔧 FIXED: Ensure each grade object follows DTO structure
+      const cleanedGrades = gradesData.map(grade => ({
+        submissionId: grade.submissionId,
+        score: grade.score,
+        feedback: grade.feedback || ''
+        // ❌ REMOVED: gradedAt - backend will set this
+      }));
+      
+      const response = await api.post('/assignments/submissions/bulk-grade', { 
+        grades: cleanedGrades 
+      });
       console.log('✅ Bulk grading completed:', response.data);
       return response.data;
     } catch (error) {
@@ -145,7 +163,7 @@ export const assignmentService = {
     return response.data;
   },
 
-  // 🔄 NEW: Auto-save draft grades (for gradual grading)
+  // 🔄 FIXED: Auto-save draft grades dengan proper structure
   saveDraftGrade: async (submissionId: string, draftData: {
     score?: number;
     feedback?: string;
@@ -153,7 +171,16 @@ export const assignmentService = {
   }): Promise<{ message: string }> => {
     try {
       console.log('💾 Saving draft grade for submission:', submissionId);
-      const response = await api.patch(`/assignments/submissions/${submissionId}/draft`, draftData);
+      
+      // 🔧 FIXED: Only send valid DTO properties
+      const requestData = {
+        score: draftData.score,
+        feedback: draftData.feedback,
+        isDraft: draftData.isDraft
+        // ❌ REMOVED: gradedAt - backend will handle timestamps
+      };
+      
+      const response = await api.patch(`/assignments/submissions/${submissionId}/draft`, requestData);
       console.log('✅ Draft grade saved');
       return response.data;
     } catch (error) {
