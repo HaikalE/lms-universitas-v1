@@ -45,7 +45,80 @@ interface CreateCourseFormData {
   };
 }
 
+// NEW: Dashboard stats interfaces
+interface DashboardStats {
+  overview: {
+    totalCourses: number;
+    totalStudents: number;
+    totalAssignments: number;
+    totalMaterials: number;
+    pendingGrading: number;
+    completionRate: number;
+  };
+  courseStats: Array<{
+    id: string;
+    name: string;
+    code: string;
+    studentsCount: number;
+    assignmentsCount: number;
+    materialsCount: number;
+    semester: string;
+  }>;
+  recentActivity: {
+    submissions: Array<{
+      id: string;
+      studentName: string;
+      assignmentTitle: string;
+      courseName: string;
+      submittedAt: string;
+      status: string;
+      isLate: boolean;
+    }>;
+    forumPosts: Array<{
+      id: string;
+      title: string;
+      authorName: string;
+      courseName: string;
+      createdAt: string;
+    }>;
+  };
+  todaySchedule: Array<{
+    id: string;
+    type: string;
+    title: string;
+    courseName?: string;
+    time: string;
+    description?: string;
+  }>;
+  submissionTrends: Array<{
+    date: string;
+    submissions: number;
+  }>;
+  pendingSubmissions: Array<{
+    id: string;
+    studentName: string;
+    assignmentTitle: string;
+    courseName: string;
+    submittedAt: string;
+    status: string;
+    isLate: boolean;
+  }>;
+}
+
 export const courseService = {
+  // NEW: Get dashboard stats for lecturers
+  getDashboardStats: async (): Promise<ApiResponse<DashboardStats>> => {
+    try {
+      console.log('📊 Fetching lecturer dashboard stats');
+      const response = await api.get('/courses/dashboard/stats');
+      console.log('✅ Dashboard stats fetched successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error fetching dashboard stats:', error);
+      throw error;
+    }
+  },
+
   getCourses: async (params?: any): Promise<ApiResponse<Course[]>> => {
     try {
       console.log('📚 Fetching all courses with params:', params);
@@ -465,4 +538,9 @@ export const courseService = {
   },
 };
 
-export type { CourseStudent, QueryCourseStudentsParams, CreateCourseFormData };
+export type { 
+  CourseStudent, 
+  QueryCourseStudentsParams, 
+  CreateCourseFormData,
+  DashboardStats 
+};
