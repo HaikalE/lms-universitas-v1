@@ -10,7 +10,6 @@ import {
   BellIcon,
   EyeIcon,
   CalendarDaysIcon,
-  ArrowTrendingUpIcon,
   ClockIcon,
   AcademicCapIcon,
   DocumentTextIcon
@@ -68,6 +67,21 @@ const MinimalLecturerDashboard: React.FC = () => {
     });
   };
 
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Baru saja';
+    if (diffInMinutes < 60) return `${diffInMinutes} menit lalu`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} jam lalu`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} hari lalu`;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
@@ -95,48 +109,40 @@ const MinimalLecturerDashboard: React.FC = () => {
     );
   }
 
+  // FIXED: Remove hardcoded trends, use real data only
   const stats = [
     {
       id: 'courses',
       title: 'Mata Kuliah',
       value: dashboardData?.overview.totalCourses || 0,
-      change: '+12%',
-      trend: 'up',
       icon: BookOpenIcon,
       color: 'from-blue-500 to-indigo-600',
-      textColor: 'text-blue-600',
     },
     {
       id: 'students',
       title: 'Total Mahasiswa',
       value: dashboardData?.overview.totalStudents || 0,
-      change: '+8%',
-      trend: 'up',
       icon: UserGroupIcon,
       color: 'from-green-500 to-emerald-600',
-      textColor: 'text-green-600',
     },
     {
       id: 'pending',
       title: 'Perlu Review',
       value: dashboardData?.overview.pendingGrading || 0,
-      change: '-5%',
-      trend: 'down',
       icon: ClipboardDocumentCheckIcon,
       color: 'from-orange-500 to-red-600',
-      textColor: 'text-orange-600',
     },
     {
       id: 'completion',
       title: 'Completion Rate',
       value: `${dashboardData?.overview.completionRate || 0}%`,
-      change: '+15%',
-      trend: 'up',
       icon: ChartBarIcon,
       color: 'from-purple-500 to-pink-600',
-      textColor: 'text-purple-600',
     },
   ];
+
+  // FIXED: Use pending submissions data that actually exists
+  const recentSubmissions = dashboardData?.pendingSubmissions || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-6">
@@ -170,7 +176,7 @@ const MinimalLecturerDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Stats Grid */}
+      {/* FIXED: Simplified Stats Grid - No fake trends */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat, index) => (
           <div 
@@ -185,17 +191,7 @@ const MinimalLecturerDashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-sm font-medium ${
-                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {stat.change}
-                    </span>
-                    <ArrowTrendingUpIcon className={`h-4 w-4 ${
-                      stat.trend === 'up' ? 'text-green-600 rotate-0' : 'text-red-600 rotate-180'
-                    }`} />
-                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                 </div>
                 <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color}`}>
                   <stat.icon className="h-8 w-8 text-white" />
@@ -262,6 +258,13 @@ const MinimalLecturerDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
+              
+              {(!dashboardData?.courseStats || dashboardData.courseStats.length === 0) && (
+                <div className="text-center py-8 text-gray-500">
+                  <AcademicCapIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p>Belum ada mata kuliah</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -300,11 +303,11 @@ const MinimalLecturerDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Recent Submissions */}
+          {/* FIXED: Recent Submissions - Use real pending submissions data */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">Submission Terbaru</h2>
-              <Link to="/assignments/submissions">
+              <Link to="/assignments">
                 <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
                   Lihat Semua
                 </button>
@@ -312,7 +315,7 @@ const MinimalLecturerDashboard: React.FC = () => {
             </div>
             
             <div className="space-y-3">
-              {dashboardData?.recentActivity.submissions.slice(0, 3).map((submission) => (
+              {recentSubmissions.slice(0, 4).map((submission) => (
                 <div key={submission.id} className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
                   <div className={`w-3 h-3 rounded-full ${
                     submission.status === 'graded' ? 'bg-green-500' : 
@@ -325,7 +328,7 @@ const MinimalLecturerDashboard: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500">
-                      {new Date(submission.submittedAt).toLocaleDateString('id-ID')}
+                      {formatRelativeTime(submission.submittedAt)}
                     </p>
                     {submission.isLate && (
                       <span className="text-xs text-red-600 font-medium">Terlambat</span>
@@ -334,7 +337,7 @@ const MinimalLecturerDashboard: React.FC = () => {
                 </div>
               ))}
               
-              {(!dashboardData?.recentActivity.submissions || dashboardData.recentActivity.submissions.length === 0) && (
+              {recentSubmissions.length === 0 && (
                 <div className="text-center py-4 text-gray-500">
                   <ClipboardDocumentCheckIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                   <p className="text-sm">Belum ada submission</p>
@@ -361,7 +364,7 @@ const MinimalLecturerDashboard: React.FC = () => {
               <span className="text-sm font-medium text-gray-900">Buat Tugas</span>
             </button>
           </Link>
-          <Link to="/assignments/submissions">
+          <Link to="/assignments">
             <button className="flex flex-col items-center space-y-2 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
               <ClipboardDocumentCheckIcon className="h-8 w-8 text-orange-600" />
               <span className="text-sm font-medium text-gray-900">Review Tugas</span>
