@@ -62,6 +62,25 @@ export class CoursesController {
   // SPECIFIC ROUTES - MUST BE BEFORE :id ROUTE
   // ===============================
 
+  // NEW: Dashboard stats endpoint for lecturers
+  @Get('dashboard/stats')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.LECTURER, UserRole.ADMIN)
+  async getLecturerDashboardStats(@GetUser() user: User) {
+    console.log('📊 Getting dashboard stats for lecturer:', user.id);
+    try {
+      const stats = await this.coursesService.getLecturerDashboardStats(user);
+      console.log('✅ Dashboard stats retrieved successfully');
+      return {
+        success: true,
+        data: stats
+      };
+    } catch (error) {
+      console.error('❌ Error getting dashboard stats:', error);
+      throw error;
+    }
+  }
+
   // FIXED: Add dedicated /create endpoint for course creation form data
   @Get('create')
   @UseGuards(RolesGuard)
