@@ -16,6 +16,7 @@ import { CourseMaterial, MaterialType } from '../entities/course-material.entity
 import { Assignment } from '../entities/assignment.entity';
 import { Announcement } from '../entities/announcement.entity';
 import { ForumPost } from '../entities/forum-post.entity';
+import { Submission, SubmissionStatus } from '../entities/submission.entity';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { QueryCoursesDto } from './dto/query-courses.dto';
@@ -43,7 +44,271 @@ export class CoursesService {
     private announcementRepository: Repository<Announcement>,
     @InjectRepository(ForumPost)
     private forumPostRepository: Repository<ForumPost>,
+    @InjectRepository(Submission)
+    private submissionRepository: Repository<Submission>,
   ) {}
+
+  // ===============================
+  // LECTURER DASHBOARD STATS 
+  // ===============================
+  
+  async getLecturerDashboardStats(currentUser: User) {
+    try {
+      console.log('📊 Getting dashboard stats for lecturer:', currentUser.id);
+
+      // For admin, show overall stats. For lecturer, show their courses only
+      let coursesQuery = this.courseRepository
+        .createQueryBuilder('course')
+        .leftJoinAndSelect('course.students', 'students')
+        .leftJoinAndSelect('course.assignments', 'assignments')
+        .leftJoinAndSelect('course.materials', 'materials')
+        .where('course.isActive = :isActive', { isActive: true });
+
+      if (currentUser.role === UserRole.LECTURER) {
+        coursesQuery = coursesQuery.andWhere('course.lecturerId = :lecturerId', { 
+          lecturerId: currentUser.id 
+        });
+      }
+
+      const courses = await coursesQuery.getMany();
+
+      // Calculate basic stats
+      const totalCourses = courses.length;
+      const totalStudents = courses.reduce((sum, course) => sum + (course.students?.length || 0), 0);
+      const totalAssignments = courses.reduce((sum, course) => sum + (course.assignments?.length || 0), 0);
+      const totalMaterials = courses.reduce((sum, course) => sum + (course.materials?.length || 0), 0);
+
+      // Get pending submissions that need grading
+      let pendingSubmissionsQuery = this.submissionRepository
+        .createQueryBuilder('submission')
+        .innerJoin('submission.assignment', 'assignment')
+        .innerJoin('assignment.course', 'course')
+        .leftJoinAndSelect('submission.student', 'student')
+        .leftJoinAndSelect('submission.assignment', 'assignmentData')
+        .leftJoinAndSelect('assignmentData.course', 'courseData')
+        .where('submission.status IN (:...statuses)', { 
+          statuses: [SubmissionStatus.SUBMITTED, SubmissionStatus.LATE] 
+        })
+        .andWhere('course.isActive = :isActive', { isActive: true });
+
+      if (currentUser.role === UserRole.LECTURER) {
+        pendingSubmissionsQuery = pendingSubmissionsQuery.andWhere('course.lecturerId = :lecturerId', { 
+          lecturerId: currentUser.id 
+        });
+      }
+
+      const pendingSubmissions = await pendingSubmissionsQuery
+        .orderBy('submission.submittedAt', 'DESC')
+        .limit(10)
+        .getMany();
+
+      const pendingCount = pendingSubmissions.length;
+
+      // Get recent submissions (last 7 days)
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      let recentSubmissionsQuery = this.submissionRepository
+        .createQueryBuilder('submission')
+        .innerJoin('submission.assignment', 'assignment')
+        .innerJoin('assignment.course', 'course')
+        .leftJoinAndSelect('submission.student', 'student')
+        .leftJoinAndSelect('submission.assignment', 'assignmentData')
+        .leftJoinAndSelect('assignmentData.course', 'courseData')
+        .where('submission.submittedAt >= :oneWeekAgo', { oneWeekAgo })
+        .andWhere('course.isActive = :isActive', { isActive: true });
+
+      if (currentUser.role === UserRole.LECTURER) {
+        recentSubmissionsQuery = recentSubmissionsQuery.andWhere('course.lecturerId = :lecturerId', { 
+          lecturerId: currentUser.id 
+        });
+      }
+
+      const recentSubmissions = await recentSubmissionsQuery
+        .orderBy('submission.submittedAt', 'DESC')
+        .limit(10)
+        .getMany();
+
+      // Get forum activity (recent posts)
+      let recentForumPostsQuery = this.forumPostRepository
+        .createQueryBuilder('post')
+        .innerJoin('post.course', 'course')
+        .leftJoinAndSelect('post.author', 'author')
+        .leftJoinAndSelect('post.course', 'courseData')
+        .where('post.createdAt >= :oneWeekAgo', { oneWeekAgo })
+        .andWhere('course.isActive = :isActive', { isActive: true });
+
+      if (currentUser.role === UserRole.LECTURER) {
+        recentForumPostsQuery = recentForumPostsQuery.andWhere('course.lecturerId = :lecturerId', { 
+          lecturerId: currentUser.id 
+        });
+      }
+
+      const recentForumPosts = await recentForumPostsQuery
+        .orderBy('post.createdAt', 'DESC')
+        .limit(5)
+        .getMany();
+
+      // Get today's deadlines
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      today.setHours(0, 0, 0, 0);
+      tomorrow.setHours(0, 0, 0, 0);
+
+      let todayDeadlinesQuery = this.assignmentRepository
+        .createQueryBuilder('assignment')
+        .innerJoin('assignment.course', 'course')
+        .leftJoinAndSelect('assignment.course', 'courseData')
+        .where('assignment.dueDate >= :today', { today })
+        .andWhere('assignment.dueDate < :tomorrow', { tomorrow })
+        .andWhere('course.isActive = :isActive', { isActive: true });
+
+      if (currentUser.role === UserRole.LECTURER) {
+        todayDeadlinesQuery = todayDeadlinesQuery.andWhere('course.lecturerId = :lecturerId', { 
+          lecturerId: currentUser.id 
+        });
+      }
+
+      const todayDeadlines = await todayDeadlinesQuery
+        .orderBy('assignment.dueDate', 'ASC')
+        .getMany();
+
+      // Calculate completion rate (simplified)
+      const allSubmissionsCount = await this.submissionRepository
+        .createQueryBuilder('submission')
+        .innerJoin('submission.assignment', 'assignment')
+        .innerJoin('assignment.course', 'course')
+        .where('course.isActive = :isActive', { isActive: true })
+        .andWhere(currentUser.role === UserRole.LECTURER ? 'course.lecturerId = :lecturerId' : '1=1', 
+          currentUser.role === UserRole.LECTURER ? { lecturerId: currentUser.id } : {})
+        .getCount();
+
+      const gradedSubmissionsCount = await this.submissionRepository
+        .createQueryBuilder('submission')
+        .innerJoin('submission.assignment', 'assignment')
+        .innerJoin('assignment.course', 'course')
+        .where('submission.status = :status', { status: SubmissionStatus.GRADED })
+        .andWhere('course.isActive = :isActive', { isActive: true })
+        .andWhere(currentUser.role === UserRole.LECTURER ? 'course.lecturerId = :lecturerId' : '1=1', 
+          currentUser.role === UserRole.LECTURER ? { lecturerId: currentUser.id } : {})
+        .getCount();
+
+      const completionRate = allSubmissionsCount > 0 ? Math.round((gradedSubmissionsCount / allSubmissionsCount) * 100) : 0;
+
+      // Format course stats
+      const courseStats = courses.map(course => ({
+        id: course.id,
+        name: course.name,
+        code: course.code,
+        studentsCount: course.students?.length || 0,
+        assignmentsCount: course.assignments?.length || 0,
+        materialsCount: course.materials?.length || 0,
+        semester: course.semester,
+      }));
+
+      // Generate submission trend for last 7 days
+      const submissionTrends = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const startDate = new Date(date);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(date);
+        endDate.setHours(23, 59, 59, 999);
+
+        let daySubmissionsQuery = this.submissionRepository
+          .createQueryBuilder('submission')
+          .innerJoin('submission.assignment', 'assignment')
+          .innerJoin('assignment.course', 'course')
+          .where('submission.submittedAt >= :startDate', { startDate })
+          .andWhere('submission.submittedAt <= :endDate', { endDate })
+          .andWhere('course.isActive = :isActive', { isActive: true });
+
+        if (currentUser.role === UserRole.LECTURER) {
+          daySubmissionsQuery = daySubmissionsQuery.andWhere('course.lecturerId = :lecturerId', { 
+            lecturerId: currentUser.id 
+          });
+        }
+
+        const count = await daySubmissionsQuery.getCount();
+
+        submissionTrends.push({
+          date: date.toISOString().split('T')[0],
+          submissions: count,
+        });
+      }
+
+      const dashboardStats = {
+        overview: {
+          totalCourses,
+          totalStudents,
+          totalAssignments,
+          totalMaterials,
+          pendingGrading: pendingCount,
+          completionRate,
+        },
+        courseStats,
+        recentActivity: {
+          submissions: recentSubmissions.map(submission => ({
+            id: submission.id,
+            studentName: submission.student?.fullName || 'Unknown',
+            assignmentTitle: submission.assignment?.title || 'Unknown Assignment',
+            courseName: submission.assignment?.course?.name || 'Unknown Course',
+            submittedAt: submission.submittedAt,
+            status: submission.status,
+            isLate: submission.isLate,
+          })),
+          forumPosts: recentForumPosts.map(post => ({
+            id: post.id,
+            title: post.title,
+            authorName: post.author?.fullName || 'Anonymous',
+            courseName: post.course?.name || 'Unknown Course',
+            createdAt: post.createdAt,
+          })),
+        },
+        todaySchedule: [
+          // Today's deadlines
+          ...todayDeadlines.map(assignment => ({
+            id: assignment.id,
+            type: 'deadline',
+            title: `Deadline: ${assignment.title}`,
+            courseName: assignment.course?.name || 'Unknown Course',
+            time: assignment.dueDate,
+            description: `Assignment deadline`,
+          })),
+        ],
+        submissionTrends,
+        pendingSubmissions: pendingSubmissions.slice(0, 5).map(submission => ({
+          id: submission.id,
+          studentName: submission.student?.fullName || 'Unknown',
+          assignmentTitle: submission.assignment?.title || 'Unknown Assignment',
+          courseName: submission.assignment?.course?.name || 'Unknown Course',
+          submittedAt: submission.submittedAt,
+          status: submission.status,
+          isLate: submission.isLate,
+        })),
+      };
+
+      console.log('✅ Dashboard stats calculated:', {
+        totalCourses,
+        totalStudents,
+        pendingGrading: pendingCount,
+        completionRate
+      });
+
+      return dashboardStats;
+    } catch (error) {
+      console.error('❌ Error getting lecturer dashboard stats:', {
+        error: error.message,
+        stack: error.stack,
+        userId: currentUser.id,
+        userRole: currentUser.role
+      });
+
+      throw new BadRequestException('Terjadi kesalahan saat mengambil statistik dashboard');
+    }
+  }
 
   // ===============================
   // COURSE CREATION FORM SUPPORT
