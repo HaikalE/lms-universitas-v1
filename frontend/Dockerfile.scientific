@@ -26,7 +26,7 @@ COPY . .
 # SCIENTIFIC FIX: Set environment variables properly
 ENV PUBLIC_URL=""
 ENV GENERATE_SOURCEMAP=false
-ENV REACT_APP_API_URL=http://localhost:3000/api
+ENV REACT_APP_API_URL=http://203.194.113.5:3000/api
 
 # SCIENTIFIC FIX: Build with explicit environment and skip service worker
 RUN echo "=== Building React app ===" && \

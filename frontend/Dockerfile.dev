@@ -1,0 +1,21 @@
+# Use an official Node.js runtime as a parent image
+FROM node:18-alpine
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and yarn.lock to leverage Docker cache
+# We assume yarn.lock is generated and present in the project root
+COPY package.json yarn.lock* ./
+
+# Install app dependencies using yarn
+# The '*' in yarn.lock* handles cases where the file might not exist initially
+RUN yarn install --frozen-lockfile || yarn install
+
+# The source code will be mounted from the host, so we don't COPY it here.
+
+# Expose the port the React app runs on
+EXPOSE 3001
+
+# The command to start the app in development mode
+CMD ["npm", "start"]

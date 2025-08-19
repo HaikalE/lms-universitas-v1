@@ -131,6 +131,35 @@ export class AssignmentsService {
 
     const [assignments, total] = await queryBuilder.getManyAndCount();
 
+    // If user is a student, enrich assignments with their submission status
+    if (currentUser.role === UserRole.STUDENT) {
+      const assignmentIds = assignments.map((a) => a.id);
+      if (assignmentIds.length > 0) {
+        const submissions = await this.submissionRepository
+          .createQueryBuilder('submission')
+          .where('submission.assignmentId IN (:...assignmentIds)', { assignmentIds })
+          .andWhere('submission.studentId = :studentId', { studentId: currentUser.id })
+          .getMany();
+
+        const submissionsMap = new Map(submissions.map((s) => [s.assignmentId, s]));
+
+        const enrichedAssignments = assignments.map((assignment) => ({
+          ...assignment,
+          mySubmission: submissionsMap.get(assignment.id) || null,
+        }));
+
+        return {
+          data: enrichedAssignments,
+          meta: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
+      }
+    }
+
     return {
       data: assignments,
       meta: {
@@ -394,15 +423,17 @@ export class AssignmentsService {
       throw new ForbiddenException('Anda tidak memiliki akses untuk melihat submission');
     }
 
-    // ✅ FIX: Only show SUBMITTED submissions to lecturers, hide DRAFT submissions
-    const submissions = await this.submissionRepository.find({
-      where: { 
-        assignmentId,
-        status: SubmissionStatus.SUBMITTED  // 🎯 CRITICAL FIX: Filter hanya SUBMITTED
-      },
-      relations: ['student', 'grade'],
-      order: { submittedAt: 'DESC' },
-    });
+    // ✅ FIX: Show both SUBMITTED and GRADED submissions to lecturers
+    const submissions = await this.submissionRepository
+      .createQueryBuilder('submission')
+      .leftJoinAndSelect('submission.student', 'student')
+      .leftJoinAndSelect('submission.grade', 'grade')
+      .where('submission.assignmentId = :assignmentId', { assignmentId })
+      .andWhere('submission.status IN (:...statuses)', {
+        statuses: [SubmissionStatus.SUBMITTED, SubmissionStatus.GRADED],
+      })
+      .orderBy('submission.submittedAt', 'DESC')
+      .getMany();
 
     return submissions.map((submission) => ({
       id: submission.id,

@@ -1,5 +1,4 @@
-import React from 'react';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import { Link } from 'react-router-dom';
 import { 
   BookOpenIcon, 
@@ -9,7 +8,8 @@ import {
   ClockIcon,
   CalendarIcon,
   AcademicCapIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -33,7 +33,7 @@ interface DashboardStats {
     status: 'urgent' | 'warning' | 'normal';
   }>;
   recentActivities: Array<{
-    id: string;
+    id:string;
     type: 'assignment' | 'announcement' | 'grade' | 'forum';
     title: string;
     description: string;
@@ -42,7 +42,9 @@ interface DashboardStats {
 }
 
 const StudentDashboard: React.FC = () => {
-  const { data: stats, isLoading, error } = useQuery<DashboardStats>(
+  const queryClient = useQueryClient();
+
+  const { data: stats, isLoading, error, isFetching } = useQuery<DashboardStats>(
     'student-dashboard-stats',
     async () => {
       const [courses, assignmentsResponse, notificationsResponse, forums] = await Promise.all([
@@ -57,15 +59,15 @@ const StudentDashboard: React.FC = () => {
       const notifications = notificationsResponse.data || [];
 
       // Calculate statistics
-      const pendingAssignments = assignments.filter(a => !a.mySubmission || a.mySubmission.status !== 'submitted').length;
-      const completedAssignments = assignments.filter(a => a.mySubmission && a.mySubmission.status === 'submitted').length;
+      const pendingAssignments = assignments.filter(a => !a.mySubmission || a.mySubmission.status !== 'graded').length;
+      const completedAssignments = assignments.filter(a => a.mySubmission && a.mySubmission.status === 'graded').length;
       const completionRate = assignments.length > 0 
         ? Math.round((completedAssignments / assignments.length) * 100)
         : 0;
 
       // Get upcoming deadlines
       const upcomingDeadlines = assignments
-        .filter(a => (!a.mySubmission || a.mySubmission.status !== 'submitted') && new Date(a.dueDate) > new Date())
+        .filter(a => (!a.mySubmission || a.mySubmission.status !== 'graded') && new Date(a.dueDate) > new Date())
         .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
         .slice(0, 5)
         .map(assignment => ({
@@ -76,39 +78,57 @@ const StudentDashboard: React.FC = () => {
           status: getDeadlineStatus(assignment.dueDate)
         }));
 
-      // Get recent activities
-      const recentActivities = [
-        ...assignments.slice(0, 3).map(a => ({
+      // Get recent activities from various sources
+      const recentAssignments = assignments
+        .filter(a => new Date(a.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) // last 7 days
+        .map(a => ({
           id: a.id,
           type: 'assignment' as const,
           title: `Tugas baru: ${a.title}`,
           description: a.course.name,
           timestamp: a.createdAt
-        })),
-        ...notifications.slice(0, 3).map(n => ({
-          id: n.id,
-          type: n.type as 'announcement' | 'grade',
-          title: n.title,
-          description: n.message,
-          timestamp: n.createdAt
-        }))
-      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      }));
+      
+      const recentSubmissions = assignments
+        .filter(a => a.mySubmission && new Date(a.mySubmission.submittedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+        .map(a => ({
+            id: a.mySubmission!.id,
+            type: (a.mySubmission!.status === 'graded' ? 'grade' : 'assignment') as 'grade' | 'assignment',
+            title: a.mySubmission!.status === 'graded' ? `Tugas dinilai: ${a.title}` : `Tugas dikumpulkan: ${a.title}`,
+            description: a.course.name,
+            timestamp: a.mySubmission!.submittedAt
+        }));
+
+      const recentNotifications = notifications.slice(0, 5).map(n => ({
+        id: n.id,
+        type: n.type as 'announcement' | 'grade',
+        title: n.title,
+        description: n.message,
+        timestamp: n.createdAt
+      }));
+
+      const recentActivities = [...recentAssignments, ...recentSubmissions, ...recentNotifications]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 5);
 
       return {
         enrolledCourses: courses.length,
         pendingAssignments,
         unreadNotifications: notifications.filter(n => !n.isRead).length,
-        activeDiscussions: forums.filter(f => !f.isLocked).length, // Fixed: use !isLocked instead of isActive
+        activeDiscussions: forums.filter(f => !f.isLocked).length,
         completionRate,
         upcomingDeadlines,
         recentActivities
       };
     },
     {
-      refetchInterval: 30000, // Refresh every 30 seconds
+      refetchOnWindowFocus: false, // Disable auto-refresh on focus
     }
   );
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries('student-dashboard-stats');
+  };
 
   if (isLoading) {
     return (
@@ -133,9 +153,15 @@ const StudentDashboard: React.FC = () => {
               Selamat datang kembali! Berikut ringkasan aktivitas pembelajaran Anda.
             </p>
           </div>
-          <div className="hidden sm:flex items-center space-x-2">
-            <CalendarIcon className="h-5 w-5 text-gray-400" />
-            <span className="text-sm text-gray-500">{formatDate(new Date(), 'full')}</span>
+          <div className="flex items-center space-x-4">
+            <Button onClick={handleRefresh} variant="outline" size="sm" disabled={isFetching}>
+              <ArrowPathIcon className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+              <span className="ml-2">{isFetching ? 'Memuat...' : 'Refresh'}</span>
+            </Button>
+            <div className="hidden sm:flex items-center space-x-2">
+              <CalendarIcon className="h-5 w-5 text-gray-400" />
+              <span className="text-sm text-gray-500">{formatDate(new Date(), 'full')}</span>
+            </div>
           </div>
         </div>
       </div>

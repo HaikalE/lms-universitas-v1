@@ -1145,11 +1145,16 @@ export class CoursesService {
 
     let materialData = { ...createMaterialDto };
 
+    // ✅ FIX: Ensure only videos can be attendance triggers
+    if (materialData.type !== MaterialType.VIDEO) {
+      materialData.isAttendanceTrigger = false;
+    }
+
     // Handle file upload if provided
     if (file && createMaterialDto.type !== MaterialType.LINK) {
       try {
         // Create uploads directory if it doesn't exist
-        const uploadsDir = path.join(process.cwd(), 'uploads', 'course-materials');
+        const uploadsDir = path.join('/app', 'uploads', 'course-materials');
         if (!fs.existsSync(uploadsDir)) {
           fs.mkdirSync(uploadsDir, { recursive: true });
         }
@@ -1166,11 +1171,11 @@ export class CoursesService {
 
         // Update material data with file info
         materialData.fileName = file.originalname;
-        materialData.filePath = path.relative(process.cwd(), filePath);
+        materialData.filePath = path.join('course-materials', fileName); // Relative path for DB
         materialData.fileSize = file.size;
       } catch (error) {
         console.error('Error saving file:', error);
-        throw new BadRequestException('Gagal menyimpan file');
+        throw new BadRequestException(`Gagal menyimpan file: ${error.message}`);
       }
     }
 
@@ -1209,16 +1214,24 @@ export class CoursesService {
 
     let materialData = { ...updateMaterialDto };
 
+    // ✅ FIX: Ensure only videos can be attendance triggers
+    if (materialData.type && materialData.type !== MaterialType.VIDEO) {
+      materialData.isAttendanceTrigger = false;
+    } else if (material.type !== MaterialType.VIDEO && materialData.isAttendanceTrigger === true) {
+      // Prevent non-video material from having attendance trigger set
+      materialData.isAttendanceTrigger = false;
+    }
+
     // Handle file upload if provided
     if (file && updateMaterialDto.type !== MaterialType.LINK) {
       try {
         // Delete old file if exists
-        if (material.filePath && fs.existsSync(material.filePath)) {
-          fs.unlinkSync(material.filePath);
+        if (material.filePath && fs.existsSync(path.join('/app', 'uploads', material.filePath))) {
+          fs.unlinkSync(path.join('/app', 'uploads', material.filePath));
         }
 
         // Create uploads directory if it doesn't exist
-        const uploadsDir = path.join(process.cwd(), 'uploads', 'course-materials');
+        const uploadsDir = path.join('/app', 'uploads', 'course-materials');
         if (!fs.existsSync(uploadsDir)) {
           fs.mkdirSync(uploadsDir, { recursive: true });
         }
@@ -1235,11 +1248,11 @@ export class CoursesService {
 
         // Update material data with file info
         materialData.fileName = file.originalname;
-        materialData.filePath = path.relative(process.cwd(), filePath);
+        materialData.filePath = path.join('course-materials', fileName); // Relative path for DB
         materialData.fileSize = file.size;
       } catch (error) {
         console.error('Error saving file:', error);
-        throw new BadRequestException('Gagal menyimpan file');
+        throw new BadRequestException(`Gagal menyimpan file: ${error.message}`);
       }
     }
 

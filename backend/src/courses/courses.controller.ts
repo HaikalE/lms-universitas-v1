@@ -510,6 +510,10 @@ export class CoursesController {
         }
       } else {
         // For non-link types, file is required
+        if (!createMaterialDto.type) {
+          console.error('❌ Validation error: Material type is missing');
+          throw new BadRequestException('Tipe materi wajib dipilih');
+        }
         if (!file) {
           console.error('❌ Validation error: File required for non-link type:', createMaterialDto.type);
           const typeNames = {

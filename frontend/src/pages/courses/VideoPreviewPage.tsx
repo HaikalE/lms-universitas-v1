@@ -171,7 +171,7 @@ const VideoPreviewPage: React.FC = () => {
     if (!material || !material.filePath) return '';
     
     // Static files are served directly from backend root, not through /api prefix
-    const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:3000/api').replace('/api', '');
+    const baseUrl = (process.env.REACT_APP_API_URL || 'http://203.194.113.5:3000/api').replace('/api', '');
     
     // filePath already contains the full path (e.g., "uploads/course-materials/filename.mp4")
     return `${baseUrl}/${material.filePath}`;

@@ -647,8 +647,8 @@ export class VideoProgressService {
         metadata: {
           videoProgress: completionPercentage,
           completionTime: new Date(),
-          weeklyCompletion: weeklyResult ? {
-            week: weeklyResult.week,
+          weeklyCompletion: weeklyResult ? weeklyResult.canTriggerAttendance : undefined,
+          weeklyCompletionDetails: weeklyResult ? {
             totalRequired: weeklyResult.totalRequired,
             completedCount: weeklyResult.completedCount,
             weeklyCompletionRate: weeklyResult.weeklyCompletionRate,

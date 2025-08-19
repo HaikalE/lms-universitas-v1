@@ -91,14 +91,15 @@ const AdminCoursesPage: React.FC = () => {
       if (response.data) {
         setCreateFormData(response.data);
         // Also set lecturers from the form data if available
-        if (response.data.lecturers) {
+        if (response.data && response.data.lecturers) {
           setLecturers(response.data.lecturers);
         }
       } else {
-        // Handle case where data is at root level
+        // Handle case where data might be at root level (less ideal)
         setCreateFormData(response);
-        if (response.lecturers) {
-          setLecturers(response.lecturers);
+        // This path is less likely with ApiResponse, but kept for safety
+        if ((response as any).lecturers) {
+          setLecturers((response as any).lecturers);
         }
       }
     } catch (error) {

@@ -1,0 +1,26 @@
+# Use an official Node.js runtime as a parent image
+FROM node:18-alpine
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json first to leverage Docker cache
+COPY package*.json ./
+
+# Set NODE_ENV to development to ensure devDependencies are installed
+ENV NODE_ENV=development
+
+# Install app dependencies
+RUN npm install
+
+# Install nodemon globally in the container for development
+RUN npm install -g nodemon
+
+# The source code will be mounted from the host, so we don't COPY it here.
+
+# Expose the application port
+EXPOSE 3000
+
+# The command to start the app in development mode with nodemon
+# It will watch for changes in the /app directory
+CMD ["nodemon", "--config", "nodemon.json"]

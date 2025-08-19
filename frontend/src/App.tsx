@@ -68,9 +68,9 @@ function App() {
                         <Route path="/courses/create" element={<CreateCoursePage />} />
                         <Route path="/courses/:courseId/materials/:materialId/video" element={<VideoPreviewPage />} />
                         <Route path="/courses/:id" element={<CourseDetailPage />} />
-                        <Route path="/courses/:courseId/assignments/create" element={<CreateAssignmentPage />} />
                         
                         <Route path="/assignments" element={<AssignmentsPage />} />
+                        <Route path="/assignments/create" element={<CreateAssignmentPage />} />
                         <Route path="/assignments/:id" element={<AssignmentDetailPage />} />
                         
                         {/* FORUM ROUTES - SPECIFIC ROUTES BEFORE DYNAMIC ROUTES */}

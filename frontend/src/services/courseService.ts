@@ -166,8 +166,7 @@ export const courseService = {
         } else {
           return {
             success: true,
-            data: response.data,
-            message: 'Data retrieved successfully via /create'
+            data: response.data
           };
         }
       } catch (createError) {
@@ -184,8 +183,7 @@ export const courseService = {
           } else {
             return {
               success: true,
-              data: response.data,
-              message: 'Data retrieved successfully via /form-data'
+              data: response.data
             };
           }
         } catch (formDataError) {
@@ -202,8 +200,7 @@ export const courseService = {
             } else {
               return {
                 success: true,
-                data: fallbackResponse.data,
-                message: 'Data retrieved successfully via /create-data'
+                data: fallbackResponse.data
               };
             }
           } catch (finalError) {
@@ -232,8 +229,7 @@ export const courseService = {
       } else if (Array.isArray(response.data)) {
         return {
           success: true,
-          data: response.data,
-          message: 'Lecturers retrieved successfully'
+          data: response.data
         };
       } else {
         throw new Error('Invalid response structure from lecturers endpoint');
@@ -255,7 +251,6 @@ export const courseService = {
     try {
       console.log('Creating course with data:', courseData);
       console.log('➕ Creating course:', courseData.name);
-      console.log('🌐 API Request: POST http://localhost:3000/api/courses');
       
       // 🔥 ENHANCED: Better client-side validation with detailed logging
       if (!courseData.lecturerId || courseData.lecturerId.trim() === '') {

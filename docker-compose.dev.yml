@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13
+    container_name: lms-db-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lms_db_dev
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5434:5432" # Use a different host port to avoid conflict with prod
+    networks:
+      - lms-network-dev
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: lms-backend-dev
+    ports:
+      - "3000:3000" # App port
+      - "9229:9229" # Debugging port
+    volumes:
+      # Mounts the source code from local machine to the container
+      - ./backend:/app
+      # Use an anonymous volume to persist node_modules from the image
+      # This prevents the host's empty node_modules from overwriting the container's
+      - /app/node_modules
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: lms_db_dev
+      JWT_SECRET: your-dev-secret
+      JWT_EXPIRES_IN: 1d
+      NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:3001"
+    depends_on:
+      - db
+    networks:
+      - lms-network-dev
+    # Use the dev script from package.json
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: lms-frontend-dev
+    ports:
+      - "3001:3001" # React dev server port
+    volumes:
+      # Mounts the source code. node_modules inside the container will be used.
+      - ./frontend:/app
+      # This ensures that the node_modules inside the container is used, not the host's
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://203.194.113.5:3000/api
+      # Binds the server to all network interfaces, making it accessible from outside the container
+      - HOST=0.0.0.0
+      # Enables hot-reloading in Docker
+      - WDS_SOCKET_PORT=3001
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    networks:
+      - lms-network-dev
+    # The default command is `npm start`, which is correct for create-react-app
+
+networks:
+  lms-network-dev:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:

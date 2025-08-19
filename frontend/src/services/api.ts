@@ -4,7 +4,7 @@ import { ApiError } from '../types';
 
 // CORRECTED: Restore /api in base URL since backend uses setGlobalPrefix('api')
 // All endpoints need /api/ prefix: auth/login → /api/auth/login
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://203.194.113.5:3000/api';
 
 // Create axios instance
 const api = axios.create({

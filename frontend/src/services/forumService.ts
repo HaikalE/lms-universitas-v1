@@ -141,7 +141,10 @@ export const forumService = {
         parentId: postData.parentId
       };
       const result = await forumService.createReply(postId, replyData);
-      return result.data || result;
+      if ('data' in result) {
+        return result.data as ForumPost;
+      }
+      return result as unknown as ForumPost;
     }
     return forumService.createPost(postData);
   },

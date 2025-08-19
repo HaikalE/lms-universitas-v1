@@ -109,8 +109,8 @@ const AttendanceStatusCard: React.FC<AttendanceStatusCardProps> = ({
         title: `${status.text} - ${type.text}`,
         description: todayStatus.attendance.notes || 'Absensi tercatat untuk hari ini',
         color: status.color,
-        bgColor: status.status === 'auto_present' ? 'bg-blue-50' : 'bg-green-50',
-        borderColor: status.status === 'auto_present' ? 'border-blue-200' : 'border-green-200',
+        bgColor: todayStatus.attendance.status === 'auto_present' ? 'bg-blue-50' : 'bg-green-50',
+        borderColor: todayStatus.attendance.status === 'auto_present' ? 'border-blue-200' : 'border-green-200',
         showTime: true,
         time: todayStatus.attendance.submittedAt,
       };

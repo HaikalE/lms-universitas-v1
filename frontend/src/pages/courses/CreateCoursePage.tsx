@@ -40,7 +40,7 @@ const CreateCoursePage: React.FC = () => {
               <li>
                 <strong>Admin Panel:</strong> Navigasi ke{' '}
                 <Button
-                  variant="link"
+                  variant="outline"
                   className="p-0 h-auto text-blue-600"
                   onClick={() => navigate('/admin/courses')}
                 >

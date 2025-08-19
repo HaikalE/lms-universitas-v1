@@ -306,4 +306,100 @@ const ImprovedAttendanceInterface: React.FC<ImprovedAttendanceInterfaceProps> = 
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <div className="text-2xl font-bold text
+            <div className="text-2xl font-bold text-gray-800">{currentWeekData.totalStudents}</div>
+            <p className="text-sm text-gray-600">Total Mahasiswa</p>
+          </div>
+          <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-2xl font-bold text-green-700">{currentWeekData.presentCount}</div>
+            <p className="text-sm text-green-600">Hadir</p>
+          </div>
+          <div className="text-center p-4 bg-red-50 rounded-lg">
+            <div className="text-2xl font-bold text-red-700">{currentWeekData.absentCount}</div>
+            <p className="text-sm text-red-600">Tidak Hadir</p>
+          </div>
+          <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <div className="text-2xl font-bold text-blue-700">{currentWeekData.autoAttendanceCount}</div>
+            <p className="text-sm text-blue-600">Hadir Otomatis</p>
+          </div>
+        </div>
+
+        {isLecturer && (
+          <div className="flex justify-center">
+            <div className="bg-gray-100 rounded-full p-1 flex">
+              <button
+                onClick={() => setViewMode('overview')}
+                className={`px-4 py-1 rounded-full text-sm font-semibold ${viewMode === 'overview' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-600'}`}
+              >
+                Ringkasan
+              </button>
+              <button
+                onClick={() => setViewMode('detailed')}
+                className={`px-4 py-1 rounded-full text-sm font-semibold ${viewMode === 'detailed' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-600'}`}
+              >
+                Detail Mahasiswa
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Student List */}
+      {isLecturer && viewMode === 'detailed' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="p-6 border-b">
+            <h3 className="text-lg font-semibold text-gray-900">Detail Kehadiran Mahasiswa</h3>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {attendanceData.students.map(student => {
+              const attendance = currentAttendances.find(a => a.studentId === student.id);
+              return (
+                <div key={student.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600">
+                      {student.fullName.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-800">{student.fullName}</div>
+                      <div className="text-sm text-gray-500">{student.studentId}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      {getStatusIcon(attendance?.status || 'absent')}
+                      <span className="font-medium">{getStatusText(attendance?.status || 'absent', attendance?.attendanceType || '')}</span>
+                    </div>
+                    {attendance && (
+                      <div className="text-sm text-gray-500 hidden md:block">
+                        <ClockIcon className="w-4 h-4 inline mr-1" />
+                        {formatTime(attendance.submittedAt)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Warning for no data */}
+      {currentAttendances.length === 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+          <div className="flex">
+            <div className="py-1">
+              <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 mr-3" />
+            </div>
+            <div>
+              <p className="font-bold text-yellow-800">Belum Ada Data</p>
+              <p className="text-sm text-yellow-700">
+                Tidak ada data kehadiran yang tercatat untuk minggu ini.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ImprovedAttendanceInterface;

@@ -28,7 +28,6 @@ import { AttendanceModule } from './attendance/attendance.module';
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/uploads',
     }),
     DatabaseModule,
     AuthModule,

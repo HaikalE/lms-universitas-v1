@@ -10,32 +10,19 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
-  // Enhanced CORS configuration for Docker environment
-  const corsOrigins = [
-    'http://localhost:3001', // Browser access
-    'http://frontend:80',     // Frontend container access
-    'http://127.0.0.1:3001',  // Alternative localhost
-  ];
+  const corsOriginEnv = process.env.CORS_ORIGIN || 'http://localhost:3001,http://frontend:80,http://127.0.0.1:3001';
+  const corsOrigins = corsOriginEnv.split(',').map(origin => origin.trim());
+
+  console.log(' CORS Origins configured:', corsOrigins);
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-      
-      // Allow if origin is in the allowed list
-      if (corsOrigins.includes(origin)) {
-        return callback(null, true);
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log('CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
       }
-      
-      // For development, also allow any localhost/127.0.0.1 origins
-      if (process.env.NODE_ENV !== 'production') {
-        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-          return callback(null, true);
-        }
-      }
-      
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

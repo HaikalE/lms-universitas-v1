@@ -190,7 +190,13 @@ const ForumDetailPage: React.FC = () => {
       
       // ✅ CORRECT: Use createReply instead of createForumPost
       const newReplyResponse = await forumService.createReply(post.id, replyData);
-      const newReply = newReplyResponse.data || newReplyResponse;
+      
+      // Ensure we have a valid reply object to add
+      const newReplyData = newReplyResponse.data;
+      if (!newReplyData || typeof newReplyData.id !== 'string') {
+        throw new Error("Invalid reply data received from server.");
+      }
+      const newReply: ForumPost = newReplyData;
       
       console.log('✅ FRONTEND: Reply created successfully:', newReply);
       

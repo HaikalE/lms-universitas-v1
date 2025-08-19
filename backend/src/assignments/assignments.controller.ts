@@ -132,11 +132,11 @@ export class AssignmentsController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.LECTURER)
   async getPendingSubmissions(
+    @GetUser() user: User,
     @Query('limit') limit: string = '10',
     @Query('courseId') courseId?: string,
     @Query('sortBy') sortBy: string = 'submittedAt',
     @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
-    @GetUser() user: User,
   ) {
     try {
       this.logger.log(`📝 Getting pending submissions for lecturer: ${user.id}`);
