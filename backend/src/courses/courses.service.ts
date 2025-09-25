@@ -1143,7 +1143,7 @@ export class CoursesService {
       throw new ForbiddenException('Anda tidak memiliki akses untuk menambah materi');
     }
 
-    let materialData = { ...createMaterialDto };
+    const materialData = { ...createMaterialDto };
 
     // ✅ FIX: Ensure only videos can be attendance triggers
     if (materialData.type !== MaterialType.VIDEO) {
@@ -1212,7 +1212,7 @@ export class CoursesService {
       throw new ForbiddenException('Anda tidak memiliki akses untuk mengubah materi ini');
     }
 
-    let materialData = { ...updateMaterialDto };
+    const materialData = { ...updateMaterialDto };
 
     // ✅ FIX: Ensure only videos can be attendance triggers
     if (materialData.type && materialData.type !== MaterialType.VIDEO) {

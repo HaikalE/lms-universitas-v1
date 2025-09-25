@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as express from 'express';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -14,6 +15,23 @@ async function bootstrap() {
   const corsOrigins = corsOriginEnv.split(',').map(origin => origin.trim());
 
   console.log(' CORS Origins configured:', corsOrigins);
+
+  // Security headers with Helmet
+  app.use(helmet({
+    crossOriginEmbedderPolicy: false, // Allow embedding for video players
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'self'"],
+      },
+    },
+  }));
 
   app.enableCors({
     origin: (origin, callback) => {
