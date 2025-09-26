@@ -15,6 +15,8 @@ import { QueryAnnouncementsDto } from './dto/query-announcements.dto';
 
 @Injectable()
 export class AnnouncementsService {
+  private expiresAtColumnExists?: boolean;
+
   constructor(
     @InjectRepository(Announcement)
     private announcementRepository: Repository<Announcement>,
@@ -24,7 +26,39 @@ export class AnnouncementsService {
     private userRepository: Repository<User>,
   ) {}
 
+  private async ensureExpiresAtColumn(): Promise<boolean> {
+    if (this.expiresAtColumnExists !== undefined) {
+      return this.expiresAtColumnExists;
+    }
+
+    try {
+      const result = await this.announcementRepository.query(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_schema = 'public'
+             AND table_name = 'announcements'
+             AND lower(column_name) = 'expiresat'
+         ) AS "exists"`,
+      );
+
+      const existsValue = result?.[0]?.exists;
+      this.expiresAtColumnExists =
+        existsValue === true ||
+        existsValue === 't' ||
+        existsValue === 1 ||
+        existsValue === '1';
+    } catch (error) {
+      // If the check fails, assume the column is missing to avoid crashing user flows
+      console.warn('⚠️  Unable to verify announcements.expiresAt column:', error.message);
+      this.expiresAtColumnExists = false;
+    }
+
+    return this.expiresAtColumnExists;
+  }
+
   async create(createAnnouncementDto: CreateAnnouncementDto, currentUser: User) {
+
     const { courseId } = createAnnouncementDto;
 
     // If courseId is provided, verify access to course
@@ -68,24 +102,31 @@ export class AnnouncementsService {
       sortOrder = 'DESC',
     } = queryDto;
 
+    const hasExpiresAtColumn = await this.ensureExpiresAtColumn();
+
+    const selectColumns = [
+      'announcement.id',
+      'announcement.title',
+      'announcement.content',
+      'announcement.priority',
+      'announcement.isActive',
+      'announcement.createdAt',
+      'author.id',
+      'author.fullName',
+      'course.id',
+      'course.code',
+      'course.name',
+    ];
+
+    if (hasExpiresAtColumn) {
+      selectColumns.splice(5, 0, 'announcement."expiresAt"');
+    }
+
     const queryBuilder = this.announcementRepository
       .createQueryBuilder('announcement')
       .leftJoinAndSelect('announcement.author', 'author')
       .leftJoinAndSelect('announcement.course', 'course')
-      .select([
-        'announcement.id',
-        'announcement.title',
-        'announcement.content',
-        'announcement.priority',
-        'announcement.isActive',
-        'announcement.expiresAt',
-        'announcement.createdAt',
-        'author.id',
-        'author.fullName',
-        'course.id',
-        'course.code',
-        'course.name',
-      ]);
+      .select(selectColumns);
 
     // Filter based on user role and access
     if (currentUser.role === UserRole.STUDENT) {
@@ -126,12 +167,14 @@ export class AnnouncementsService {
 
     // Only show active and non-expired announcements for non-admin users
     if (currentUser.role !== UserRole.ADMIN) {
-      queryBuilder
-        .andWhere('announcement.isActive = :isActive', { isActive: true })
-        .andWhere(
-          '(announcement.expiresAt IS NULL OR announcement.expiresAt > :now)',
+      queryBuilder.andWhere('announcement.isActive = :active', { active: true });
+
+      if (hasExpiresAtColumn) {
+        queryBuilder.andWhere(
+          '(announcement."expiresAt" IS NULL OR announcement."expiresAt" > :now)',
           { now: new Date() },
         );
+      }
     }
 
     // Apply sorting
@@ -246,50 +289,98 @@ export class AnnouncementsService {
   }
 
   async getRecentAnnouncements(currentUser: User, limit: number = 5) {
-    const queryBuilder = this.announcementRepository
-      .createQueryBuilder('announcement')
-      .leftJoinAndSelect('announcement.author', 'author')
-      .leftJoinAndSelect('announcement.course', 'course')
-      .select([
-        'announcement.id',
-        'announcement.title',
-        'announcement.priority',
-        'announcement.createdAt',
-        'author.fullName',
-        'course.code',
-        'course.name',
-      ])
-      .where('announcement.isActive = :isActive', { isActive: true })
-      .andWhere(
-        '(announcement.expiresAt IS NULL OR announcement.expiresAt > :now)',
-        { now: new Date() },
-      );
+    console.log('🔍 Starting getRecentAnnouncements for user:', currentUser.email);
+
+    const hasExpiresAtColumn = await this.ensureExpiresAtColumn();
+    
+    // Use raw query as temporary fix
+    let sql = `
+      SELECT 
+        a.id,
+        a.title,
+        a.priority,
+        a."createdAt",
+        u."fullName" as "author_fullName",
+        c.code as "course_code",
+        c.name as "course_name"
+      FROM announcements a
+      LEFT JOIN users u ON u.id = a."authorId"
+      LEFT JOIN courses c ON c.id = a."courseId"
+      WHERE a."isActive" = true
+    `;
+
+    if (hasExpiresAtColumn) {
+      sql += `
+        AND (a."expiresAt" IS NULL OR a."expiresAt" > NOW())
+      `;
+    }
+
+    const params: any = {};
 
     // Filter based on user role
     if (currentUser.role === UserRole.STUDENT) {
-      queryBuilder.andWhere(
-        '(announcement.courseId IS NULL OR announcement.courseId IN ' +
-        '(SELECT ce.courseId FROM course_enrollments ce WHERE ce.studentId = :studentId))',
-        { studentId: currentUser.id },
-      );
+      sql += ` AND (a."courseId" IS NULL OR a."courseId" IN 
+        (SELECT ce."courseId" FROM course_enrollments ce WHERE ce."studentId" = $1))`;
+      params.studentId = currentUser.id;
     } else if (currentUser.role === UserRole.LECTURER) {
-      queryBuilder.andWhere(
-        '(announcement.courseId IS NULL OR course.lecturerId = :lecturerId)',
-        { lecturerId: currentUser.id },
-      );
+      sql += ` AND (a."courseId" IS NULL OR c."lecturerId" = $1)`;
+      params.lecturerId = currentUser.id;
     }
 
-    return queryBuilder
-      .orderBy(
-        `CASE announcement.priority 
-         WHEN 'urgent' THEN 1 
-         WHEN 'high' THEN 2 
-         WHEN 'medium' THEN 3 
-         WHEN 'low' THEN 4 
-         END`,
-      )
-      .addOrderBy('announcement.createdAt', 'DESC')
-      .limit(limit)
-      .getMany();
+    sql += `
+      ORDER BY 
+        CASE a.priority 
+          WHEN 'urgent' THEN 1 
+          WHEN 'high' THEN 2 
+          WHEN 'medium' THEN 3 
+          WHEN 'low' THEN 4 
+        END,
+        a."createdAt" DESC
+      LIMIT ${limit}
+    `;
+
+  console.log('🔍 Final SQL:', sql);
+    console.log('🔍 Final Params:', params);
+
+    const paramValues = Object.values(params);
+    console.log('🔍 Parameter values:', paramValues);
+    
+    try {
+      const rawResults = await this.announcementRepository.query(sql, paramValues);
+      console.log('✅ Query executed successfully, results:', rawResults.length);
+      return rawResults.map(row => ({
+        id: row.id,
+        title: row.title,
+        priority: row.priority,
+        createdAt: row.createdAt,
+        author: { fullName: row.author_fullName },
+        course: row.course_code ? { code: row.course_code, name: row.course_name } : null
+      }));
+    } catch (error) {
+      console.error('❌ Query failed:', error.message);
+      console.error('❌ SQL that failed:', sql);
+
+      // If the column is missing, retry without the expiresAt filter and cache the result
+      if (error.message?.includes('column a.expiresAt does not exist')) {
+        this.expiresAtColumnExists = false;
+        const fallbackSql = sql.replace(
+          /\s+AND \(a\."expiresAt" IS NULL OR a\."expiresAt" > NOW\(\)\)/,
+          '',
+        );
+        console.warn('⚠️  Retrying recent announcements query without expiresAt filter');
+        const rawResults = await this.announcementRepository.query(fallbackSql, paramValues);
+        return rawResults.map(row => ({
+          id: row.id,
+          title: row.title,
+          priority: row.priority,
+          createdAt: row.createdAt,
+          author: { fullName: row.author_fullName },
+          course: row.course_code ? { code: row.course_code, name: row.course_name } : null
+        }));
+      }
+
+      throw error;
+    }
+
   }
 }

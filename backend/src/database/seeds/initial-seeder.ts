@@ -13,6 +13,12 @@ export class InitialSeeder {
     const forumPostRepository = dataSource.getRepository(ForumPost);
 
     try {
+      await dataSource.query(
+        'ALTER TABLE IF EXISTS "announcements" ADD COLUMN IF NOT EXISTS "expiresAt" TIMESTAMP NULL;',
+      );
+
+      console.log('✅ Ensured announcements."expiresAt" column exists');
+
       // Check if data already exists
       const userCount = await userRepository.count();
       if (userCount > 0) {
